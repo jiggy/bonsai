@@ -31,7 +31,8 @@ skill, documentation, and the example are included alongside package metadata.
 
 ## Formatting and Codex cloud
 
-`biome.json` and `.editorconfig` are copied from [jiggy/jig](https://github.com/jiggy/jig).
+Formatting rules and `.editorconfig` come from [jiggy/jig](https://github.com/jiggy/jig).
+Biome ignores unsupported file types, including Gherkin `.feature` files.
 Run `bun run format` to apply formatting and `bun run format:check` to check it.
 Biome is pinned to the configuration's schema version.
 
