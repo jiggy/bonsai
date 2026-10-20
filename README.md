@@ -44,6 +44,10 @@ formatting, types, tests, and the demo against the formatted result in the same
 run. Pull requests validate GitHub’s merge result, including any new formatting
 commit. Because `GITHUB_TOKEN` pushes do not trigger another workflow run, CI
 explicitly reports a `verify` check on the formatting commit as well.
+Formatting and validation run in read-only jobs without persisted Git credentials.
+An isolated write-capable job applies the patch and pushes it with Git hooks
+disabled; it never executes candidate scripts. Check reporting uses a separate
+job without a candidate checkout.
 Fork pull requests and tags only check formatting. Fork contributors must apply
 fixes in their own checkout. Make the CI job a required branch protection check
 to block merging changes with formatting errors. Repository rules must allow
