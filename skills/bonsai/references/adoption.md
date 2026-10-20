@@ -12,7 +12,7 @@ The current adapter follows TypeScript top-level symbols and literal named-handl
 
 ## 2. Establish a reproducible checker
 
-Reuse the project's installed checker when available. Otherwise obtain a separate checkout of `https://github.com/jiggy/bonsai`, select a reviewed commit, and install its locked dependencies with `bun install --frozen-lockfile`. The alpha package can also be installed with `bun add --global @jiggy/bonsai@alpha` after a release is published; it requires Bun.
+Reuse the project's installed checker when available. Otherwise obtain a separate checkout of `https://github.com/jiggy/bonsai`, select a reviewed commit, and install its locked dependencies with `bun install --frozen-lockfile`. The alpha package can also be installed with `bun add --global @jigging/bonsai@alpha` after a release is published; it requires Bun.
 
 Set `BONSAI_DIR` to that checkout's absolute path and `PROJECT_DIR` to the consuming project's absolute root. Invoke through `bun run --cwd "$BONSAI_DIR" --silent bonsai …` so the checker's loader and dependencies resolve from its own checkout. Confirm the Bun requirement from its `package.json`, run `--help`, and record the selected revision for reproduction.
 
