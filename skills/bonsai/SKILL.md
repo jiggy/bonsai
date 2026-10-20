@@ -22,7 +22,7 @@ Use the installed checker's `--help` and README for its supported commands and a
 Run the project's gate with JSON output. If no wrapper exists, use a separate Bonsai checkout:
 
 ```sh
-npm --prefix "$BONSAI_DIR" run --silent bonsai -- check --root "$PROJECT_DIR" --json
+bun run --cwd "$BONSAI_DIR" --silent bonsai check --root "$PROJECT_DIR" --json
 ```
 
 `BONSAI_DIR` is the absolute checker checkout; `PROJECT_DIR` is the absolute consuming-project root. Preserve any `--base` or `--policy` arguments required by the project's acceptance command. Read the exit status and the report: normal results contain `decision` and `snapshot`; setup errors report `status: incomplete` on stderr.
@@ -58,7 +58,7 @@ Rerun the same gate against the changed candidate. Use its result to choose the 
 For a component investigation, use the project's wrapper or:
 
 ```sh
-npm --prefix "$BONSAI_DIR" run --silent bonsai -- explain 'src/orders.ts#placeOrder' --root "$PROJECT_DIR"
+bun run --cwd "$BONSAI_DIR" --silent bonsai explain 'src/orders.ts#placeOrder' --root "$PROJECT_DIR"
 ```
 
 Substitute an actual reported component or file. `explain` performs static analysis; it does not verify behavior. Its ancestry and relationship references guide inspection, while a fresh `check` establishes acceptance. Recheck after every subsequent change to the candidate.

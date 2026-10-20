@@ -5,16 +5,18 @@
   "description": "Deliberate growth. Continuous pruning. A contract-rooted code budget gate.",
   "type": "module",
   "engines": {
-    "node": ">=22.18"
+    "bun": ">=1.4.3"
   },
   "bin": {
     "bonsai": "./src/cli.ts"
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "node --import tsx --test --test-isolation=none test/*.test.ts",
-    "bonsai": "node --import tsx src/cli.ts",
-    "demo": "node --import tsx src/cli.ts check --root examples/checkout"
+    "test": "bun test --timeout 30000",
+    "bonsai": "bun src/cli.ts",
+    "demo": "bun src/cli.ts check --root examples/checkout",
+    "format": "biome format --write .",
+    "format:check": "biome format ."
   },
   "dependencies": {
     "@cucumber/gherkin": "^37.0.0",
@@ -23,6 +25,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
-    "tsx": "^4.20.0"
-  }
+    "@biomejs/biome": "2.5.12"
+  },
+  "packageManager": "bun@1.4.3"
 }

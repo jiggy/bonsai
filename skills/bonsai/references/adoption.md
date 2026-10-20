@@ -12,9 +12,9 @@ The current adapter follows TypeScript top-level symbols and literal named-handl
 
 ## 2. Establish a reproducible checker
 
-Reuse the project's installed checker when available. Otherwise obtain a separate checkout of `https://github.com/jiggy/bonsai`, select a reviewed commit, and install its locked dependencies with `npm ci`. The prototype package is private and has no supported npm-registry installation workflow.
+Reuse the project's installed checker when available. Otherwise obtain a separate checkout of `https://github.com/jiggy/bonsai`, select a reviewed commit, and install its locked dependencies with `bun install --frozen-lockfile`. The prototype package is private and has no supported npm-registry installation workflow.
 
-Set `BONSAI_DIR` to that checkout's absolute path and `PROJECT_DIR` to the consuming project's absolute root. Invoke through `npm --prefix "$BONSAI_DIR" run --silent bonsai -- …` so the checker's loader and dependencies resolve from its own checkout. Confirm the Node requirement from its `package.json`, run `--help`, and record the selected revision for reproduction.
+Set `BONSAI_DIR` to that checkout's absolute path and `PROJECT_DIR` to the consuming project's absolute root. Invoke through `bun run --cwd "$BONSAI_DIR" --silent bonsai …` so the checker's loader and dependencies resolve from its own checkout. Confirm the Bun requirement from its `package.json`, run `--help`, and record the selected revision for reproduction.
 
 **Done:** the checker runs independently of the consuming project's package scripts and its revision is recorded.
 

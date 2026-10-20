@@ -8,16 +8,34 @@ This is an initial working prototype for **TypeScript with in-process applicatio
 
 ## Try it
 
-Requires Node 22.18+ and npm.
+Requires Bun 1.4.3 or later. Bun manages dependencies and runs the CLI, tests, and verification workers.
 
 ```sh
-npm ci
-npm run check
-npm test
-npm run demo
-npm run bonsai -- explain src/checkout.ts --root examples/checkout
-npm run bonsai -- check --root examples/checkout --json
+bun install --frozen-lockfile
+bun run check
+bun run test
+bun run demo
+bun run bonsai explain src/checkout.ts --root examples/checkout
+bun run bonsai check --root examples/checkout --json
 ```
+
+## Formatting and Codex cloud
+
+`biome.json` and `.editorconfig` are copied from [jiggy/jig](https://github.com/jiggy/jig).
+Run `bun run format` to apply formatting and `bun run format:check` to check it.
+Biome is pinned to the configuration's schema version.
+
+In the Codex cloud environment setup script, install Bun 1.4.3
+(or use an image that includes it), then run `bun install --frozen-lockfile`.
+Setup runs before agent edits; it does not format the completed change.
+CI runs `bun run format` for branch pushes and pull requests from this repository,
+then commits any fixes back to the branch as `github-actions[bot]`. It checks
+formatting, types, tests, and the demo against the formatted result in the same
+run; pushes made with `GITHUB_TOKEN` do not trigger another workflow run.
+Fork pull requests and tags only check formatting. Fork contributors must apply
+fixes in their own checkout. Make the CI job a required branch protection check
+to block merging changes with formatting errors. Repository rules must allow
+the workflow's token to push formatting commits to the target branch.
 
 The checkout example passes three assertions while earning **one** action–observation pair:
 
@@ -25,7 +43,7 @@ The checkout example passes three assertions while earning **one** action–obse
 PASS
 
 Contract surface: 1 pairs
-Retained size: 216 tokens
+Retained size: 212 tokens
 Ceiling: 400 tokens
 Required reduction: 0 tokens
 Required checks: 3 / 3 passed
@@ -59,8 +77,8 @@ Feature: Checkout
 `bindings.ts` connects the external operation to an actual handler:
 
 ```ts
-import { placeOrder } from './src/checkout.ts';
-export const actions = { 'place-order': placeOrder };
+import { placeOrder } from './src/checkout.ts'
+export const actions = { 'place-order': placeOrder }
 ```
 
 The same registry is statically resolved and executed. Bonsai owns the response assertions; a binding cannot declare an observation passed by merely entering a step. Every scenario outline row becomes a separate required check. Duplicated scenarios and files do not create extra allowance. Array indices normalize for accounting: `items[0].price` and `items[3].price` both count as `items[*].price`. Their assertions still check the exact positions.
@@ -100,8 +118,8 @@ The inventory is explicit and must be reviewed. Unlisted local TypeScript import
 ## Agent loop
 
 ```sh
-npm run bonsai -- check --root /path/to/project --json
-npm run bonsai -- explain src/orders.ts#placeOrder --root /path/to/project
+bun run bonsai check --root /path/to/project --json
+bun run bonsai explain src/orders.ts#placeOrder --root /path/to/project
 ```
 
 Read the violations, simplify the actual candidate, preserve its required behavior, and rerun. `explain` returns the component's check ancestry and incoming/outgoing relationships with source references. It performs static analysis without executing handlers.
@@ -111,7 +129,7 @@ Exit codes are **0 pass**, **1 reject**, **2 incomplete or invalid input**. Both
 For a Git repository configured at its root:
 
 ```sh
-npm run bonsai -- check --root /path/to/project --base origin/main --json
+bun run bonsai check --root /path/to/project --base origin/main --json
 ```
 
 The base is read from an archive without running its code. Its `bonsai.json` supplies the candidate's rules and inventory by default, so changing the candidate's policy does not enlarge its allowance. Base reporting compares retained size and contract surface; it does not claim that the historical base passed verification. `--policy /trusted/bonsai.json` explicitly overrides this configuration. A trusted CI deployment must control that argument and the checker executable. `--base` requires `--root` to be the Git repository root; the nested checkout example uses standalone checks.

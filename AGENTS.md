@@ -10,4 +10,6 @@ Preserve these invariants:
 - A reachable wrapper receives no cost discount.
 - No per-feature grants or accumulated allowance ledgers.
 
-Run `npm run check`, `npm test`, and `npm run demo`. Add behavioral tests for changes to acceptance or graph propagation. Do not claim broader framework or verification support than the collector actually supplies. Keep README limitations current.
+Use Bun by default for dependency installation and package scripts. Install with `bun install --frozen-lockfile`; keep `bun.lock` current and do not generate npm lockfiles. Bun also runs the CLI, tests, and verification workers.
+
+Run `bun run check`, `bun run test`, and `bun run demo`. Add behavioral tests for changes to acceptance or graph propagation. Do not claim broader framework or verification support than the collector actually supplies. Keep README limitations current.
