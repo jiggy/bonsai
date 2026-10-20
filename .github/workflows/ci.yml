@@ -5,18 +5,20 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 jobs:
   verify:
     permissions:
       contents: write
+      checks: write
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
@@ -27,6 +29,7 @@ jobs:
           (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
         run: bun run format
       - name: Commit formatting fixes
+        id: format
         if: >-
           (github.event_name == 'push' && github.ref_type == 'branch') ||
           (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
@@ -41,7 +44,43 @@ jobs:
           git add -u
           git commit -m 'style: apply Biome formatting'
           git push origin "HEAD:refs/heads/$TARGET_BRANCH"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Start check on formatting commit
+        if: steps.format.outputs.sha != ''
+        id: formatted-check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FORMATTED_SHA: ${{ steps.format.outputs.sha }}
+        run: |
+          check_id=$(gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" \
+            -f name=verify -f head_sha="$FORMATTED_SHA" -f status=in_progress \
+            -f details_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            --jq '.id')
+          echo "id=$check_id" >> "$GITHUB_OUTPUT"
+      - name: Check out PR merge result
+        if: github.event_name == 'pull_request'
+        env:
+          MERGE_SHA: ${{ github.sha }}
+          FORMATTED_SHA: ${{ steps.format.outputs.sha }}
+        run: |
+          git fetch origin "$MERGE_SHA"
+          git checkout --detach "$MERGE_SHA"
+          if [ -n "$FORMATTED_SHA" ]; then
+            git merge --no-edit "$FORMATTED_SHA"
+          fi
+      - name: Install validation dependencies
+        if: github.event_name == 'pull_request'
+        run: bun install --frozen-lockfile
       - run: bun run format:check
       - run: bun run check
       - run: bun run test
       - run: bun run demo
+      - name: Complete check on formatting commit
+        if: always() && steps.formatted-check.outputs.id != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_ID: ${{ steps.formatted-check.outputs.id }}
+          CONCLUSION: ${{ job.status }}
+        run: |
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/check-runs/$CHECK_ID" \
+            -f status=completed -f conclusion="$CONCLUSION"

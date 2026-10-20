@@ -41,7 +41,9 @@ Setup runs before agent edits; it does not format the completed change.
 CI runs `bun run format` for branch pushes and pull requests from this repository,
 then commits any fixes back to the branch as `github-actions[bot]`. It checks
 formatting, types, tests, and the demo against the formatted result in the same
-run; pushes made with `GITHUB_TOKEN` do not trigger another workflow run.
+run. Pull requests validate GitHub’s merge result, including any new formatting
+commit. Because `GITHUB_TOKEN` pushes do not trigger another workflow run, CI
+explicitly reports a `verify` check on the formatting commit as well.
 Fork pull requests and tags only check formatting. Fork contributors must apply
 fixes in their own checkout. Make the CI job a required branch protection check
 to block merging changes with formatting errors. Repository rules must allow
