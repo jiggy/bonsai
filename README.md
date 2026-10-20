@@ -19,6 +19,16 @@ bun run bonsai explain src/checkout.ts --root examples/checkout
 bun run bonsai check --root examples/checkout --json
 ```
 
+## Publish an alpha
+
+Install Bun before using the published CLI. To publish this scoped package publicly
+under the prerelease tag, run `bun publish --access public --tag alpha`.
+`publishConfig` declares public access and the `alpha` tag; pass `--tag alpha`
+explicitly to ensure prereleases never use `latest` across client versions.
+Use `npm publish --access public --tag alpha` if publishing with npm.
+Preview package contents with `npm pack --dry-run`; only runtime sources, the
+skill, documentation, and the example are included alongside package metadata.
+
 ## Formatting and Codex cloud
 
 `biome.json` and `.editorconfig` are copied from [jiggy/jig](https://github.com/jiggy/jig).
