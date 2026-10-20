@@ -1,0 +1,11 @@
+{
+  "maintained": ["src", "features", "bindings.ts", "bonsai.json"],
+  "bindings": "bindings.ts",
+  "policy": {
+    "bootstrap": 400,
+    "bootstrapSurface": 1,
+    "perDoubling": 50,
+    "hardLimit": 1000,
+    "maxFeedbackMs": 15000
+  }
+}

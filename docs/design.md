@@ -1,0 +1,49 @@
+# Design baseline
+
+Derived from the supplied “Define Complexity Budgets” discussion, dated 2026-10-20. This records the final direction rather than the alternatives explored earlier in that discussion.
+
+## Principles
+
+Code is a maintained liability. Product behavior, implementation ancestry, and verified outcomes together justify retention; raw activity and additional abstractions do not. The tool should give the existing coding agent a concrete constraint and evidence it can inspect. It should itself stay small.
+
+1. Use one global ceiling derived from the current contract set. Do not introduce feature allocations, accumulated grants, budget reservations, or a negotiation service.
+2. Count unique external action–observation pairs across executable specifications. File boundaries, prose, concrete values, and extra examples earn no extra allowance.
+3. Keep every individual behavioral obligation. Deduplicating surface must never deduplicate required verification.
+4. Establish production ancestry from contracts first. Lower-level tests inherit that ancestry; they cannot grant product scope to otherwise unused code.
+5. Measure retained material independently of ancestry, counting shared material once at its full cost. A popular wrapper can still be removed.
+6. Compaction only creates capacity after an actual candidate change demonstrates lower retained cost while preserving required behavior.
+7. Keep authored inputs to executable `.feature` files, ordinary bindings and registrations, and one project policy. Generate the inventory, graph, evidence associations, ancestry, and decisions.
+8. Missing analysis or verification blocks acceptance. Spare size allowance never overrides failed quality requirements.
+9. Trust acceptance rules independently of the candidate, and evaluate the combined merge candidate before merging.
+10. Product judgment still decides whether a new external promise is warranted. No deterministic counter can settle that question.
+
+## Internal boundaries
+
+One package, with six principal modules:
+
+| Module | Responsibility |
+| --- | --- |
+| `contracts` | Compile Gherkin into unique surface pairs and individual required checks. |
+| `source` | Inventory maintained material, measure retained size, resolve TypeScript symbol references and literal handler registrations. |
+| `evidence` | Execute required checks and report candidate-bound outcomes and feedback time. |
+| `retention` | Generate contract ancestry and expose unsupported components and relationship sources. |
+| `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
+| `cli` | Collect facts, compare a base, explain components, and return actionable output. |
+
+`model.ts` defines their shared facts. `project.ts` joins collection, and `worker.ts` hosts execution. There is no database, daemon, LLM call, or external service.
+
+## Initial adapter choices
+
+TypeScript was selected because the repository had no existing language stack and its compiler supplies symbol resolution. Gherkin uses the official Cucumber parser and pickle compiler; Bonsai deliberately supports a small executable grammar instead of implementing a second general test runner.
+
+A literal `export const actions = { 'external-action': namedHandler }` is both executable registration and static connection. Generic response observations are implemented by Bonsai. This avoids a handwritten feature manifest and makes every supported assertion visible to the collector.
+
+Production traversal precedes test association. Edges out of the action registry do not root every registered handler: only actions actually referenced by the contracts supply production roots. Lower-level test associations propagate into test support, without opening a second traversal into production.
+
+`pass`, `reject`, and `incomplete` remain distinct. Incomplete takes precedence when both missing analysis and measured violations exist; all violations remain in the report.
+
+## Deliberate gaps
+
+The original design calls for broader evidence and trusted CI integration than this first adapter provides. The README documents the executable scope precisely. Keep unsupported capabilities incomplete or explicitly outside the configured deployment scope; do not manufacture passing coverage, mutation, unit-runner, or framework evidence.
+
+A policy change is an explicit change to the rules. Loading base policy is useful but does not make a candidate-controlled executable trustworthy. A production merge gate must obtain its checker and effective policy independently, review scope and inventory changes, and run candidate code in suitable isolation.

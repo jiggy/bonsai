@@ -1,0 +1,28 @@
+{
+  "name": "@jiggy/bonsai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deliberate growth. Continuous pruning. A contract-rooted code budget gate.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.18"
+  },
+  "bin": {
+    "bonsai": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --import tsx --test --test-isolation=none test/*.test.ts",
+    "bonsai": "node --import tsx src/cli.ts",
+    "demo": "node --import tsx src/cli.ts check --root examples/checkout"
+  },
+  "dependencies": {
+    "@cucumber/gherkin": "^37.0.0",
+    "@cucumber/messages": "^32.0.0",
+    "typescript": "~5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0"
+  }
+}
