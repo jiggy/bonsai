@@ -45,6 +45,7 @@ export type Policy = {
 }
 export type Config = {
   maintained: string[]
+  exclude?: string[]
   bindings: string
   policy: Policy
 }

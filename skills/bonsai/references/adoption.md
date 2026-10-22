@@ -24,6 +24,11 @@ Run `init --root "$PROJECT_DIR"` through the selected checker to create `bonsai.
 
 Compare the inventory against the actual tree. Every scoped maintained artifact must be accounted for; local dependencies must be included. Identify generated outputs and external dependencies deliberately. Rooting a symbol does not erase its file's retained cost, and excluding a troublesome directory narrows the gate's guarantee.
 
+Review the initializer's saved `exclude` patterns as part of that scope. They
+capture project Gitignore rules and default cache, lockfile, and nested-project
+exclusions. Checks use the saved configuration, including the base version under
+`--base`; later candidate ignore-file edits do not change the trusted scope.
+
 Choose project-wide coefficients and a feedback deadline from the measured baseline and the project's intended constraint. The initializer's defaults and example numbers are starting points, not calibrated acceptance rules. Record the calibration rationale; keep the resulting acceptance policy stable during ordinary implementation work.
 
 **Done:** each maintained path exists, the binding file is included, the scope has no unexplained exclusions, and the policy's initial allowance and deadline have a recorded rationale.

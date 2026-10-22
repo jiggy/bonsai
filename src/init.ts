@@ -4,6 +4,7 @@ import {
   mkdirSync,
   openSync,
   readdirSync,
+  readFileSync,
   rmdirSync,
   unlinkSync,
   writeFileSync,
@@ -11,25 +12,8 @@ import {
 import { dirname, join } from 'node:path'
 import { CliError } from './cli-interface.ts'
 import type { Config } from './model.ts'
+import { defaultExclusions, excludedBy, literalExclusion, scopedIgnore } from './exclusions.ts'
 
-const ignored = new Set([
-  '.git',
-  '.hg',
-  '.svn',
-  'node_modules',
-  'dist',
-  'build',
-  'coverage',
-  '.next',
-  '.nuxt',
-  '.output',
-  '.cache',
-  '.turbo',
-  '.vercel',
-  '.svelte-kit',
-  '.parcel-cache',
-  'target',
-])
 const quote = (word: string) => "'" + word.replaceAll("'", "'\\''") + "'"
 
 export function initialize(root: string, checkDeadline: () => void) {
@@ -53,15 +37,31 @@ export function initialize(root: string, checkDeadline: () => void) {
   if (stat(file))
     throw new CliError(`Configuration already exists: ${file}`, 'CONFIG_EXISTS', inspect)
   const excluded: string[] = []
+  const exclude: string[] = []
+  let matches = excludedBy(defaultExclusions)
+  const addPatterns = (patterns: string[]) => {
+    exclude.push(...patterns)
+    matches = excludedBy([...exclude, ...defaultExclusions])
+  }
+  const readIgnore = (base: string) => {
+    const path = join(root, base, '.gitignore')
+    if (stat(path)?.isFile()) addPatterns(scopedIgnore(readFileSync(path, 'utf8'), base))
+  }
+  readIgnore('')
   const files: string[] = []
   const discover = (path: string): string[] => {
     checkDeadline()
     const entry = lstatSync(join(root, path))
     if (
-      ignored.has(path.split('/').at(-1)!) ||
+      ['.git', '.hg', '.svn'].includes(path.split('/').at(-1)!) ||
       entry.isSymbolicLink() ||
       (!entry.isFile() && !entry.isDirectory())
     ) {
+      excluded.push(path)
+      addPatterns([literalExclusion(path, entry.isDirectory())])
+      return []
+    }
+    if (matches(path, entry.isDirectory())) {
       excluded.push(path)
       return []
     }
@@ -69,11 +69,16 @@ export function initialize(root: string, checkDeadline: () => void) {
       files.push(path)
       return [path]
     }
-    const before = excluded.length
-    const children = readdirSync(join(root, path))
+    if (stat(join(root, path, 'bonsai.json'))?.isFile()) {
+      excluded.push(path)
+      addPatterns([literalExclusion(path, true)])
+      return []
+    }
+    readIgnore(path)
+    readdirSync(join(root, path))
       .sort()
-      .flatMap((name) => discover(`${path}/${name}`))
-    return excluded.length === before ? [path] : children
+      .forEach((name) => discover(`${path}/${name}`))
+    return [path]
   }
   const maintained = readdirSync(root).sort().flatMap(discover)
   const bindings =
@@ -113,6 +118,7 @@ export function initialize(root: string, checkDeadline: () => void) {
     if (!paths.some((parent) => path === parent || path.startsWith(parent + '/'))) paths.push(path)
   const config: Config = {
     maintained: paths.sort(),
+    exclude: [...exclude, ...defaultExclusions],
     bindings,
     policy: {
       bootstrap: 20000,
@@ -123,6 +129,13 @@ export function initialize(root: string, checkDeadline: () => void) {
     },
   }
   pending.set('bonsai.json', JSON.stringify(config, null, 2) + '\n')
+  for (const path of [bindings, feature, 'bonsai.json'])
+    if (matches(path))
+      throw new CliError(
+        `Required Bonsai input is excluded by ignore rules: ${path}`,
+        'INIT',
+        `Adjust the matching .gitignore rule before running bonsai init again`,
+      )
   for (const path of pending.keys()) {
     const parent = stat(dirname(join(root, path)))
     if (stat(join(root, path)) || (parent && (!parent.isDirectory() || parent.isSymbolicLink())))

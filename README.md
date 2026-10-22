@@ -55,20 +55,37 @@ application files are never overwritten, and initialization never runs handlers
 or package scripts. A missing project configuration suggests this command directly.
 
 Initialization reuses root-level `bindings.ts`, then `bonsai.bindings.ts`, and
-existing `.feature` files. If absent, it creates `bonsai.bindings.ts` with an empty
+existing `.feature` files in the selected project. A directory with its own
+`bonsai.json` is a separate project; its inventory and contracts stay outside the
+parent's scope. If absent, initialization creates `bonsai.bindings.ts` with an empty
 actions registry and a commented scenario in `features/bonsai.feature`. Connect
 your real named handlers and uncomment/adapt scenarios for their observable results.
 These starters earn no behavior allowance and cannot produce a passing gate.
 
-Discovery includes existing project files while skipping VCS metadata, dependency
-directories, common build/cache outputs, and symlinks at every depth. The result
-lists skipped paths. Directories without exclusions remain directory entries so
-future files are included; directories containing exclusions expand to eligible
-children. Review this detected scope, especially after adding new top-level paths.
+Discovery honors root and nested project `.gitignore` files, including negations.
+It also skips VCS metadata, dependencies, build/cache outputs, `.direnv`, lockfiles,
+symlinks, and nested Bonsai projects by default. The result lists skipped paths.
+These rules are saved as Gitignore-style `exclude` patterns in `bonsai.json`.
+Maintained directories include future authored files while the saved rules filter
+future ignored/generated files. A required binding or starter path excluded by
+ignore rules produces an error before initialization writes anything.
+Review this detected scope, especially after adding new top-level paths.
 The initial budget uses the README defaults below; calibrate it against the first
 real baseline. `bonsai config show` displays the effective settings, then
 `bonsai check` checks the connected behavior. `init --json` reports created paths,
 detected settings, exclusions, and next steps for automation.
+
+Existing configurations are preserved. To regenerate an initial setup from an
+older initializer, keep a backup in the excluded `.bonsai` directory:
+
+```sh
+mkdir -p .bonsai
+mv bonsai.json .bonsai/bonsai.before-ignore-fix.json
+bonsai init
+```
+
+Compare any previously calibrated policy with the backup before adopting the new
+configuration. Existing bindings and contracts are preserved.
 
 ### Configuration and environment
 
@@ -83,6 +100,12 @@ With `--base`, the base revision supplies the effective policy and maintained
 inventory unless `--policy` is explicit. Environment policy overrides have the
 same explicit effect and should be controlled in trusted CI. CLI timeout limits
 never increase the project's feedback budget.
+
+Checks use the saved `exclude` patterns, including when `--base` supplies them.
+They do not reread candidate `.gitignore` files or discover new project boundaries.
+Changing a candidate ignore file or adding a nested `bonsai.json` therefore cannot
+hide source from an established base inventory. Configurations without `exclude`
+continue to measure every file under their declared maintained paths.
 
 `NO_COLOR`, `BONSAI_NO_COLOR`, `TERM=dumb`, and `--no-color` disable ANSI styling,
 even with `FORCE_COLOR`. Otherwise `FORCE_COLOR=1` enables color, while
@@ -124,6 +147,25 @@ JSON gate reports retain `decision` and `snapshot`; explanation reports retain
 `fingerprint`, `components`, and `problems`. JSON setup errors keep the existing
 `status` and string `error` fields, adding `code`, `exit_code`, `run`, and
 `retryable` metadata on stderr. Stack traces require `--debug`.
+
+### Read a check result
+
+`Incomplete` means setup, analysis, or required evidence is missing. Resolve the
+blocking issues before acting on the provisional budget and ancestry findings.
+If verification was skipped, the report says `not run`; those checks have not
+failed assertions. `--verbose` includes all provisional findings, and JSON keeps
+the complete underlying facts.
+
+Retained tokens measure the configured inventory, including maintained tests,
+contracts, docs, and configuration. The ceiling comes from the selected policy;
+the initializer's 20,000-token bootstrap is a draft default. A potential overage
+is their arithmetic difference, not a verified deletion target during incomplete
+analysis. Contract surface counts unique action/observation pairs; required checks
+count every executable observation, including separate outline rows.
+
+`Rejected` means the gate found failed requirements such as assertions, ancestry,
+or budget. `Pass` means all required evidence and policy conditions passed. Raising
+the budget cannot resolve unbound handlers or unsupported analysis.
 
 ### Shell completions
 
@@ -275,7 +317,7 @@ requiredReduction = max(0, retainedSize - ceiling)
 
 All files in the inventory count, including unrooted source, tests, bindings, features, fixtures, and configuration. Shared files count once, without a reuse discount. The initial metric counts TypeScript lexical tokens, charges literal payload in four-byte blocks, and counts comment content. Other files use Unicode word and punctuation tokens. This is a deterministic pressure metric, not a claim to measure human comprehension. Binary assets, JSX, and other languages need dedicated adapters; keep them out of a prototype deployment rather than assuming meaningful analysis.
 
-The inventory is explicit and must be reviewed. Unlisted local TypeScript imports are detected. An unrelated file outside the inventory is outside the gate's scope. Dependencies, lockfiles, generated outputs, and documentation are not automatically included or excluded; choose maintained paths deliberately. Formatting outside literals does not create TypeScript headroom. Source-symbol costs in explanations exclude some statement scaffolding; the authoritative repository total always comes from whole files.
+The inventory is explicit and must be reviewed. Unlisted local TypeScript and JSON imports are detected. An unrelated file outside the inventory is outside the gate's scope. Initialization proposes exclusions for dependencies, lockfiles, local caches, generated outputs, and nested projects; checks use the saved configuration. Documentation counts when included in the maintained scope. Formatting outside literals does not create TypeScript headroom. Source-symbol costs in explanations exclude some statement scaffolding; the authoritative repository total always comes from whole files.
 
 ## Agent loop
 
@@ -308,6 +350,10 @@ The base is read from an archive without running its code. Its `bonsai.json` sup
 ## Limits and next steps
 
 This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, asset reads, and dynamically accessed module exports need adapters. Dynamic `import()` is flagged, but this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
+
+Bonsai's own CLI and worker use dynamic imports, so the current adapter cannot
+fully verify this repository against itself. The checkout example is a separate
+supported project: `bun run bonsai check --root examples/checkout`.
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 

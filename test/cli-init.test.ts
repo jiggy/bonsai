@@ -189,13 +189,17 @@ test('init excludes generated, dependency, VCS, and symlink paths at every depth
     symlinkSync(join(project.root, 'src'), join(project.root, 'src/loop'), 'dir')
     const result = run(['init', '--root', project.root, '--json'])
     assert.equal(result.status, 0, result.stderr)
-    const config = JSON.parse(readFileSync(join(project.root, 'bonsai.json'), 'utf8'))
-    assert.ok(covers(config.maintained, 'src/kept.ts'))
-    assert.ok(covers(config.maintained, 'test/kept.test.ts'))
+    const checked = run(['check', '--root', project.root, '--json'])
+    assert.ok(checked.stdout, checked.stderr)
+    const files: string[] = JSON.parse(checked.stdout).snapshot.source.files.map(
+      (file: { file: string }) => file.file,
+    )
+    assert.ok(files.includes('src/kept.ts'))
+    assert.ok(files.includes('test/kept.test.ts'))
     for (const path of excluded)
-      assert.ok(!covers(config.maintained, path), `included generated file: ${path}`)
-    assert.ok(!covers(config.maintained, 'linked/outside.ts'))
-    assert.ok(!covers(config.maintained, 'src/loop/kept.ts'))
+      assert.ok(!files.includes(path), `included generated file: ${path}`)
+    assert.ok(!files.includes('linked/outside.ts'))
+    assert.ok(!files.includes('src/loop/kept.ts'))
   } finally {
     project.dispose()
     outside.dispose()

@@ -42,6 +42,11 @@ Production traversal precedes test association. Edges out of the action registry
 
 `pass`, `reject`, and `incomplete` remain distinct. Incomplete takes precedence when both missing analysis and measured violations exist; all violations remain in the report.
 
+Initialization captures project Gitignore patterns and proposed exclusions in the
+configuration, including boundaries around nested Bonsai projects. Inventory uses
+those saved rules from the effective policy source. Candidate ignore-file edits
+or new nested project markers cannot silently narrow a trusted base inventory.
+
 ## Deliberate gaps
 
 The original design calls for broader evidence and trusted CI integration than this first adapter provides. The README documents the executable scope precisely. Keep unsupported capabilities incomplete or explicitly outside the configured deployment scope; do not manufacture passing coverage, mutation, unit-runner, or framework evidence.
