@@ -32,13 +32,18 @@ bun run bonsai check --root examples/checkout --json
 
 See the [generated CLI reference](docs/cli.md) for every flag, default, and example.
 Root and command help support `-h` (concise), `--help` (complete), and `--json`.
-`--help` takes priority over other options and never loads a project.
+`--help` skips project work; output modes still validate so conflicting formats
+produce an error instead of silently selecting one.
 
 Data goes to stdout; progress, errors, and diagnostics go to stderr. At a terminal,
 results use concise human output. Pipes default to headerless tab-separated records.
 Use `--json` for the complete stable report and `--pretty` to indent it in a pipe.
 `--quiet` suppresses human results and progress; explicit JSON/plain data and errors
 remain available. `--verbose` wins over `--quiet` and shows all violations.
+Human explanations show up to 20 components. Set `--limit N` to change this or
+`--limit 0` to show all components; JSON and plain records always include all matches.
+File targets accept project-relative paths (including `./`) and absolute paths.
+Recovery commands preserve the effective root, base, and policy options.
 
 ### Configuration and environment
 
@@ -57,14 +62,20 @@ never increase the project's feedback budget.
 `NO_COLOR`, `BONSAI_NO_COLOR`, `TERM=dumb`, and `--no-color` disable ANSI styling,
 even with `FORCE_COLOR`. Otherwise `FORCE_COLOR=1` enables color, while
 `FORCE_COLOR=0` disables it. Each stream's terminal status is independent.
-`COLUMNS` sets human/help width (default 80). `TERM=dumb` and `LANG`/`LC_ALL` set
+Terminal help uses cyan for commands, muted section labels, and dim descriptions;
+human reports share the same palette and semantic status colors. Redirected help
+stays canonical and unstyled, including with `FORCE_COLOR`.
+`COLUMNS` sets terminal human/help width (default 80). Command examples and recovery
+commands stay intact for copying even when they exceed the requested width.
+`TERM=dumb` and `LANG`/`LC_ALL` set
 to `C` or `POSIX` select ASCII status glyphs. JSON and plain records never use ANSI.
 `CI` and `--no-input` disable prompts; an explicit `--interactive` can override
 `CI` only when stdin and stderr are terminals. `--no-input` always wins.
 
 `explain -` reads one target per line from piped stdin. `--policy -` reads JSON or
 JSONC from piped stdin; both inputs cannot share stdin. Neither form reads from a
-terminal. Use `--timeout 30` to bound a command to 30 seconds. Signals stop active
+terminal. Use `--timeout 30` for a command deadline that includes startup and
+waiting for stdin. Expired commands cannot report success. Signals stop active
 verification workers and remove temporary base archives. Candidate handlers still
 run with the caller's privileges, as described under Limits.
 
@@ -102,7 +113,9 @@ bonsai completion powershell > bonsai.ps1
 Load zsh scripts from a directory in `$fpath` after `compinit`, fish scripts from
 `$XDG_CONFIG_HOME/fish/completions/` (or `~/.config/fish/completions/`), and
 PowerShell scripts from your profile. Completions use the same command/flag registry
-as help and include filesystem completion where supported. They don't run handlers.
+as help. They suggest scoped flags, nested commands, output values, and file or
+directory paths, including attached option values. Explanation paths resolve
+against `--root` in Bash, zsh, and fish. They don't run handlers.
 
 ### CLI migration
 
