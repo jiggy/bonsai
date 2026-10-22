@@ -515,9 +515,7 @@ async function main(): Promise<void> {
         `${symbol('✓', '+')} Initialized ${result.file}`,
         ...result.created.map((path) => `  ${symbol('├─', '|-')} Created ${path}`),
         `  ${symbol('└─', "'-")} Maintained: ${result.config.maintained.join(', ')}`,
-        ...(result.excluded.length
-          ? [`Excluded dependencies, build outputs, or links: ${result.excluded.join(', ')}`]
-          : []),
+        ...(result.excluded.length ? [`Excluded paths: ${result.excluded.join(', ')}`] : []),
         '',
         ...result.next.slice(0, -1),
         `Next ${symbol('→', '->')} ${result.next.at(-1)}`,
@@ -646,6 +644,7 @@ async function main(): Promise<void> {
         `policy\t${configFile}`,
         `bindings\t${config.bindings}`,
         ...config.maintained.map((path) => `maintained\t${path}`),
+        ...(config.exclude ?? []).map((pattern) => `exclude\t${pattern}`),
         ...Object.entries(result.origin).map(([key, value]) => `origin.${key}\t${value}`),
         ...Object.entries(config.policy).map(([key, value]) => `${key}\t${value}`),
       ],
@@ -654,6 +653,7 @@ async function main(): Promise<void> {
         `Origin: ${result.origin.policy}`,
         `Root: ${root}`,
         `Maintained: ${config.maintained.join(', ')}`,
+        `Exclusions: ${config.exclude?.length ?? 0} saved patterns (use --json to inspect)`,
         `Bindings: ${config.bindings}`,
         ...Object.entries(config.policy).map(([key, value]) => `${key}: ${value}`),
       ],
@@ -750,6 +750,91 @@ async function main(): Promise<void> {
       candidate.unrooted.length,
     ].join('\t'),
   ]
+  if (decision.status === 'incomplete') {
+    const unbound = candidate.contracts.checks.filter(
+      (check) => !Object.hasOwn(candidate.source.actions, check.action),
+    )
+    const secondary = new Set([
+      ...candidate.unrooted.map((id) => `No contract ancestry: ${id}`),
+      `Retained size exceeds ceiling by ${decision.requiredReduction} tokens`,
+      ...(candidate.contracts.problems.length || candidate.source.problems.length
+        ? ['Required evidence is missing, incomplete, or belongs to another candidate']
+        : []),
+      ...unbound.flatMap((check) => {
+        const result = candidate.evidence?.checks.find((result) => result.id === check.id)
+        return [
+          `Missing required check: ${check.id}`,
+          ...(result && result.status !== 'passed'
+            ? [`Failed check: ${check.id}: ${result.error ?? 'assertion failed'}`]
+            : []),
+        ]
+      }),
+    ])
+    const blockers = [...new Set(decision.violations.filter((message) => !secondary.has(message)))]
+    const provisional = [
+      ...new Set(decision.violations.filter((message) => secondary.has(message))),
+    ]
+    const shown = enabled('verbose') ? blockers : blockers.slice(0, 20)
+    const results = candidate.evidence
+      ? (['passed', 'failed', 'missing'] as const)
+          .flatMap((status) => {
+            const count = candidate.evidence!.checks.filter(
+              (check) => check.status === status,
+            ).length
+            return count ? [`${count} ${status}`] : []
+          })
+          .join(` ${symbol('·', '.')} `) || 'no results'
+      : candidate.source.problems.some((problem) =>
+            problem.startsWith('Evidence collection interrupted:'),
+          )
+        ? 'not completed'
+        : 'not run'
+    const recovery = invocation(['config', 'show'])
+    const lines = [
+      `${symbol('△', '!')} Incomplete`,
+      '',
+      'Blocking issues',
+      ...shown.map((message) => `- ${message}`),
+      ...(shown.length < blockers.length
+        ? [`${blockers.length - shown.length} more blocking issues. Use --verbose to show all`]
+        : []),
+      '',
+      'Verification',
+      `  ${symbol('├─', '|-')} Required checks: ${results} (${candidate.contracts.checks.length} expected)`,
+      `  ${symbol('└─', "'-")} Discovered contract surface: ${decision.surface} ${decision.surface === 1 ? 'pair' : 'pairs'}`,
+      '',
+      'Inventory measurements',
+      `  ${symbol('├─', '|-')} Retained: ${decision.retained} tokens`,
+      `  ${decision.requiredReduction ? symbol('├─', '|-') : symbol('└─', "'-")} Configured ceiling: ${decision.ceiling} tokens`,
+      ...(decision.requiredReduction
+        ? [
+            `  ${symbol('└─', "'-")} Potential overage: ${decision.requiredReduction} tokens (provisional)`,
+          ]
+        : []),
+      ...(enabled('verbose') && provisional.length
+        ? ['', 'Additional findings (provisional)', ...provisional.map((message) => `- ${message}`)]
+        : provisional.length
+          ? ['', 'Use --verbose for all provisional findings']
+          : []),
+      '',
+      `Next ${symbol('→', '->')} ${recovery}`,
+    ]
+    await emit({ decision, snapshot: candidate }, rows, lines)
+    if (!json && (!human || quiet)) {
+      for (const blocker of shown) write(`incomplete: ${blocker}`, process.stderr)
+      if (enabled('verbose'))
+        for (const finding of provisional)
+          write(`incomplete (provisional): ${finding}`, process.stderr)
+      if (shown.length < blockers.length)
+        write(
+          `${blockers.length - shown.length} more blocking issues. Use --verbose to show all`,
+          process.stderr,
+        )
+      write(`Next ${symbol('→', '->')} ${recovery}`, process.stderr)
+    }
+    process.exitCode = 2
+    return
+  }
   const glyph =
     decision.status === 'pass'
       ? symbol('✓', '+')

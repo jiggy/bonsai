@@ -37,6 +37,12 @@ export function readConfig(
   }
   if (!config.policy || typeof config.policy !== 'object')
     throw new Error('Configuration needs a policy object')
+  if (
+    config.exclude !== undefined &&
+    (!Array.isArray(config.exclude) ||
+      !config.exclude.every((pattern) => typeof pattern === 'string' && pattern.length > 0))
+  )
+    throw new Error('Configuration exclude must be an array of non-empty ignore patterns')
   validatePolicy(config.policy)
   return config
 }
@@ -48,7 +54,7 @@ export async function snapshot(
   signal?: AbortSignal,
 ): Promise<Snapshot> {
   const started = performance.now()
-  const files = inventory(root, config.maintained)
+  const files = inventory(root, config.maintained, config.exclude)
   if (!files.includes(config.bindings))
     throw new Error('The binding file must be in maintained inventory')
   const hash = fingerprint(root, files, config)
@@ -73,7 +79,7 @@ export async function snapshot(
       source.problems.push(`Evidence collection interrupted: ${String(error)}`)
     }
     if (result.evidence) result.evidence.elapsedMs = performance.now() - started
-    if (fingerprint(root, inventory(root, config.maintained), config) !== hash) {
+    if (fingerprint(root, inventory(root, config.maintained, config.exclude), config) !== hash) {
       source.problems.push('Maintained files changed during verification')
     }
   }
