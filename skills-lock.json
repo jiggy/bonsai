@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "cli-audit": {
+      "source": "fvena/cli-design-system",
+      "sourceType": "github",
+      "skillPath": "skills/cli-audit/SKILL.md",
+      "computedHash": "26ede92154aa23f4dc5b567016a1a3de854546ffc09dfc29acbc02ea764cc8be"
+    },
+    "cli-copy-review": {
+      "source": "fvena/cli-design-system",
+      "sourceType": "github",
+      "skillPath": "skills/cli-copy-review/SKILL.md",
+      "computedHash": "c4bd9c59395ae6853bdf2f5e17067261c912bf6c7855e05d6ca467fa584c4433"
+    },
+    "cli-design-system": {
+      "source": "fvena/cli-design-system",
+      "sourceType": "github",
+      "skillPath": "skills/cli-design-system/SKILL.md",
+      "computedHash": "51cee84eaa2237894883fa1b2e123792a3d136446d09a51c4ab6f0788611f973"
+    },
+    "cli-style": {
+      "source": "spf13/cli-style",
+      "sourceType": "github",
+      "skillPath": "cli-style/SKILL.md",
+      "computedHash": "8653c009a4fe1bc121c10f9befbf8cebb73eaa0e953f56716476ba53e7b9f0c7"
+    }
+  }
+}
