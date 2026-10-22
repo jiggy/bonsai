@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 import { parseArgs } from 'node:util'
-import { resolve, join } from 'node:path'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { resolve, join, relative, sep } from 'node:path'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
 import type { Snapshot } from './model.ts'
 import {
@@ -11,17 +11,20 @@ import {
   colorEnabled,
   commandFlags,
   commands,
-  completion,
   flags,
   helpData,
   helpText,
   markdownHelp,
   suggest,
   version,
-  wrap,
+  renderHelp,
+  renderError,
+  renderHuman,
   type CommandName,
 } from './cli-interface.ts'
+import { completion } from './cli-completion.ts'
 
+const invokedAt = Date.now()
 const args = process.argv.slice(2)
 const options = Object.fromEntries(
   Object.entries(flags).map(([name, flag]) => [
@@ -45,8 +48,7 @@ const cancellation = new AbortController()
 let stopping = false
 let temporary: string | undefined
 let deadline: ReturnType<typeof setTimeout> | undefined
-let started = Date.now()
-let timeout = 0
+let expiresAt = 0
 
 const clean = () => {
   if (deadline) clearTimeout(deadline)
@@ -55,9 +57,13 @@ const clean = () => {
     temporary = undefined
   }
 }
-const width = () => Math.max(20, Number(process.env.COLUMNS) || process.stdout.columns || 80)
-const style = (text: string, code: number, stream: NodeJS.WriteStream = process.stdout) =>
-  colorEnabled(stream.isTTY, noColor) ? `\x1b[${code}m${text}\x1b[0m` : text
+const width = (stream: NodeJS.WriteStream = process.stdout) => {
+  const configured = Number(process.env.COLUMNS)
+  return Math.max(
+    20,
+    Number.isFinite(configured) && configured > 0 ? configured : stream.columns || 80,
+  )
+}
 const write = (text: string, stream: NodeJS.WriteStream = process.stdout) =>
   stream.write(text.trimEnd() + '\n')
 const ascii = () =>
@@ -89,7 +95,11 @@ function reportError(error: unknown): void {
     )
   else {
     write(
-      `${style(symbol('✗', 'x'), 31, process.stderr)} ${problem.message}\n  Next ${symbol('→', '->')} ${problem.run}`,
+      renderError(problem.message, problem.run, {
+        width: width(process.stderr),
+        color: colorEnabled(process.stderr.isTTY, noColor),
+        ascii: ascii(),
+      }),
       process.stderr,
     )
     if (debug && error instanceof Error) write(error.stack ?? error.message, process.stderr)
@@ -129,13 +139,84 @@ process.on('SIGPIPE', () => {
   process.exit(0)
 })
 
-function git(root: string, parameters: string[]): string {
+function checkDeadline(): void {
+  if (expiresAt && Date.now() >= expiresAt)
+    throw new CliError('Command deadline expired', 'TIMEOUT', 'Rerun with a longer --timeout', 1)
+}
+
+async function stdin(): Promise<string> {
+  if (process.stdin.isTTY)
+    throw new CliError(
+      'Standard input needs piped data',
+      'USAGE',
+      'Pipe input into the command or provide a file path',
+    )
+  checkDeadline()
+  return new Promise((resolveInput, reject) => {
+    const chunks: Buffer[] = []
+    const cleanup = () => {
+      process.stdin.removeListener('data', data)
+      process.stdin.removeListener('end', end)
+      process.stdin.removeListener('error', error)
+      cancellation.signal.removeEventListener('abort', abort)
+    }
+    const data = (chunk: Buffer | string) =>
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk))
+    const end = () => {
+      cleanup()
+      resolveInput(Buffer.concat(chunks).toString('utf8'))
+    }
+    const error = (cause: Error) => {
+      cleanup()
+      reject(cause)
+    }
+    const abort = () => {
+      cleanup()
+      process.stdin.destroy()
+      reject(new Error('Input interrupted'))
+    }
+    process.stdin.on('data', data).once('end', end).once('error', error)
+    cancellation.signal.addEventListener('abort', abort, { once: true })
+    if (cancellation.signal.aborted) abort()
+    else process.stdin.resume()
+  })
+}
+
+const shellWord = (value: string) =>
+  /^[A-Za-z0-9_./:@=-]+$/.test(value) ? value : "'" + value.replaceAll("'", "'\\''") + "'"
+
+async function tool(file: string, parameters: string[], input?: Buffer): Promise<Buffer> {
+  checkDeadline()
   try {
-    return execFileSync('git', ['-C', root, ...parameters], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    }).trim()
+    const result = await new Promise<Buffer>((resolveOutput, reject) => {
+      const child = execFile(
+        file,
+        parameters,
+        {
+          encoding: 'buffer',
+          maxBuffer: 64 * 1024 * 1024,
+          signal: cancellation.signal,
+          timeout: expiresAt ? Math.max(1, expiresAt - Date.now()) : undefined,
+          killSignal: 'SIGKILL',
+        },
+        (error, stdout) => (error ? reject(error) : resolveOutput(stdout)),
+      )
+      child.stdin?.on('error', () => {})
+      child.stdin?.end(input)
+    })
+    checkDeadline()
+    return result
   } catch (error) {
+    checkDeadline()
+    throw error
+  }
+}
+
+async function git(root: string, parameters: string[]): Promise<string> {
+  try {
+    return (await tool('git', ['-C', root, ...parameters])).toString('utf8').trim()
+  } catch (error) {
+    if (error instanceof CliError) throw error
     throw new CliError(
       `Can't read Git revision in ${root}`,
       'GIT_BASE',
@@ -151,6 +232,19 @@ async function main(): Promise<void> {
     parsed = parseArgs({ args, allowPositionals: true, options, tokens: true, strict: !wantsHelp })
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
+    if (message.includes('ambiguous')) {
+      for (const token of preliminary.tokens) {
+        if (token.kind !== 'option' || token.inlineValue !== false || !token.value?.startsWith('-'))
+          continue
+        const requested = parseArgs({
+          args: [token.value],
+          options,
+          strict: false,
+          allowPositionals: true,
+        }).values
+        json ||= requested.json === true || requested.output === 'json'
+      }
+    }
     const unknown = message.match(/Unknown option '(.*?)'/)?.[1]
     throw new CliError(
       unknown ? `Unknown flag '${unknown}'` : message,
@@ -172,66 +266,28 @@ async function main(): Promise<void> {
   noColor ||= enabled('no-color')
   let [command, ...operands] = positionals
   const helpTarget = command === 'help' ? operands[0] : command
-  if (
+  const helpRequest =
     wantsHelp ||
     (!command && !enabled('version')) ||
     command === 'help' ||
     (command === 'config' && !operands.length)
-  ) {
-    if (helpTarget && !Object.hasOwn(commands, helpTarget))
-      throw new CliError(
-        `Unknown command '${helpTarget}'`,
-        'USAGE',
-        `${suggest(helpTarget, Object.keys(commands))} Run bonsai --help`,
-      )
-    if (
-      command === 'help' &&
-      operands.length > 1 &&
-      !(operands.length === 2 && operands[0] === 'config' && operands[1] === 'show')
-    )
-      throw new CliError('Help accepts one command', 'USAGE', 'bonsai help check')
-    const target = helpTarget as CommandName | undefined
-    if (enabled('markdown')) write(markdownHelp())
-    else if (json)
-      write(
-        JSON.stringify(
-          helpData(target),
-          null,
-          process.stdout.isTTY || enabled('pretty') ? 2 : undefined,
-        ),
-      )
-    else
-      write(
-        wrap(
-          helpText(
-            target,
-            wantsHelp &&
-              !preliminary.tokens.some(
-                (token) =>
-                  token.kind === 'option' && token.name === 'help' && token.rawName === '--help',
-              ),
-          ),
-          width(),
-        ),
-      )
-    return
-  }
-  if (enabled('version')) command = 'version'
-  if (!Object.hasOwn(commands, command))
+  if (enabled('version') && !helpRequest) command = 'version'
+  if (!helpRequest && !Object.hasOwn(commands, command))
     throw new CliError(
       `Unknown command '${command}'`,
       'USAGE',
       `${suggest(command, Object.keys(commands))} Run bonsai --help`,
     )
-  const name = command as CommandName
-  const allowed = new Set(commandFlags(name).map(([flag]) => flag))
-  for (const token of tokens ?? [])
-    if (token.kind === 'option' && !allowed.has(token.name))
-      throw new CliError(
-        `--${token.name} doesn't apply to ${command}`,
-        'USAGE',
-        `bonsai help ${command}`,
-      )
+  if (!helpRequest) {
+    const allowed = new Set(commandFlags(command as CommandName).map(([flag]) => flag))
+    for (const token of tokens ?? [])
+      if (token.kind === 'option' && !allowed.has(token.name))
+        throw new CliError(
+          `--${token.name} doesn't apply to ${command}`,
+          'USAGE',
+          `bonsai help ${command}`,
+        )
+  }
   const format = text('output') ?? (enabled('json') ? 'json' : enabled('plain') ? 'plain' : 'auto')
   if (!['auto', 'human', 'plain', 'json'].includes(format))
     throw new CliError(
@@ -251,26 +307,76 @@ async function main(): Promise<void> {
     )
   json = format === 'json'
   if (enabled('pretty') && !json)
-    throw new CliError('--pretty needs JSON output', 'USAGE', `bonsai ${command} --json --pretty`)
+    throw new CliError(
+      '--pretty needs JSON output',
+      'USAGE',
+      `bonsai ${command || 'help'} --json --pretty`,
+    )
+  if (enabled('markdown') && (!helpRequest || json || format === 'plain'))
+    throw new CliError(
+      '--markdown needs help without a machine output mode',
+      'USAGE',
+      'Use bonsai help --markdown or bonsai help --json',
+    )
+  const jsonText = (data: unknown) =>
+    JSON.stringify(data, null, enabled('pretty') || process.stdout.isTTY ? 2 : undefined)
+  if (helpRequest) {
+    if (helpTarget && !Object.hasOwn(commands, helpTarget))
+      throw new CliError(
+        `Unknown command '${helpTarget}'`,
+        'USAGE',
+        `${suggest(helpTarget, Object.keys(commands))} Run bonsai --help`,
+      )
+    if (
+      command === 'help' &&
+      operands.length > 1 &&
+      !(operands.length === 2 && operands[0] === 'config' && operands[1] === 'show')
+    )
+      throw new CliError('Help accepts one command', 'USAGE', 'bonsai help check')
+    const target = helpTarget as CommandName | undefined
+    if (enabled('markdown')) write(markdownHelp())
+    else if (json) write(jsonText(helpData(target)))
+    else {
+      const concise =
+        wantsHelp &&
+        !preliminary.tokens.some(
+          (token) => token.kind === 'option' && token.name === 'help' && token.rawName === '--help',
+        )
+      write(
+        process.stdout.isTTY
+          ? renderHelp(target, concise, {
+              width: width(),
+              color: colorEnabled(process.stdout.isTTY, noColor),
+              ascii: ascii(),
+            })
+          : helpText(target, concise),
+      )
+    }
+    return
+  }
   const quiet = enabled('quiet') && !enabled('verbose')
   const human = format === 'human' || (format === 'auto' && Boolean(process.stdout.isTTY))
   const emit = (data: unknown, plain: string[], rendered: string[]) => {
-    if (json)
-      write(JSON.stringify(data, null, enabled('pretty') || process.stdout.isTTY ? 2 : undefined))
+    checkDeadline()
+    if (json) write(jsonText(data))
     else if (!quiet || enabled('plain') || format === 'plain') {
-      if (human) {
-        const header = process.stdout.isTTY
-          ? `${style('bonsai', 1)} ${symbol('·', '.')} ${command}\n\n`
-          : ''
-        write(header + wrap(rendered.join('\n'), width()))
-      } else if (plain.length) write(plain.join('\n'))
+      if (human)
+        write(
+          renderHuman(command as CommandName, rendered, {
+            header: Boolean(process.stdout.isTTY),
+            width: width(),
+            color: colorEnabled(process.stdout.isTTY, noColor),
+            ascii: ascii(),
+          }),
+        )
+      else if (plain.length) write(plain.join('\n'))
     }
   }
   const source = (key: string, env: string) =>
     text(key) !== undefined ? `--${key}` : process.env[env] !== undefined ? env : 'default'
   if (command === 'version') {
     if (operands.length) throw new CliError('Version takes no arguments', 'USAGE', 'bonsai version')
-    if (json) write(JSON.stringify({ name: 'bonsai', version }))
+    if (json) write(jsonText({ name: 'bonsai', version }))
     else write(`bonsai ${version}`)
     return
   }
@@ -286,6 +392,36 @@ async function main(): Promise<void> {
     else write(script)
     return
   }
+  if (text('timeout') !== undefined) {
+    const timeout = Number(text('timeout')) * 1000
+    if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647)
+      throw new CliError(
+        `Invalid timeout '${text('timeout')}'`,
+        'USAGE',
+        'Use --timeout with positive seconds, such as --timeout 30',
+      )
+    expiresAt = invokedAt + timeout
+    checkDeadline()
+    deadline = setTimeout(
+      () =>
+        stop(
+          new CliError('Command deadline expired', 'TIMEOUT', 'Rerun with a longer --timeout', 1),
+        ),
+      Math.max(0, expiresAt - Date.now()),
+    )
+  }
+  const limit = text('limit') === undefined ? 20 : Number(text('limit'))
+  if (
+    (text('limit') !== undefined && !/^\d+$/.test(text('limit')!)) ||
+    !Number.isSafeInteger(limit) ||
+    limit < 0
+  )
+    throw new CliError(
+      `Invalid limit '${text('limit')}'`,
+      'USAGE',
+      'Use --limit with a non-negative integer, or --limit 0 for all results',
+    )
+  let prompted = false
   if (
     command === 'explain' &&
     !operands.length &&
@@ -303,11 +439,7 @@ async function main(): Promise<void> {
     } finally {
       prompt.close()
     }
-    if (operands[0])
-      write(
-        `Next ${symbol('→', '->')} bonsai explain ${JSON.stringify(operands[0])}`,
-        process.stderr,
-      )
+    prompted = Boolean(operands[0])
   }
   if (command === 'explain' && (!operands.length || !operands[0]))
     throw new CliError(
@@ -340,30 +472,18 @@ async function main(): Promise<void> {
       'USAGE',
       'Set BONSAI_POLICY or --policy to a policy file',
     )
-  if (text('timeout') !== undefined) {
-    timeout = Number(text('timeout')) * 1000
-    if (!Number.isFinite(timeout) || timeout <= 0 || timeout > 2147483647)
-      throw new CliError(
-        `Invalid timeout '${text('timeout')}'`,
-        'USAGE',
-        'Use --timeout with positive seconds, such as --timeout 30',
-      )
-    deadline = setTimeout(() => {
-      stop(new CliError('Command deadline expired', 'TIMEOUT', 'Rerun with a longer --timeout', 1))
-    }, timeout)
-  }
-  started = Date.now()
+  checkDeadline()
   if (!quiet && !json && (process.stderr.isTTY || enabled('verbose')))
     write(`${command === 'check' ? 'Checking' : 'Reading'} ${root}`, process.stderr)
-  const stdin = () => {
-    if (process.stdin.isTTY)
-      throw new CliError(
-        'Standard input needs piped data',
-        'USAGE',
-        'Pipe input into the command or provide a file path',
-      )
-    return readFileSync(0, 'utf8')
-  }
+  const context = [
+    '--root',
+    root,
+    ...(baseValue ? ['--base', baseValue] : []),
+    ...(policyValue ? ['--policy', policyValue === '-' ? '-' : resolve(policyValue)] : []),
+  ]
+  const invocation = (words: string[]) => ['bonsai', ...words, ...context].map(shellWord).join(' ')
+  if (prompted)
+    write(`Next ${symbol('→', '->')} ${invocation(['explain', operands[0]])}`, process.stderr)
   if (policyValue === '-' && command === 'explain' && operands[0] === '-')
     throw new CliError(
       'Policy and targets can’t both read stdin',
@@ -393,25 +513,25 @@ async function main(): Promise<void> {
     : resolve(root, 'bonsai.json')
   let baseSha: string | undefined
   if (baseValue) {
-    const repository = git(root, ['rev-parse', '--show-toplevel'])
+    const repository = await git(root, ['rev-parse', '--show-toplevel'])
     if (resolve(repository) !== root)
       throw new CliError(
         '--base needs the Git repository root',
         'USAGE',
         `Use --root ${repository}`,
       )
-    baseSha = git(root, ['rev-parse', '--verify', '--end-of-options', `${baseValue}^{commit}`])
+    baseSha = await git(root, [
+      'rev-parse',
+      '--verify',
+      '--end-of-options',
+      `${baseValue}^{commit}`,
+    ])
     temporary = mkdtempSync(join(tmpdir(), 'bonsai-base-'))
     try {
-      const archive = execFileSync('git', ['-C', root, 'archive', baseSha], {
-        maxBuffer: 64 * 1024 * 1024,
-        stdio: ['ignore', 'pipe', 'pipe'],
-      })
-      execFileSync('tar', ['-x', '-C', temporary], {
-        input: archive,
-        stdio: ['pipe', 'ignore', 'pipe'],
-      })
-    } catch {
+      const archive = await tool('git', ['-C', root, 'archive', baseSha])
+      await tool('tar', ['-x', '-C', temporary], archive)
+    } catch (error) {
+      if (error instanceof CliError) throw error
       throw new CliError(
         `Can't read base '${baseValue}'`,
         'GIT_BASE',
@@ -422,7 +542,7 @@ async function main(): Promise<void> {
   }
   const config =
     policyValue === '-'
-      ? loadConfig(root, 'stdin', stdin())
+      ? loadConfig(root, 'stdin', await stdin())
       : policyValue
         ? loadConfig(root, resolve(policyValue))
         : loadConfig(temporary ?? root)
@@ -476,12 +596,25 @@ async function main(): Promise<void> {
         'Fix the base contracts or select another --base revision',
       )
   }
+  const inputQueries =
+    command === 'explain' && operands[0] === '-'
+      ? (await stdin()).split(/\r?\n/).filter(Boolean)
+      : operands
+  checkDeadline()
   const candidate = await snapshot(root, config, command === 'check', cancellation.signal)
   if (stopping) return
-  if (timeout && Date.now() - started > timeout)
-    throw new CliError('Command deadline expired', 'TIMEOUT', 'Rerun with a longer --timeout', 1)
+  checkDeadline()
   if (command === 'explain') {
-    const queries = operands[0] === '-' ? stdin().split(/\r?\n/).filter(Boolean) : operands
+    const normalize = (query: string) => {
+      if (
+        candidate.source.components.some(
+          (component) => component.id === query || component.file === query,
+        )
+      )
+        return query
+      return relative(root, resolve(root, query)).split(sep).join('/')
+    }
+    const queries = inputQueries.map(normalize)
     const components = [
       ...new Map(
         queries
@@ -494,14 +627,15 @@ async function main(): Promise<void> {
         throw new CliError(
           `Component or file not found: ${query}`,
           'NOT_FOUND',
-          'Check the maintained inventory with bonsai config show',
+          invocation(['config', 'show']),
           4,
         )
     const rows = components.map(
       (component) =>
         `${component.id}\t${component.tokens}\t${component.contracts.length}\t${component.file}:${component.line}`,
     )
-    const lines = components.flatMap((component) => [
+    const shown = human && limit ? components.slice(0, limit) : components
+    const lines = shown.flatMap((component) => [
       component.id,
       `  ${symbol('├─', '|-')} ${component.tokens} tokens`,
       `  ${symbol('└─', "'-")} ${component.contracts.length} required checks`,
@@ -509,6 +643,10 @@ async function main(): Promise<void> {
         ? component.relationships.map((edge) => `  ${edge.from} ${symbol('→', '->')} ${edge.to}`)
         : []),
     ])
+    if (shown.length < components.length)
+      lines.push(
+        `Showing ${shown.length} of ${components.length} components. Use --limit 0 to show all`,
+      )
     emit(
       { fingerprint: candidate.fingerprint, components, problems: candidate.source.problems },
       rows,
@@ -545,7 +683,7 @@ async function main(): Promise<void> {
   const label =
     decision.status === 'pass' ? 'Pass' : decision.status === 'reject' ? 'Rejected' : 'Incomplete'
   const lines = [
-    `${style(glyph, decision.status === 'pass' ? 32 : decision.status === 'reject' ? 31 : 33)} ${label}`,
+    `${glyph} ${label}`,
     `  ${symbol('├─', '|-')} Retained: ${decision.retained} / ${decision.ceiling} tokens`,
     `  ${symbol('├─', '|-')} Contract surface: ${decision.surface} ${decision.surface === 1 ? 'pair' : 'pairs'}`,
     `  ${symbol('└─', "'-")} Required checks: ${passed} / ${candidate.contracts.checks.length} passed`,
@@ -557,12 +695,14 @@ async function main(): Promise<void> {
     )
   if (decision.requiredReduction)
     lines.push(`Required reduction: ${decision.requiredReduction} tokens`)
+  const subject = candidate.unrooted[0] ?? candidate.source.components[0]?.id
+  const recovery = subject ? invocation(['explain', subject]) : invocation(['config', 'show'])
   const violations = enabled('verbose') ? decision.violations : decision.violations.slice(0, 20)
   if (violations.length)
     lines.push(
       '',
       ...violations.map((violation) => `- ${violation}`),
-      'Next → bonsai explain <reported-file-or-component> --root ' + root,
+      `Next ${symbol('→', '->')} ${recovery}`,
     )
   if (decision.violations.length > violations.length) lines.push('Use --verbose for all violations')
   if (enabled('verbose'))
@@ -575,14 +715,11 @@ async function main(): Promise<void> {
     ...(candidate.unrooted.length ? [`${candidate.unrooted.length} unrooted`] : []),
     ...(decision.violations.length ? [`${decision.violations.length} violations`] : []),
   ]
-  if (counters.length) lines.push('', style(counters.join(` ${symbol('·', '.')} `), 1))
+  if (counters.length) lines.push('', counters.join(` ${symbol('·', '.')} `))
   emit({ decision, snapshot: candidate }, rows, lines)
   if (!json && decision.status !== 'pass' && (!human || quiet)) {
     for (const violation of violations) write(`${decision.status}: ${violation}`, process.stderr)
-    write(
-      `Next ${symbol('→', '->')} bonsai explain <reported-file-or-component> --root ${root}`,
-      process.stderr,
-    )
+    write(`Next ${symbol('→', '->')} ${recovery}`, process.stderr)
   }
   process.exitCode = decision.status === 'pass' ? 0 : decision.status === 'reject' ? 1 : 2
 }

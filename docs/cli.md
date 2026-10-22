@@ -72,6 +72,7 @@ OPTIONS
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
       --timeout string      command deadline in seconds (default none)
+      --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors
       --plain               write headerless tab-separated records
   -o, --output string       output: auto, human, plain, json (default auto)
