@@ -99,8 +99,10 @@ to `C` or `POSIX` select ASCII status glyphs. JSON and plain records never use A
 
 `explain -` reads one target per line from piped stdin. `--policy -` reads JSON or
 JSONC from piped stdin; both inputs cannot share stdin. Neither form reads from a
-terminal. Use `--timeout 30` for a command deadline that includes startup and
-waiting for stdin. Expired commands cannot report success. Signals stop active
+terminal. Use `--timeout 30` for a command deadline that includes startup,
+waiting for stdin, and delivering stdout. A timeout during output can leave a
+partial report; its `TIMEOUT` diagnostic goes to stderr and the command exits 1.
+Expired commands cannot report success. Signals stop active
 verification workers and remove temporary base archives. Candidate handlers still
 run with the caller's privileges, as described under Limits.
 

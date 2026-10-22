@@ -108,8 +108,9 @@ function reportError(error: unknown): void {
 }
 
 function stop(error: CliError): void {
-  if (stopping) process.exit(error.exitCode)
+  if (stopping) process.exit()
   stopping = true
+  process.exitCode = error.exitCode
   reportError(error)
   clean()
   cancellation.abort()
@@ -124,17 +125,19 @@ for (const [signal, code] of [
     stop(new CliError('Command interrupted', signal, 'Rerun the command when ready', code))
   })
 }
-for (const stream of [process.stdout, process.stderr])
-  stream.on('error', (error: NodeJS.ErrnoException) => {
-    if (error.code === 'EPIPE') {
-      clean()
-      process.exit(0)
-    }
-    reportError(error)
+function streamError(error: NodeJS.ErrnoException): void {
+  if (stopping) return
+  if (error.code === 'EPIPE') {
     clean()
-    process.exit(1)
-  })
+    process.exit(0)
+  }
+  reportError(error)
+  clean()
+  process.exit(1)
+}
+for (const stream of [process.stdout, process.stderr]) stream.on('error', streamError)
 process.on('SIGPIPE', () => {
+  if (stopping) return
   clean()
   process.exit(0)
 })
@@ -142,6 +145,36 @@ process.on('SIGPIPE', () => {
 function checkDeadline(): void {
   if (expiresAt && Date.now() >= expiresAt)
     throw new CliError('Command deadline expired', 'TIMEOUT', 'Rerun with a longer --timeout', 1)
+}
+
+async function writeReport(text: string): Promise<void> {
+  const output = text.trimEnd() + '\n'
+  checkDeadline()
+  await new Promise<void>((resolveWrite, reject) => {
+    const abort = () => {
+      cancellation.signal.removeEventListener('abort', abort)
+      process.stdout.destroy()
+      reject(new Error('Output interrupted'))
+    }
+    if (cancellation.signal.aborted) {
+      abort()
+      return
+    }
+    cancellation.signal.addEventListener('abort', abort, { once: true })
+    const finish = (error?: Error | null) => {
+      cancellation.signal.removeEventListener('abort', abort)
+      if (error) {
+        streamError(error)
+        reject(error)
+      } else resolveWrite()
+    }
+    try {
+      process.stdout.write(output, finish)
+    } catch (error) {
+      finish(error instanceof Error ? error : new Error(String(error)))
+    }
+  })
+  checkDeadline()
 }
 
 async function stdin(): Promise<string> {
@@ -356,27 +389,20 @@ async function main(): Promise<void> {
   }
   const quiet = enabled('quiet') && !enabled('verbose')
   const human = format === 'human' || (format === 'auto' && Boolean(process.stdout.isTTY))
-  const emit = (data: unknown, plain: string[], rendered: string[]) => {
+  const emit = async (data: unknown, plain: string[], rendered: string[]) => {
     checkDeadline()
-    if (json) {
-      const serialized = jsonText(data)
-      checkDeadline()
-      write(serialized)
-    } else if (!quiet || enabled('plain') || format === 'plain') {
+    if (json) await writeReport(jsonText(data))
+    else if (!quiet || enabled('plain') || format === 'plain') {
       if (human) {
-        const laidOut = renderHuman(command as CommandName, rendered, {
-          header: Boolean(process.stdout.isTTY),
-          width: width(),
-          color: colorEnabled(process.stdout.isTTY, noColor),
-          ascii: ascii(),
-        })
-        checkDeadline()
-        write(laidOut)
-      } else if (plain.length) {
-        const records = plain.join('\n')
-        checkDeadline()
-        write(records)
-      }
+        await writeReport(
+          renderHuman(command as CommandName, rendered, {
+            header: Boolean(process.stdout.isTTY),
+            width: width(),
+            color: colorEnabled(process.stdout.isTTY, noColor),
+            ascii: ascii(),
+          }),
+        )
+      } else if (plain.length) await writeReport(plain.join('\n'))
     }
   }
   const source = (key: string, env: string) =>
@@ -395,7 +421,7 @@ async function main(): Promise<void> {
         'Use bonsai completion bash, zsh, fish, or powershell',
       )
     const script = completion(operands[0])
-    if (json) emit({ shell: operands[0], script }, [], [])
+    if (json) await emit({ shell: operands[0], script }, [], [])
     else write(script)
     return
   }
@@ -479,7 +505,7 @@ async function main(): Promise<void> {
         errno === 'EACCES' || errno === 'EPERM' ? 3 : 2,
       )
     }
-    emit(
+    await emit(
       result,
       [
         ...result.created.map((path) => `created\t${join(root, path)}`),
@@ -613,7 +639,7 @@ async function main(): Promise<void> {
       },
       config,
     }
-    emit(
+    await emit(
       result,
       [
         `root\t${root}`,
@@ -697,7 +723,7 @@ async function main(): Promise<void> {
       lines.push(
         `Showing ${shown.length} of ${components.length} components. Use --limit 0 to show all`,
       )
-    emit(
+    await emit(
       { fingerprint: candidate.fingerprint, components, problems: candidate.source.problems },
       rows,
       lines.length ? lines : ['No targets provided'],
@@ -766,7 +792,7 @@ async function main(): Promise<void> {
     ...(decision.violations.length ? [`${decision.violations.length} violations`] : []),
   ]
   if (counters.length) lines.push('', counters.join(` ${symbol('·', '.')} `))
-  emit({ decision, snapshot: candidate }, rows, lines)
+  await emit({ decision, snapshot: candidate }, rows, lines)
   if (!json && decision.status !== 'pass' && (!human || quiet)) {
     for (const violation of violations) write(`${decision.status}: ${violation}`, process.stderr)
     write(`Next ${symbol('→', '->')} ${recovery}`, process.stderr)
@@ -776,6 +802,9 @@ async function main(): Promise<void> {
 
 main()
   .catch((error) => {
-    if (!stopping) reportError(error)
+    if (!stopping) {
+      if (error instanceof CliError && error.code === 'TIMEOUT') stop(error)
+      else reportError(error)
+    }
   })
   .finally(clean)
