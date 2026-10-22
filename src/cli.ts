@@ -358,18 +358,25 @@ async function main(): Promise<void> {
   const human = format === 'human' || (format === 'auto' && Boolean(process.stdout.isTTY))
   const emit = (data: unknown, plain: string[], rendered: string[]) => {
     checkDeadline()
-    if (json) write(jsonText(data))
-    else if (!quiet || enabled('plain') || format === 'plain') {
-      if (human)
-        write(
-          renderHuman(command as CommandName, rendered, {
-            header: Boolean(process.stdout.isTTY),
-            width: width(),
-            color: colorEnabled(process.stdout.isTTY, noColor),
-            ascii: ascii(),
-          }),
-        )
-      else if (plain.length) write(plain.join('\n'))
+    if (json) {
+      const serialized = jsonText(data)
+      checkDeadline()
+      write(serialized)
+    } else if (!quiet || enabled('plain') || format === 'plain') {
+      if (human) {
+        const laidOut = renderHuman(command as CommandName, rendered, {
+          header: Boolean(process.stdout.isTTY),
+          width: width(),
+          color: colorEnabled(process.stdout.isTTY, noColor),
+          ascii: ascii(),
+        })
+        checkDeadline()
+        write(laidOut)
+      } else if (plain.length) {
+        const records = plain.join('\n')
+        checkDeadline()
+        write(records)
+      }
     }
   }
   const source = (key: string, env: string) =>
@@ -516,7 +523,13 @@ async function main(): Promise<void> {
     ...(baseValue ? ['--base', baseValue] : []),
     ...(policyValue ? ['--policy', policyValue === '-' ? '-' : resolve(policyValue)] : []),
   ]
-  const invocation = (words: string[]) => ['bonsai', ...words, ...context].map(shellWord).join(' ')
+  const invocation = (words: string[]) => {
+    const positional =
+      words[0] === 'explain' && words[1]?.startsWith('-') && words[1] !== '-'
+        ? [words[0], `./${words[1]}`, ...words.slice(2)]
+        : words
+    return ['bonsai', ...positional, ...context].map(shellWord).join(' ')
+  }
   if (prompted)
     write(`Next ${symbol('→', '->')} ${invocation(['explain', operands[0]])}`, process.stderr)
   if (policyValue === '-' && command === 'explain' && operands[0] === '-')
