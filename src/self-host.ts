@@ -110,7 +110,17 @@ function project(input: ProjectInput = {}) {
 export function checkProject(input: ProjectInput) {
   const { root, marker } = project(input)
   try {
-    return { ...invoke(['check', '--root', root]), handlerExecuted: existsSync(marker) }
+    const report = invoke(['check', '--root', root])
+    return {
+      ...report,
+      handlerExecuted: existsSync(marker),
+      timingMeasured: [report.timing?.elapsedMs, report.snapshot?.timing?.elapsedMs].every(
+        (elapsed) => Number.isFinite(elapsed) && elapsed > 0,
+      ),
+      verificationTiming: report.snapshot?.timing?.stages.find(
+        (stage: { name: string }) => stage.name === 'verification',
+      ),
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

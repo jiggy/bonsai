@@ -46,7 +46,7 @@ export const flags = {
   verbose: {
     type: 'boolean',
     short: 'v',
-    description: 'show detailed results, overrides --quiet',
+    description: 'show detailed results and check timings, overrides --quiet',
   },
   debug: { type: 'boolean', short: 'd', description: 'show error traces on stderr' },
   'no-color': { type: 'boolean', description: 'disable ANSI color and styling' },
@@ -88,7 +88,7 @@ export const commands = {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
     description:
-      'Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance.',
+      'Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json.',
     examples: [
       'bonsai check',
       'bonsai check --root examples/checkout --json',

@@ -10,9 +10,17 @@ import { displayWidth } from '../src/cli-interface.ts'
 const executable = resolve('src/cli.ts')
 const hasPty = process.platform === 'linux' && spawnSync('script', ['--version']).status === 0
 const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
+const withoutElapsed = (text: string) =>
+  text.replace(/\b\d+(?:\.\d+)?\s*(?:ms|s)(?= elapsed\b)/g, '<duration>')
 
 function fixture(
-  options: { draft?: boolean; broken?: boolean; unused?: number; budget?: number } = {},
+  options: {
+    draft?: boolean
+    broken?: boolean
+    unused?: number
+    budget?: number
+    feedbackMs?: number
+  } = {},
 ) {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-check-presentation-'))
   writeFileSync(join(root, 'package.json'), '{"type":"module"}')
@@ -51,7 +59,7 @@ function fixture(
         bootstrapSurface: 1,
         perDoubling: 0,
         hardLimit: options.budget ?? 10000,
-        maxFeedbackMs: 15000,
+        maxFeedbackMs: options.feedbackMs ?? 15000,
       },
     }),
   )
@@ -156,7 +164,10 @@ test('incomplete terminal checks give blockers a red alert state instead of dimm
     const monochrome = run(root, ['--no-color'], {}, true)
     assert.equal(monochrome.status, 2, monochrome.stderr)
     assert.doesNotMatch(monochrome.stdout + monochrome.stderr, /\x1b\[/)
-    assert.equal(stripVTControlCharacters(output), monochrome.stdout + monochrome.stderr)
+    assert.equal(
+      withoutElapsed(stripVTControlCharacters(output)),
+      withoutElapsed(monochrome.stdout + monochrome.stderr),
+    )
   } finally {
     dispose()
   }
@@ -231,6 +242,7 @@ test('machine check records remain complete and uncolored while quiet failures r
     assert.equal(quiet.stdout, '')
     assert.match(quiet.stderr, /No executable scenarios/)
     assert.doesNotMatch(quiet.stderr, /Checking /)
+    assert.doesNotMatch(quiet.stderr, /Timing|elapsed|Feedback window/)
     const ascii = run(root, ['--output', 'human'], { TERM: 'dumb' })
     assert.equal(ascii.status, 2, ascii.stderr)
     assert.doesNotMatch(ascii.stdout + ascii.stderr, /\x1b\[|[^\x00-\x7f]/)
@@ -292,7 +304,31 @@ test('check setup failures use the same readable alert role as gate blockers', (
     expectColor(result.stderr, `bonsai init --root ${root}`, 36)
     const plain = run(root, ['--output', 'human', '--no-color'], { FORCE_COLOR: '1' })
     assert.doesNotMatch(plain.stderr, /\x1b\[/)
-    assert.equal(stripVTControlCharacters(result.stderr), plain.stderr)
+    assert.equal(
+      withoutElapsed(stripVTControlCharacters(result.stderr)),
+      withoutElapsed(plain.stderr),
+    )
+  } finally {
+    dispose()
+  }
+})
+
+test('timing values stay primary and interrupted stages use an explicit warning state', {
+  skip: !hasPty,
+}, () => {
+  const { root, dispose } = fixture({ feedbackMs: 0.000001 })
+  try {
+    const result = run(root, ['--verbose'], {}, true)
+    assert.equal(result.status, 2, result.stdout + result.stderr)
+    const output = result.stdout + result.stderr
+    const plain = stripVTControlCharacters(output)
+    const elapsed = plain.match(/\b\d+(?:\.\d+)?\s*(?:ms|s) elapsed\b/)
+    assert.ok(elapsed, plain)
+    expectColor(output, elapsed[0], 37)
+    assert.match(plain, /Timing/)
+    const interrupted = plain.match(/Verification[^\n]*interrupted/i)
+    assert.ok(interrupted, plain)
+    expectColor(output, interrupted[0], 33)
   } finally {
     dispose()
   }

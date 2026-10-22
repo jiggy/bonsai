@@ -62,6 +62,14 @@ export type Evidence = {
   bindingImport?: { adapter: 'project-bindings-v1'; file: string; fingerprint: string }
   checks: { id: string; status: 'passed' | 'failed' | 'missing'; error?: string }[]
 }
+export type TimingStage = {
+  name: string
+  elapsedMs: number | null
+  status: 'completed' | 'running' | 'interrupted' | 'skipped'
+  stages?: TimingStage[]
+}
+export type Timing = { elapsedMs: number; stages: TimingStage[] }
+export type CheckTiming = Timing & { feedback?: { elapsedMs: number; limitMs: number } }
 export type Snapshot = {
   fingerprint: string
   contracts: Contracts
@@ -69,6 +77,7 @@ export type Snapshot = {
   ancestry: Record<string, string[]>
   unrooted: string[]
   evidence?: Evidence
+  timing?: CheckTiming
 }
 export type Decision = {
   status: 'pass' | 'reject' | 'incomplete'

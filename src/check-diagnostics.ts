@@ -128,7 +128,9 @@ export function checkDiagnostics(
       title: message,
       detail: [],
       fix: message.startsWith('Evidence collection interrupted:')
-        ? 'Fix the interrupted verification or its feedback deadline, then rerun the check to collect complete evidence'
+        ? message.includes('feedback deadline expired')
+          ? 'Use --verbose to inspect phase timings, then shorten verification while preserving required checks'
+          : 'Fix the interrupted verification or its feedback deadline, then rerun the check to collect complete evidence'
         : message === 'Maintained files changed during verification'
           ? 'Keep maintained files unchanged during verification and rerun the check'
           : /\.[cm]?ts:\d+:/.test(message)

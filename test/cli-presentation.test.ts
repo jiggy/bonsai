@@ -77,7 +77,10 @@ test('narrow terminal help keeps examples copyable and descriptions visually att
   assert.match(narrow.stdout, /  -o, --output string\n    output: auto, human, plain, json/)
   const hanging = run(['check', '--help', '--no-color'], { COLUMNS: '60' }, true)
   assert.equal(hanging.status, 0, hanging.stderr)
-  assert.match(hanging.stdout, /  -v, --verbose +show detailed results, overrides\n {28}--quiet/)
+  assert.match(
+    hanging.stdout,
+    /  -v, --verbose +show detailed results and check\n {28}timings, overrides --quiet/,
+  )
 })
 
 test('canonical help and generated documentation stay unstyled when redirected', () => {

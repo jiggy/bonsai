@@ -1,4 +1,4 @@
-import type { Decision, Snapshot } from './model.ts'
+import type { CheckTiming, Decision, Snapshot, TimingStage } from './model.ts'
 import type { HumanLine } from './cli-interface.ts'
 import { checkDiagnostics, type CheckDiagnostic } from './check-diagnostics.ts'
 
@@ -21,6 +21,63 @@ const tree = (
   items.map((text, index) =>
     line(`${'  '.repeat(depth)}${index === items.length - 1 ? '└─' : '├─'} ${text}`, role),
   )
+
+export const duration = (milliseconds: number) =>
+  milliseconds < 1000 ? `${Math.round(milliseconds)}ms` : `${(milliseconds / 1000).toFixed(1)}s`
+
+/** Presentation only: the caller supplies measured facts, including partial failures. */
+export function timingLines(timing: CheckTiming): HumanLine[] {
+  const labels: Record<string, string> = {
+    setup: 'Command setup',
+    'base-archive': 'Base archive',
+    configuration: 'Configuration',
+    base: 'Base analysis',
+    candidate: 'Candidate check',
+    inventory: 'Inventory',
+    fingerprint: 'Snapshot fingerprint',
+    contracts: 'Contract compilation',
+    source: 'Source analysis',
+    retention: 'Contract ancestry',
+    verification: 'Verification',
+    integrity: 'Final integrity check',
+    evaluation: 'Policy evaluation',
+    report: 'Report preparation',
+    output: 'Report delivery',
+  }
+  const stages = (items: TimingStage[], depth = 1): HumanLine[] =>
+    items.flatMap((stage, index) => [
+      line(
+        `${'  '.repeat(depth)}${index === items.length - 1 ? '└─' : '├─'} ${labels[stage.name] ?? stage.name}: ${stage.elapsedMs === null ? 'not run' : duration(stage.elapsedMs)}${stage.status === 'interrupted' ? ' (interrupted)' : stage.status === 'running' ? ' (in progress)' : ''}`,
+        stage.status === 'interrupted' ? 'warning' : 'text',
+      ),
+      ...(stage.stages ? stages(stage.stages, depth + 1) : []),
+    ])
+  return [
+    line('Timing', 'heading'),
+    ...stages(timing.stages),
+    ...(timing.feedback
+      ? [
+          line(
+            `Feedback window: ${duration(timing.feedback.elapsedMs)} / ${duration(timing.feedback.limitMs)}`,
+          ),
+        ]
+      : []),
+  ]
+}
+
+export function withTiming(lines: HumanLine[], timing: CheckTiming, verbose: boolean): HumanLine[] {
+  const output = [...lines]
+  let summary = output.findIndex((item) => typeof item !== 'string' && item.role === 'summary')
+  if (summary < 0) {
+    output.push('', line(`${duration(timing.elapsedMs)} elapsed`, 'summary'))
+    summary = output.length - 1
+  } else {
+    const item = output[summary] as Exclude<HumanLine, string>
+    output[summary] = { ...item, text: `${item.text} · ${duration(timing.elapsedMs)} elapsed` }
+  }
+  if (verbose) output.splice(summary, 0, ...timingLines(timing), '')
+  return output
+}
 
 /** A human report groups causes; the evaluator's full JSON facts remain independent. */
 export function checkReport(candidate: Snapshot, decision: Decision, options: Options) {
@@ -221,7 +278,14 @@ export function checkReport(candidate: Snapshot, decision: Decision, options: Op
       !decision.requiredReduction &&
       blockers.every((message) => message.startsWith('No contract ancestry:'))
     const recovery = invocation(
-      onlyAncestry && candidate.unrooted[0] ? ['explain', candidate.unrooted[0]] : ['check'],
+      onlyAncestry && candidate.unrooted[0]
+        ? ['explain', candidate.unrooted[0]]
+        : !verbose &&
+            candidate.source.problems.some((problem) =>
+              problem.includes('feedback deadline expired'),
+            )
+          ? ['check', '--verbose']
+          : ['check'],
     )
     lines.push('', line(`Next → ${recovery}`, 'command'))
   }

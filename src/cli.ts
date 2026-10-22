@@ -5,7 +5,7 @@ import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
-import type { Snapshot } from './model.ts'
+import type { CheckTiming, Snapshot } from './model.ts'
 import {
   CliError,
   colorEnabled,
@@ -23,7 +23,8 @@ import {
   type CommandName,
 } from './cli-interface.ts'
 import { completion } from './cli-completion.ts'
-import { checkReport } from './check-report.ts'
+import { checkReport, duration, timingLines, withTiming } from './check-report.ts'
+import { Timer } from './timing.ts'
 import type { HumanLine } from './cli-interface.ts'
 
 const invokedAt = Date.now()
@@ -43,6 +44,32 @@ const preliminary = parseArgs({
   tokens: true,
   strict: false,
 })
+const checkTimer =
+  preliminary.positionals[0] === 'check' && !preliminary.values.help && !preliminary.values.version
+    ? new Timer(0)
+    : undefined
+checkTimer?.start('setup')
+let candidateTimer: Timer | undefined
+let candidateTiming: CheckTiming | undefined
+let baseTimer: Timer | undefined
+let feedbackLimitMs: number | undefined
+const timingQuiet = preliminary.values.quiet === true && preliminary.values.verbose !== true
+const timingVerbose = preliminary.values.verbose === true
+function commandTiming(interrupted = false): CheckTiming | undefined {
+  if (!checkTimer) return undefined
+  const timing: CheckTiming = checkTimer.report(interrupted)
+  for (const stage of timing.stages) {
+    if (stage.name === 'candidate' && candidateTimer)
+      stage.stages = (candidateTiming ?? candidateTimer.report(interrupted)).stages
+    if (stage.name === 'base' && baseTimer) stage.stages = baseTimer.report(interrupted).stages
+  }
+  if (candidateTimer && feedbackLimitMs !== undefined)
+    timing.feedback = candidateTiming?.feedback ?? {
+      elapsedMs: candidateTimer.report(interrupted).elapsedMs,
+      limitMs: feedbackLimitMs,
+    }
+  return timing
+}
 let json = preliminary.values.json === true || preliminary.values.output === 'json'
 let debug = preliminary.values.debug === true
 let noColor = preliminary.values['no-color'] === true
@@ -81,6 +108,7 @@ function reportError(error: unknown): void {
           'INCOMPLETE',
           'bonsai help check',
         )
+  const timing = commandTiming(true)
   // Preserve the established error/status fields; new metadata is additive.
   if (json)
     write(
@@ -91,6 +119,7 @@ function reportError(error: unknown): void {
         exit_code: problem.exitCode,
         run: problem.run,
         retryable: false,
+        ...(timing ? { timing } : {}),
         ...(debug && error instanceof Error ? { stack: error.stack } : {}),
       }),
       process.stderr,
@@ -105,6 +134,23 @@ function reportError(error: unknown): void {
       process.stderr,
     )
     if (debug && error instanceof Error) write(error.stack ?? error.message, process.stderr)
+    if (timing && !timingQuiet)
+      write(
+        renderHuman(
+          'check',
+          [
+            '',
+            ...(timingVerbose ? [...timingLines(timing), ''] : []),
+            { text: `${duration(timing.elapsedMs)} elapsed`, role: 'summary' },
+          ],
+          {
+            width: width(process.stderr),
+            color: colorEnabled(process.stderr.isTTY, noColor),
+            ascii: ascii(),
+          },
+        ),
+        process.stderr,
+      )
   }
   process.exitCode = problem.exitCode
 }
@@ -617,6 +663,7 @@ async function main(): Promise<void> {
     : resolve(root, 'bonsai.json')
   let baseSha: string | undefined
   if (baseValue) {
+    checkTimer?.start('base-archive')
     const repository = await git(root, ['rev-parse', '--show-toplevel'])
     if (resolve(repository) !== root)
       throw new CliError(
@@ -644,6 +691,7 @@ async function main(): Promise<void> {
     }
     if (!policyValue) configFile = `git:${baseSha}:bonsai.json`
   }
+  checkTimer?.start('configuration')
   const config =
     policyValue === '-'
       ? loadConfig(root, 'stdin', await stdin())
@@ -694,7 +742,9 @@ async function main(): Promise<void> {
   const { explain } = await import('./retention.ts')
   let base: Snapshot | undefined
   if (temporary) {
-    base = await snapshot(temporary, config, false)
+    checkTimer?.start('base')
+    if (checkTimer) baseTimer = new Timer()
+    base = await snapshot(temporary, config, false, undefined, baseTimer)
     if (base.contracts.problems.length)
       throw new CliError(
         `Can't compile base contracts: ${base.contracts.problems.join(', ')}`,
@@ -707,7 +757,19 @@ async function main(): Promise<void> {
       ? (await stdin()).split(/\r?\n/).filter(Boolean)
       : operands
   checkDeadline()
-  const candidate = await snapshot(root, config, command === 'check', cancellation.signal)
+  checkTimer?.start('candidate')
+  if (checkTimer) {
+    candidateTimer = new Timer()
+    feedbackLimitMs = config.policy.maxFeedbackMs
+  }
+  const candidate = await snapshot(
+    root,
+    config,
+    command === 'check',
+    cancellation.signal,
+    candidateTimer,
+  )
+  candidateTiming = candidate.timing
   if (stopping) return
   checkDeadline()
   if (command === 'explain') {
@@ -766,6 +828,7 @@ async function main(): Promise<void> {
     }
     return
   }
+  checkTimer?.start('evaluation')
   const decision = evaluate(base, candidate, config.policy)
   const passed = candidate.evidence?.checks.filter((check) => check.status === 'passed').length ?? 0
   const rows = [
@@ -780,13 +843,22 @@ async function main(): Promise<void> {
       candidate.unrooted.length,
     ].join('\t'),
   ]
+  checkTimer?.start('report')
   const report = checkReport(candidate, decision, {
     bindings: config.bindings,
     verbose: enabled('verbose'),
     limit,
     invocation,
   })
-  await emit({ decision, snapshot: candidate }, rows, report.lines, decision.status !== 'pass')
+  checkTimer?.finish()
+  const timing = commandTiming()!
+  checkTimer?.start('output')
+  await emit(
+    { decision, snapshot: candidate, timing },
+    rows,
+    withTiming(report.lines, timing, enabled('verbose')),
+    decision.status !== 'pass',
+  )
   if (!json && decision.status !== 'pass' && (!human || quiet)) {
     await writeReport(
       renderHuman('check', report.problems, {
@@ -797,6 +869,7 @@ async function main(): Promise<void> {
       process.stderr,
     )
   }
+  checkTimer?.finish()
   process.exitCode = decision.status === 'pass' ? 0 : decision.status === 'reject' ? 1 : 2
 }
 

@@ -25,7 +25,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show detailed results, overrides --quiet
+  -v, --verbose             show detailed results and check timings, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -57,7 +57,7 @@ Check behavior, ancestry, and the retained-code budget
 USAGE
   bonsai check [flags]
 
-Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance.
+Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json.
 
 EXAMPLES
   $ bonsai check
@@ -75,7 +75,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show detailed results, overrides --quiet
+  -v, --verbose             show detailed results and check timings, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -126,7 +126,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show detailed results, overrides --quiet
+  -v, --verbose             show detailed results and check timings, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -175,7 +175,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show detailed results, overrides --quiet
+  -v, --verbose             show detailed results and check timings, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -220,7 +220,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show detailed results, overrides --quiet
+  -v, --verbose             show detailed results and check timings, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -262,7 +262,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show detailed results, overrides --quiet
+  -v, --verbose             show detailed results and check timings, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -304,7 +304,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show detailed results, overrides --quiet
+  -v, --verbose             show detailed results and check timings, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal

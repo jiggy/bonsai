@@ -30,7 +30,7 @@ One package, with six principal modules:
 | `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
 | `cli` | Collect facts, compare a base, explain components, and return actionable output. |
 
-`model.ts` defines their shared facts. `project.ts` joins collection, `binding-target.ts` validates the configured registry target against its measured snapshot, and `worker.ts` hosts execution. There is no database, daemon, LLM call, or external service.
+`model.ts` defines their shared facts. `project.ts` joins collection, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. There is no database, daemon, LLM call, or external service.
 
 ## Initial adapter choices
 
@@ -46,6 +46,21 @@ Initialization captures project Gitignore patterns and proposed exclusions in th
 configuration, including boundaries around nested Bonsai projects. Inventory uses
 those saved rules from the effective policy source. Candidate ignore-file edits
 or new nested project markers cannot silently narrow a trusted base inventory.
+
+## Timing boundaries
+
+The command profile measures elapsed wall time from the runtime clock origin through
+report preparation, with separate stages for setup, base work, configuration,
+candidate collection and verification, and evaluation. Final serialization, output
+delivery, and cleanup follow that reported total. Candidate timings nest within
+the command profile; base work stays outside candidate feedback.
+
+The parent retains partial measurements when verification or the command is
+interrupted. Completed phases retain durations, interrupted work retains its elapsed
+duration, and skipped work has a null duration. Timing facts remain available when
+no complete verification evidence exists and cannot substitute for that evidence.
+The separate feedback measurement preserves its policy boundary before the final
+integrity check; collecting timings never changes a limit or gate decision.
 
 ## Self-verification
 

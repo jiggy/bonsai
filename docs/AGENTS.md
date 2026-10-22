@@ -10,6 +10,8 @@ Design baseline, roadmap, command reference, CLI review evidence (`check-ux-revi
 
 Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and the full-check regression's test-only feedback window from committed root admission policy.
 
+Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
+
 ## Work Guidance
 
 Update CLI reference and migration notes with behavior changes.

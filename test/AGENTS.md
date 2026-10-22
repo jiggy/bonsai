@@ -14,6 +14,8 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs.
 
+Timing regressions exercise real CLI work and delayed handlers, retained measurements after feedback/command timeouts, skipped verification, and base analysis outside candidate feedback. Assert finite nonnegative durations and tolerant relationships to wall time rather than exact timings. Normalize only elapsed values when comparing presentation across separate runs; verify primary duration colors and semantic interruption states through PTYs.
+
 Self-check regression permits a 60-second test-only feedback window through explicit policy input. Preserve the committed inventory, bindings, and budget, require complete matching-candidate evidence, and expect genuine retained-size violations to reject rather than manufacturing root acceptance.
 
 ## Verification

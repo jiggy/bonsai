@@ -10,6 +10,10 @@ bring feedback within the saved policy. The regression's explicit test-only
 feedback window leaves the root policy unchanged and does not establish a budget
 pass.
 
+Check profiles now expose command and phase durations, including interrupted
+verification. Use those measurements to target feedback-time reductions while
+preserving every required observation.
+
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
 - Track side-effect imports and resource dependencies, with precise unresolved-edge diagnostics.
 - Extend explanation output to show actual contract-to-component paths and verification subjects.

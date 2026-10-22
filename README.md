@@ -149,6 +149,7 @@ JSON gate reports retain `decision` and `snapshot`; explanation reports retain
 `retryable` metadata on stderr. Stack traces require `--debug`.
 Check snapshots may add `source.bindingImports` and `evidence.bindingImport` for
 the validated internal loader boundary; existing fields remain available.
+Check reports also include additive `timing` and `snapshot.timing` measurements.
 
 ### Read a check result
 
@@ -188,6 +189,34 @@ count every executable observation, including separate outline rows.
 `Rejected` means the gate found failed requirements such as assertions, ancestry,
 or budget. `Pass` means all required evidence and policy conditions passed. Raising
 the budget cannot resolve unbound handlers or unsupported analysis.
+
+### Measure check duration
+
+Human check summaries include elapsed time. Use `--verbose` for phase durations
+and the measured feedback window against its configured limit:
+
+```sh
+bun run bonsai check --verbose
+bun run bonsai check --json
+```
+
+JSON `timing` records command elapsed milliseconds and named `stages`, including
+nested base and candidate analysis. `snapshot.timing` records the candidate alone.
+Stages report `completed`, `interrupted`, or `skipped`; skipped stages have
+`elapsedMs: null`. Partial timings survive a feedback timeout even when no complete
+evidence exists. Setup errors and `--timeout` errors carry available timing on
+stderr in JSON mode.
+
+Command elapsed time starts at the runtime clock origin and ends after report
+preparation. It includes startup, configuration, optional base work, candidate
+collection and verification, and policy evaluation. Final serialization, output
+delivery, and cleanup are outside that reported total. `timing.feedback` separately
+reports candidate collection and verification against `limitMs`, preserving the
+policy's existing measurement boundary before the final integrity check. Timing
+doesn't increase a deadline or change acceptance.
+
+`--quiet` suppresses human timing metrics; explicit JSON keeps them. Plain output
+retains its eight tab-separated columns. Timings measure elapsed wall time.
 
 ### Shell completions
 
@@ -298,12 +327,17 @@ At an interactive terminal, the checkout example passes three assertions while e
 bonsai · check
 
 ✓ Pass
-  ├─ Retained: 212 / 400 tokens
-  ├─ Contract surface: 1 pair
-  └─ Required checks: 3 / 3 passed
+  ├─ Required checks: 3 / 3 passed
+  └─ Contract surface: 1 pair
 
-3 checks passed
+Inventory measurements
+  ├─ Retained: 212 tokens
+  └─ Configured ceiling: 400 tokens
+
+3 checks passed · 1.3s elapsed
 ```
+
+Elapsed time varies with the runtime and machine.
 
 Add an exported, unused function to `examples/checkout/src/checkout.ts`, then rerun the demo. It rejects that symbol even though the file's other functions are used. Delete the function and the check passes again. The automated tests also demonstrate a reachable wrapper that exceeds a tight ceiling, then passes after inlining and deletion.
 

@@ -13,6 +13,14 @@ Feature: Admit only supported implementations of required behavior
     And response "snapshot.evidence.checks.length" equals 5
     And response "decision.status" equals "pass"
 
+  Scenario: Measure the command and candidate verification
+    When I invoke "check" with {"examples": 1}
+    Then response "exitCode" equals 0
+    And response "timingMeasured" equals true
+    And response "timing.feedback.limitMs" equals 15000
+    And response "verificationTiming.name" equals "verification"
+    And response "verificationTiming.status" equals "completed"
+
   Scenario: Wrong behavior is rejected
     When I invoke "check" with {"broken": true}
     Then response "exitCode" equals 1
@@ -58,3 +66,5 @@ Feature: Admit only supported implementations of required behavior
     And response "decision.status" equals "incomplete"
     And response "snapshot.source.problems.length" equals 1
     And response "handlerExecuted" equals false
+    And response "timingMeasured" equals true
+    And response "verificationTiming.status" equals "skipped"

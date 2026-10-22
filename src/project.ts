@@ -6,6 +6,7 @@ import { inventory, fingerprint, analyzeSource } from './source.ts'
 import { buildSnapshot } from './retention.ts'
 import { runEvidence } from './evidence.ts'
 import { validatePolicy } from './policy.ts'
+import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
 
 export function readConfig(
@@ -52,36 +53,63 @@ export async function snapshot(
   config: Config,
   execute = true,
   signal?: AbortSignal,
+  timer = new Timer(),
 ): Promise<Snapshot> {
   const started = performance.now()
-  const files = inventory(root, config.maintained, config.exclude)
-  if (!files.includes(config.bindings))
-    throw new Error('The binding file must be in maintained inventory')
-  const hash = fingerprint(root, files, config)
-  const contracts = compileContracts(
-    files
-      .filter((file) => file.endsWith('.feature'))
-      .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
-  )
-  const source = analyzeSource(root, files, config.bindings)
-  const result = buildSnapshot(hash, contracts, source)
-  if (execute && !contracts.problems.length && !source.problems.length) {
-    try {
-      result.evidence = await runEvidence(
-        root,
-        config,
-        contracts,
-        hash,
-        config.policy.maxFeedbackMs - (performance.now() - started),
-        signal,
-      )
-    } catch (error) {
-      source.problems.push(`Evidence collection interrupted: ${String(error)}`)
+  try {
+    timer.start('inventory')
+    const files = inventory(root, config.maintained, config.exclude)
+    if (!files.includes(config.bindings))
+      throw new Error('The binding file must be in maintained inventory')
+    timer.start('fingerprint')
+    const hash = fingerprint(root, files, config)
+    timer.start('contracts')
+    const contracts = compileContracts(
+      files
+        .filter((file) => file.endsWith('.feature'))
+        .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
+    )
+    timer.start('source')
+    const source = analyzeSource(root, files, config.bindings)
+    timer.start('retention')
+    const result = buildSnapshot(hash, contracts, source)
+    let feedbackElapsed = execute ? performance.now() - started : undefined
+    if (execute && !contracts.problems.length && !source.problems.length) {
+      timer.start('verification')
+      try {
+        result.evidence = await runEvidence(
+          root,
+          config,
+          contracts,
+          hash,
+          config.policy.maxFeedbackMs - (performance.now() - started),
+          signal,
+        )
+        timer.finish()
+      } catch (error) {
+        timer.finish('interrupted')
+        source.problems.push(`Evidence collection interrupted: ${String(error)}`)
+      }
+      feedbackElapsed = performance.now() - started
+      if (result.evidence) result.evidence.elapsedMs = feedbackElapsed
+      timer.start('integrity')
+      if (fingerprint(root, inventory(root, config.maintained, config.exclude), config) !== hash) {
+        source.problems.push('Maintained files changed during verification')
+      }
+      timer.finish()
+    } else {
+      timer.skip('verification')
+      timer.skip('integrity')
     }
-    if (result.evidence) result.evidence.elapsedMs = performance.now() - started
-    if (fingerprint(root, inventory(root, config.maintained, config.exclude), config) !== hash) {
-      source.problems.push('Maintained files changed during verification')
+    result.timing = {
+      ...timer.report(),
+      ...(feedbackElapsed !== undefined && {
+        feedback: { elapsedMs: feedbackElapsed, limitMs: config.policy.maxFeedbackMs },
+      }),
     }
+    return result
+  } catch (error) {
+    timer.finish('interrupted')
+    throw error
   }
-  return result
 }
