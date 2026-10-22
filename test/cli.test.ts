@@ -53,6 +53,7 @@ test('help and version are available without loading a project', () => {
     ['--help'],
     ['help'],
     ['check', '--help'],
+    ['check', '-vh'],
     ['help', 'explain'],
     ['config', 'show', '--help'],
     ['config'],
