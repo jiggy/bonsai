@@ -25,7 +25,7 @@ Run the project's gate with JSON output. If no wrapper exists, use a separate Bo
 bun run --cwd "$BONSAI_DIR" --silent bonsai check --root "$PROJECT_DIR" --json
 ```
 
-`BONSAI_DIR` is the absolute checker checkout; `PROJECT_DIR` is the absolute consuming-project root. Preserve any `--base` or `--policy` arguments required by the project's acceptance command. Read the exit status and the report: normal results contain `decision` and `snapshot`; setup errors report `status: incomplete` on stderr.
+`BONSAI_DIR` is the absolute checker checkout; `PROJECT_DIR` is the absolute consuming-project root. Preserve any `--base` or `--policy` arguments required by the project's acceptance command. Read the exit status and the report: normal results contain `decision` and `snapshot`; setup errors report `status: incomplete` with a string `error` and actionable metadata on stderr.
 
 Record retained size, ceiling, required reduction, contract surface, violations, and individual required-check outcomes. A pre-existing failure remains a blocker to claiming acceptance.
 

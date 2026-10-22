@@ -19,6 +19,111 @@ bun run bonsai explain src/checkout.ts --root examples/checkout
 bun run bonsai check --root examples/checkout --json
 ```
 
+## Commands
+
+| Command | Purpose |
+| --- | --- |
+| `bonsai check` | Check required behavior, ancestry, and retained size |
+| `bonsai explain <target>` | Show ancestry and relationships without running handlers |
+| `bonsai config show` | Inspect effective configuration and its origin |
+| `bonsai completion <shell>` | Generate bash, zsh, fish, or PowerShell completions |
+| `bonsai help [command]` | Show help, or capabilities with `--json` |
+| `bonsai version` | Show the installed version |
+
+See the [generated CLI reference](docs/cli.md) for every flag, default, and example.
+Root and command help support `-h` (concise), `--help` (complete), and `--json`.
+`--help` takes priority over other options and never loads a project.
+
+Data goes to stdout; progress, errors, and diagnostics go to stderr. At a terminal,
+results use concise human output. Pipes default to headerless tab-separated records.
+Use `--json` for the complete stable report and `--pretty` to indent it in a pipe.
+`--quiet` suppresses human results and progress; explicit JSON/plain data and errors
+remain available. `--verbose` wins over `--quiet` and shows all violations.
+
+### Configuration and environment
+
+`--root`, `--base`, and `--policy` override `BONSAI_ROOT`, `BONSAI_BASE`, and
+`BONSAI_POLICY`, respectively. The default root is the current directory; base and
+policy overrides are unset. An empty environment override is an input error.
+`config show --json` includes each value's origin. Project configuration stays in
+`bonsai.json` and accepts JSON comments. There are no user/system configuration
+files, persistent CLI state, telemetry, network calls, or automatic updates.
+
+With `--base`, the base revision supplies the effective policy and maintained
+inventory unless `--policy` is explicit. Environment policy overrides have the
+same explicit effect and should be controlled in trusted CI. CLI timeout limits
+never increase the project's feedback budget.
+
+`NO_COLOR`, `BONSAI_NO_COLOR`, `TERM=dumb`, and `--no-color` disable ANSI styling,
+even with `FORCE_COLOR`. Otherwise `FORCE_COLOR=1` enables color, while
+`FORCE_COLOR=0` disables it. Each stream's terminal status is independent.
+`COLUMNS` sets human/help width (default 80). `TERM=dumb` and `LANG`/`LC_ALL` set
+to `C` or `POSIX` select ASCII status glyphs. JSON and plain records never use ANSI.
+`CI` and `--no-input` disable prompts; an explicit `--interactive` can override
+`CI` only when stdin and stderr are terminals. `--no-input` always wins.
+
+`explain -` reads one target per line from piped stdin. `--policy -` reads JSON or
+JSONC from piped stdin; both inputs cannot share stdin. Neither form reads from a
+terminal. Use `--timeout 30` to bound a command to 30 seconds. Signals stop active
+verification workers and remove temporary base archives. Candidate handlers still
+run with the caller's privileges, as described under Limits.
+
+### Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Success or gate pass |
+| 1 | Gate rejection or runtime failure, including CLI timeout |
+| 2 | Incomplete gate, invalid input/configuration, or usage error |
+| 3 | Configuration access denied |
+| 4 | `explain` target not found |
+| 130 | Interrupted with SIGINT |
+| 143 | Stopped with SIGTERM |
+
+Only exit 0 establishes acceptance for `check`. For compatibility, incomplete
+analysis stays exit 2 rather than changing an existing automation contract.
+JSON gate reports retain `decision` and `snapshot`; explanation reports retain
+`fingerprint`, `components`, and `problems`. JSON setup errors keep the existing
+`status` and string `error` fields, adding `code`, `exit_code`, `run`, and
+`retryable` metadata on stderr. Stack traces require `--debug`.
+
+### Shell completions
+
+Generate scripts without changing shell configuration automatically:
+
+```sh
+bonsai completion bash > bonsai.bash
+source bonsai.bash
+bonsai completion zsh > _bonsai
+bonsai completion fish > bonsai.fish
+bonsai completion powershell > bonsai.ps1
+```
+
+Load zsh scripts from a directory in `$fpath` after `compinit`, fish scripts from
+`$XDG_CONFIG_HOME/fish/completions/` (or `~/.config/fish/completions/`), and
+PowerShell scripts from your profile. Completions use the same command/flag registry
+as help and include filesystem completion where supported. They don't run handlers.
+
+### CLI migration
+
+Existing `check` and `explain` invocations and their `--json` report fields are
+preserved. Default output is now human-oriented at a terminal and plain records
+in pipes; scripts parsing the old formatted summary or default explanation JSON
+should request `--json` explicitly. JSON is compact in pipes; add `--pretty` for
+indentation. Plain check columns are, in order: status, retained tokens, ceiling,
+required reduction, surface pairs, passed checks, required checks, unrooted symbols.
+Plain explanation columns are component ID, tokens, check count, and source location.
+Empty piped targets produce no plain records, or an explanation with empty components
+under `--json`. No match for an explicitly named target exits 4.
+
+### Contributing
+
+Use `bun install --frozen-lockfile`, `bun run check`, `bun run test`, and
+`bun run demo`. Regenerate the command reference with
+`bun run --silent bonsai help --markdown > docs/cli.md` after command changes.
+Bun remains the supported distribution/runtime; static binary releases and a
+self-updater are outside this CLI rewrite.
+
 ## Publish an alpha
 
 Install Bun before using the published CLI. To publish this scoped package publicly
@@ -54,17 +159,17 @@ fixes in their own checkout. Make the CI job a required branch protection check
 to block merging changes with formatting errors. Repository rules must allow
 the workflow's token to push formatting commits to the target branch.
 
-The checkout example passes three assertions while earning **one** action–observation pair:
+At an interactive terminal, the checkout example passes three assertions while earning **one** action–observation pair:
 
 ```text
-PASS
+bonsai · check
 
-Contract surface: 1 pairs
-Retained size: 212 tokens
-Ceiling: 400 tokens
-Required reduction: 0 tokens
-Required checks: 3 / 3 passed
-Unrooted components: 0
+✓ Pass
+  ├─ Retained: 212 / 400 tokens
+  ├─ Contract surface: 1 pair
+  └─ Required checks: 3 / 3 passed
+
+3 checks passed
 ```
 
 Add an exported, unused function to `examples/checkout/src/checkout.ts`, then rerun the demo. It rejects that symbol even though the file's other functions are used. Delete the function and the check passes again. The automated tests also demonstrate a reachable wrapper that exceeds a tight ceiling, then passes after inlining and deletion.

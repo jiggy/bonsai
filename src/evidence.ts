@@ -77,6 +77,7 @@ export async function runEvidence(
   contracts: Contracts,
   fingerprint: string,
   timeoutMs: number,
+  signal?: AbortSignal,
 ): Promise<Evidence> {
   const { fork } = await import('node:child_process')
   return new Promise((resolveResult, reject) => {
@@ -90,16 +91,29 @@ export async function runEvidence(
       execArgv: [],
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     })
+    const stopWorker = () => child.kill('SIGKILL')
+    process.once('exit', stopWorker)
+    let settled = false
     const finish = (error?: Error, evidence?: Evidence) => {
+      if (settled) return
+      settled = true
       clearTimeout(timer)
+      process.removeListener('exit', stopWorker)
+      signal?.removeEventListener('abort', abort)
+      const done = () => {
+        if (error) reject(error)
+        else resolveResult(evidence!)
+      }
+      if (child.exitCode !== null || child.signalCode !== null) done()
+      else child.once('close', done)
       child.kill('SIGKILL')
-      if (error) reject(error)
-      else resolveResult(evidence!)
     }
     const timer = setTimeout(
       () => finish(new Error('Verification feedback deadline expired')),
       timeoutMs,
     )
+    const abort = () => finish(new Error('Verification interrupted'))
+    signal?.addEventListener('abort', abort, { once: true })
     child.once('error', (error) => finish(error))
     child.once('exit', () =>
       finish(new Error('Verification worker exited without a complete report')),
@@ -110,5 +124,6 @@ export async function runEvidence(
       else finish(new Error(result.error ?? 'Invalid worker report'))
     })
     child.send({ root, bindings, contracts, fingerprint })
+    if (signal?.aborted) abort()
   })
 }
