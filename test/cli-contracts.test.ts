@@ -222,9 +222,8 @@ test('a copied recovery command preserves project, base, policy, and shell quoti
       'human',
     ])
     assert.equal(rejected.status, 1, rejected.stderr)
-    const next = (rejected.stdout + rejected.stderr).match(
-      /^\s*Next (?:→|->) (bonsai explain .+)$/m,
-    )
+    assert.equal(rejected.stdout, '')
+    const next = rejected.stderr.match(/^\s*Next (?:→|->) (bonsai explain .+)$/m)
     assert.ok(next, rejected.stdout + rejected.stderr)
     const explained = runRecovery(next[1])
     assert.equal(explained.status, 0, explained.stderr)
@@ -256,9 +255,8 @@ test('copied recovery commands accept dash-prefixed files and trailing output fl
     writeFileSync(policy, JSON.stringify(config))
     const rejected = run(['check', '--root', root, '--output', 'human'])
     assert.equal(rejected.status, 1, rejected.stderr)
-    const next = (rejected.stdout + rejected.stderr).match(
-      /^\s*Next (?:→|->) (bonsai explain .+)$/m,
-    )
+    assert.equal(rejected.stdout, '')
+    const next = rejected.stderr.match(/^\s*Next (?:→|->) (bonsai explain .+)$/m)
     assert.ok(next, rejected.stdout + rejected.stderr)
     assert.match(next[1], /-feature\.ts/)
     const explained = runRecovery(next[1])
@@ -421,8 +419,9 @@ test('human explain limits details while explicit machine formats remain complet
       assert.equal(result.status, 2, result.stderr)
       assert.equal(JSON.parse(result.stderr).code, 'USAGE')
     }
-    const unsupported = run(['check', '--limit', '1', '--json'])
-    assert.equal(unsupported.status, 2, unsupported.stderr)
+    const checked = run(['check', '--root', root, '--limit', '1', '--json'])
+    assert.equal(checked.status, 1, checked.stderr)
+    assert.ok(JSON.parse(checked.stdout).snapshot.unrooted.length >= 25)
   } finally {
     dispose()
   }

@@ -25,7 +25,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show all result details, overrides --quiet
+  -v, --verbose             show detailed results, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -69,12 +69,13 @@ OPTIONS
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
       --timeout string      command deadline in seconds (default none)
+      --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors
       --plain               write headerless tab-separated records
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show all result details, overrides --quiet
+  -v, --verbose             show detailed results, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -125,7 +126,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show all result details, overrides --quiet
+  -v, --verbose             show detailed results, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -174,7 +175,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show all result details, overrides --quiet
+  -v, --verbose             show detailed results, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -219,7 +220,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show all result details, overrides --quiet
+  -v, --verbose             show detailed results, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -261,7 +262,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show all result details, overrides --quiet
+  -v, --verbose             show detailed results, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal
@@ -303,7 +304,7 @@ OPTIONS
   -o, --output string       output: auto, human, plain, json (default auto)
       --pretty              indent JSON (default only on a terminal)
   -q, --quiet               suppress human results and progress
-  -v, --verbose             show all result details, overrides --quiet
+  -v, --verbose             show detailed results, overrides --quiet
   -d, --debug               show error traces on stderr
       --no-color            disable ANSI color and styling
       --no-input            disable prompts, including at a terminal

@@ -31,7 +31,7 @@ export const flags = {
   limit: {
     type: 'string',
     description: 'maximum human results (default 20, 0 shows all)',
-    scope: ['explain'],
+    scope: ['check', 'explain'],
   },
   json: { type: 'boolean', short: 'j', description: 'write JSON data and JSON errors' },
   plain: { type: 'boolean', description: 'write headerless tab-separated records' },
@@ -46,7 +46,7 @@ export const flags = {
   verbose: {
     type: 'boolean',
     short: 'v',
-    description: 'show all result details, overrides --quiet',
+    description: 'show detailed results, overrides --quiet',
   },
   debug: { type: 'boolean', short: 'd', description: 'show error traces on stderr' },
   'no-color': { type: 'boolean', description: 'disable ANSI color and styling' },
@@ -286,6 +286,21 @@ export function colorEnabled(tty: boolean | undefined, noColor: boolean): boolea
 }
 
 export type PresentationOptions = { width?: number; color?: boolean; ascii?: boolean }
+export type HumanLine =
+  | string
+  | {
+      text: string
+      role:
+        | 'success'
+        | 'error'
+        | 'warning'
+        | 'info'
+        | 'text'
+        | 'detail'
+        | 'heading'
+        | 'summary'
+        | 'command'
+    }
 
 const graphemes = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const segments = (text: string) => [...graphemes.segment(text)].map((item) => item.segment)
@@ -368,7 +383,9 @@ function paragraph(
       prefix = continuation
       current = ''
     }
-    const fitted = shorten(word, Math.max(1, width - displayWidth(prefix)), ascii)
+    const fitted = /^https?:\/\//.test(word)
+      ? word
+      : shorten(word, Math.max(1, width - displayWidth(prefix)), ascii)
     current += `${current ? ' ' : ''}${fitted}`
   }
   return [...result, prefix + current]
@@ -475,9 +492,59 @@ function humanLine(line: string, options: PresentationOptions): string {
   return tone(line, line.includes('#') && !line.startsWith(' ') ? 37 : 2, options)
 }
 
+/** Carry meaning through wrapping; indentation is not a severity. */
+function semanticLine(
+  line: string,
+  role: Exclude<HumanLine, string>['role'],
+  options: PresentationOptions,
+): string {
+  const next = line.match(/^(\s*Next (?:→|->) )(.*)$/)
+  if (next) return tone(next[1], 90, options) + tone(next[2], role === 'command' ? 36 : 37, options)
+  if (role === 'command') return tone(line, 36, options)
+  if (role === 'summary')
+    return line
+      .split(/ (?:·|\.) /)
+      .map((part) => {
+        const color = /\b(?:blockers?|violations?)\b/.test(part)
+          ? 31
+          : /not run|not completed|provisional/.test(part)
+            ? 33
+            : 37
+        return tone(tone(part, 1, options), color, options)
+      })
+      .join(tone(asciiText(' · ', options.ascii), 90, options))
+  const tree = line.match(/^(\s*(?:├─|└─|\|-|'-) )(.*)$/)
+  const prefix = tree ? tone(tree[1], 90, options) : ''
+  const content = tree ? tree[2] : line
+  const indicator = content.match(/^([✓✗△i+x!]) (.*)$/)
+  const color =
+    role === 'error'
+      ? 31
+      : role === 'warning'
+        ? 33
+        : role === 'success'
+          ? 32
+          : role === 'info'
+            ? 34
+            : 37
+  if (indicator)
+    return (
+      prefix +
+      tone(tone(indicator[1], 1, options), color, options) +
+      ' ' +
+      tone(indicator[2], role === 'info' ? 37 : color, options)
+    )
+  if (role === 'detail') return prefix + tone(content, 2, options)
+  if (role === 'text') {
+    const field = content.match(/^([^:]+:)( .*)$/)
+    if (field) return prefix + tone(field[1], 2, options) + tone(field[2], 37, options)
+  }
+  return prefix + tone(content, color, options)
+}
+
 export function renderHuman(
   command: CommandName,
-  lines: string[],
+  lines: HumanLine[],
   options: PresentationOptions & { header?: boolean } = {},
 ): string {
   const header = options.header
@@ -490,11 +557,20 @@ export function renderHuman(
     header +
     lines
       .flatMap((line) => {
-        const text = asciiText(stripVTControlCharacters(line), options.ascii)
+        const text = asciiText(
+          stripVTControlCharacters(typeof line === 'string' ? line : line.text),
+          options.ascii,
+        )
         const laidOut = /^Next (?:→|->) bonsai\b/.test(text)
           ? text
           : wrap(text, columns(options), options)
-        return laidOut.split('\n').map((part) => humanLine(part, options))
+        return laidOut
+          .split('\n')
+          .map((part) =>
+            typeof line === 'string'
+              ? humanLine(part, options)
+              : semanticLine(part, line.role, options),
+          )
       })
       .join('\n')
   )
@@ -516,5 +592,10 @@ export function renderError(
         ' '.repeat(displayWidth(prefix)),
         options.ascii,
       )
-  return [...error.split('\n'), ...recovery].map((line) => humanLine(line, options)).join('\n')
+  return [
+    ...error.split('\n').map((line) => semanticLine(line, 'error', options)),
+    ...recovery.map((line) =>
+      semanticLine(line, run.startsWith('bonsai ') ? 'command' : 'text', options),
+    ),
+  ].join('\n')
 }

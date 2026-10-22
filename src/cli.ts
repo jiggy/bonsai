@@ -23,7 +23,8 @@ import {
   type CommandName,
 } from './cli-interface.ts'
 import { completion } from './cli-completion.ts'
-import { checkDiagnostics } from './check-diagnostics.ts'
+import { checkReport } from './check-report.ts'
+import type { HumanLine } from './cli-interface.ts'
 
 const invokedAt = Date.now()
 const args = process.argv.slice(2)
@@ -148,13 +149,16 @@ function checkDeadline(): void {
     throw new CliError('Command deadline expired', 'TIMEOUT', 'Rerun with a longer --timeout', 1)
 }
 
-async function writeReport(text: string): Promise<void> {
+async function writeReport(
+  text: string,
+  stream: NodeJS.WriteStream = process.stdout,
+): Promise<void> {
   const output = text.trimEnd() + '\n'
   checkDeadline()
   await new Promise<void>((resolveWrite, reject) => {
     const abort = () => {
       cancellation.signal.removeEventListener('abort', abort)
-      process.stdout.destroy()
+      if (stream === process.stdout) stream.destroy()
       reject(new Error('Output interrupted'))
     }
     if (cancellation.signal.aborted) {
@@ -170,7 +174,7 @@ async function writeReport(text: string): Promise<void> {
       } else resolveWrite()
     }
     try {
-      process.stdout.write(output, finish)
+      stream.write(output, finish)
     } catch (error) {
       finish(error instanceof Error ? error : new Error(String(error)))
     }
@@ -390,18 +394,26 @@ async function main(): Promise<void> {
   }
   const quiet = enabled('quiet') && !enabled('verbose')
   const human = format === 'human' || (format === 'auto' && Boolean(process.stdout.isTTY))
-  const emit = async (data: unknown, plain: string[], rendered: string[]) => {
+  let checkHeaderShown = false
+  const emit = async (
+    data: unknown,
+    plain: string[],
+    rendered: HumanLine[],
+    diagnostic = false,
+  ) => {
     checkDeadline()
     if (json) await writeReport(jsonText(data))
     else if (!quiet || enabled('plain') || format === 'plain') {
       if (human) {
+        const stream = diagnostic ? process.stderr : process.stdout
         await writeReport(
           renderHuman(command as CommandName, rendered, {
-            header: Boolean(process.stdout.isTTY),
-            width: width(),
-            color: colorEnabled(process.stdout.isTTY, noColor),
+            header: !checkHeaderShown && Boolean(stream.isTTY),
+            width: width(stream),
+            color: colorEnabled(stream.isTTY, noColor),
             ascii: ascii(),
           }),
+          stream,
         )
       } else if (plain.length) await writeReport(plain.join('\n'))
     }
@@ -540,8 +552,25 @@ async function main(): Promise<void> {
       'Set BONSAI_POLICY or --policy to a policy file',
     )
   checkDeadline()
-  if (!quiet && !json && (process.stderr.isTTY || enabled('verbose')))
-    write(`${command === 'check' ? 'Checking' : 'Reading'} ${root}`, process.stderr)
+  if (!quiet && !json && process.stderr.isTTY) {
+    if (command === 'check') {
+      const progress: HumanLine[] = [
+        { text: 'i Checking contracts, source, and evidence', role: 'info' },
+      ]
+      if (root !== process.cwd()) progress.push({ text: `  └─ Root: ${root}`, role: 'detail' })
+      write(
+        renderHuman('check', progress, {
+          header: true,
+          width: width(process.stderr),
+          color: colorEnabled(process.stderr.isTTY, noColor),
+          ascii: ascii(),
+        }),
+        process.stderr,
+      )
+      write('', process.stderr)
+      checkHeaderShown = true
+    } else write(`Reading ${root}`, process.stderr)
+  }
   const context = [
     '--root',
     root,
@@ -751,143 +780,22 @@ async function main(): Promise<void> {
       candidate.unrooted.length,
     ].join('\t'),
   ]
-  if (decision.status === 'incomplete') {
-    const unbound = candidate.contracts.checks.filter(
-      (check) => !Object.hasOwn(candidate.source.actions, check.action),
-    )
-    const secondary = new Set([
-      ...candidate.unrooted.map((id) => `No contract ancestry: ${id}`),
-      `Retained size exceeds ceiling by ${decision.requiredReduction} tokens`,
-      ...(candidate.contracts.problems.length || candidate.source.problems.length
-        ? ['Required evidence is missing, incomplete, or belongs to another candidate']
-        : []),
-      ...unbound.flatMap((check) => {
-        const result = candidate.evidence?.checks.find((result) => result.id === check.id)
-        return [
-          `Missing required check: ${check.id}`,
-          ...(result && result.status !== 'passed'
-            ? [`Failed check: ${check.id}: ${result.error ?? 'assertion failed'}`]
-            : []),
-        ]
-      }),
-    ])
-    const blockers = [...new Set(decision.violations.filter((message) => !secondary.has(message)))]
-    const provisional = [
-      ...new Set(decision.violations.filter((message) => secondary.has(message))),
-    ]
-    const diagnostics = checkDiagnostics(candidate, config.bindings, blockers, enabled('verbose'))
-    const shown = enabled('verbose') ? diagnostics : diagnostics.slice(0, 20)
-    const results = candidate.evidence
-      ? (['passed', 'failed', 'missing'] as const)
-          .flatMap((status) => {
-            const count = candidate.evidence!.checks.filter(
-              (check) => check.status === status,
-            ).length
-            return count ? [`${count} ${status}`] : []
-          })
-          .join(` ${symbol('·', '.')} `) || 'no results'
-      : candidate.source.problems.some((problem) =>
-            problem.startsWith('Evidence collection interrupted:'),
-          )
-        ? 'not completed'
-        : 'not run'
-    const recovery = invocation(['check'])
-    const lines = [
-      `${symbol('△', '!')} Incomplete`,
-      '',
-      'Blocking issues',
-      ...shown.flatMap((diagnostic) => [
-        `- ${diagnostic.title}`,
-        ...diagnostic.detail.map((detail) => `  ${symbol('├─', '|-')} ${detail}`),
-        `  ${symbol('└─', "'-")} Fix: ${diagnostic.fix}`,
-      ]),
-      ...(shown.length < diagnostics.length
-        ? [`${diagnostics.length - shown.length} more blocking issues. Use --verbose to show all`]
-        : []),
-      '',
-      'Verification',
-      `  ${symbol('├─', '|-')} Required checks: ${results} (${candidate.contracts.checks.length} expected)`,
-      `  ${symbol('└─', "'-")} Discovered contract surface: ${decision.surface} ${decision.surface === 1 ? 'pair' : 'pairs'}`,
-      '',
-      'Inventory measurements',
-      `  ${symbol('├─', '|-')} Retained: ${decision.retained} tokens`,
-      `  ${decision.requiredReduction ? symbol('├─', '|-') : symbol('└─', "'-")} Configured ceiling: ${decision.ceiling} tokens`,
-      ...(decision.requiredReduction
-        ? [
-            `  ${symbol('└─', "'-")} Potential overage: ${decision.requiredReduction} tokens (provisional)`,
-          ]
-        : []),
-      ...(enabled('verbose') && provisional.length
-        ? ['', 'Additional findings (provisional)', ...provisional.map((message) => `- ${message}`)]
-        : provisional.length
-          ? ['', 'Use --verbose for all provisional findings']
-          : []),
-      '',
-      `Next ${symbol('→', '->')} ${recovery}`,
-    ]
-    await emit({ decision, snapshot: candidate }, rows, lines)
-    if (!json && (!human || quiet)) {
-      for (const blocker of blockers) write(`incomplete: ${blocker}`, process.stderr)
-      for (const diagnostic of shown) write(`fix: ${diagnostic.fix}`, process.stderr)
-      if (enabled('verbose'))
-        for (const finding of provisional)
-          write(`incomplete (provisional): ${finding}`, process.stderr)
-      if (shown.length < diagnostics.length)
-        write(
-          `${diagnostics.length - shown.length} more blocking issues. Use --verbose to show all`,
-          process.stderr,
-        )
-      write(`Next ${symbol('→', '->')} ${recovery}`, process.stderr)
-    }
-    process.exitCode = 2
-    return
-  }
-  const glyph =
-    decision.status === 'pass'
-      ? symbol('✓', '+')
-      : decision.status === 'reject'
-        ? symbol('✗', 'x')
-        : symbol('△', '!')
-  const label =
-    decision.status === 'pass' ? 'Pass' : decision.status === 'reject' ? 'Rejected' : 'Incomplete'
-  const lines = [
-    `${glyph} ${label}`,
-    `  ${symbol('├─', '|-')} Retained: ${decision.retained} / ${decision.ceiling} tokens`,
-    `  ${symbol('├─', '|-')} Contract surface: ${decision.surface} ${decision.surface === 1 ? 'pair' : 'pairs'}`,
-    `  ${symbol('└─', "'-")} Required checks: ${passed} / ${candidate.contracts.checks.length} passed`,
-  ]
-  if (decision.base)
-    lines.push(
-      `Retained change: ${decision.base.retainedChange}`,
-      `Additional capacity: ${decision.base.additionalCapacity}`,
-    )
-  if (decision.requiredReduction)
-    lines.push(`Required reduction: ${decision.requiredReduction} tokens`)
-  const subject = candidate.unrooted[0] ?? candidate.source.components[0]?.id
-  const recovery = subject ? invocation(['explain', subject]) : invocation(['config', 'show'])
-  const violations = enabled('verbose') ? decision.violations : decision.violations.slice(0, 20)
-  if (violations.length)
-    lines.push(
-      '',
-      ...violations.map((violation) => `- ${violation}`),
-      `Next ${symbol('→', '->')} ${recovery}`,
-    )
-  if (decision.violations.length > violations.length) lines.push('Use --verbose for all violations')
-  if (enabled('verbose'))
-    lines.push(
-      '',
-      ...(candidate.evidence?.checks.map((check) => `${check.id}: ${check.status}`) ?? []),
-    )
-  const counters = [
-    ...(passed ? [`${passed} checks passed`] : []),
-    ...(candidate.unrooted.length ? [`${candidate.unrooted.length} unrooted`] : []),
-    ...(decision.violations.length ? [`${decision.violations.length} violations`] : []),
-  ]
-  if (counters.length) lines.push('', counters.join(` ${symbol('·', '.')} `))
-  await emit({ decision, snapshot: candidate }, rows, lines)
+  const report = checkReport(candidate, decision, {
+    bindings: config.bindings,
+    verbose: enabled('verbose'),
+    limit,
+    invocation,
+  })
+  await emit({ decision, snapshot: candidate }, rows, report.lines, decision.status !== 'pass')
   if (!json && decision.status !== 'pass' && (!human || quiet)) {
-    for (const violation of violations) write(`${decision.status}: ${violation}`, process.stderr)
-    write(`Next ${symbol('→', '->')} ${recovery}`, process.stderr)
+    await writeReport(
+      renderHuman('check', report.problems, {
+        width: width(process.stderr),
+        color: colorEnabled(process.stderr.isTTY, noColor),
+        ascii: ascii(),
+      }),
+      process.stderr,
+    )
   }
   process.exitCode = decision.status === 'pass' ? 0 : decision.status === 'reject' ? 1 : 2
 }

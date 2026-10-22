@@ -96,7 +96,7 @@ Default section order:
 
 ## User Preferences
 
-- Use the CLI skills in `.agents/skills/` for CLI behavior, help, errors, and terminal presentation.
+- Use all applicable CLI skills in `.agents/skills/` for CLI behavior, help, errors, and terminal presentation; verify semantic colors and wrapped alert text, rather than merely checking for ANSI output.
 - Keep automated formatting in CI rather than adding formatting instructions to agent context.
 
 ## Child DOX Index

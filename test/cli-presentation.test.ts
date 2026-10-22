@@ -77,7 +77,7 @@ test('narrow terminal help keeps examples copyable and descriptions visually att
   assert.match(narrow.stdout, /  -o, --output string\n    output: auto, human, plain, json/)
   const hanging = run(['check', '--help', '--no-color'], { COLUMNS: '60' }, true)
   assert.equal(hanging.status, 0, hanging.stderr)
-  assert.match(hanging.stdout, /  -v, --verbose +show all result details,\n {28}overrides --quiet/)
+  assert.match(hanging.stdout, /  -v, --verbose +show detailed results, overrides\n {28}--quiet/)
 })
 
 test('canonical help and generated documentation stay unstyled when redirected', () => {
@@ -131,4 +131,13 @@ test('layout measures terminal cells without counting ANSI or splitting grapheme
     stripVTControlCharacters(renderHelp('explain', false, { width: 60, color: true })),
     renderHelp('explain', false, { width: 60 }),
   )
+})
+
+test('human recovery links remain intact at narrow terminal widths', () => {
+  const url = 'https://github.com/jiggy/bonsai/blob/main/docs/roadmap.md'
+  const result = renderHuman('check', [{ text: `  └─ Fix: See ${url}`, role: 'text' }], {
+    width: 40,
+  })
+  assert.ok(result.includes(url))
+  assert.doesNotMatch(result, /…/)
 })

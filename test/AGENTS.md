@@ -8,7 +8,7 @@ Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which executes r
 
 ## Local Contracts
 
-Assert outputs, streams, exit codes, and candidate behavior. Use isolated fixtures and remove them in cleanup. CLI tests must exercise the executable rather than duplicate its parser.
+Assert outputs, streams, exit codes, and candidate behavior. Check presentation regressions use real PTYs and inspect ANSI foreground/dim state on meaningful text, including wrapped continuations and independently redirected streams. Use isolated fixtures and remove them in cleanup. CLI tests must exercise the executable rather than duplicate its parser.
 
 ## Work Guidance
 

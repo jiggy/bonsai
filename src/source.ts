@@ -255,7 +255,7 @@ export function analyzeSource(root: string, files: string[], bindings: string): 
       for (const property of node.initializer.properties) {
         if (
           !ts.isPropertyAssignment(property) ||
-          !ts.isStringLiteral(property.name) ||
+          (!ts.isStringLiteral(property.name) && !ts.isIdentifier(property.name)) ||
           !ts.isIdentifier(property.initializer)
         ) {
           source.problems.push('Each action binding must be a literal key and named handler')

@@ -13,6 +13,7 @@ export function checkDiagnostics(
   bindings: string,
   blockers: string[],
   verbose = false,
+  limit = 20,
 ): CheckDiagnostic[] {
   const diagnostics: CheckDiagnostic[] = []
   const handled = new Set<string>()
@@ -20,11 +21,11 @@ export function checkDiagnostics(
     .map(({ file }) => file)
     .filter((file) => file.endsWith('.feature'))
   const examples = (items: string[]) => {
-    const shown = verbose ? items : items.slice(0, 3)
+    const shown = items.slice(0, verbose ? limit || items.length : Math.min(3, limit || 3))
     return [
       ...shown,
       ...(shown.length < items.length
-        ? [`${items.length - shown.length} more locations. Use --verbose to show all`]
+        ? [`${items.length - shown.length} more locations. Use --verbose --limit 0 to show all`]
         : []),
     ]
   }
@@ -61,16 +62,20 @@ export function checkDiagnostics(
       title: `Can't trace ${dynamic.length} runtime ${dynamic.length === 1 ? 'import' : 'imports'}`,
       detail: [
         ...examples(
-          dynamic.map((message) =>
-            message.replace(
+          dynamic.map((message) => {
+            const raw = message.replace(
               /^(?:Dynamic import requires an adapter|Unsupported dynamic import selection): /,
               '',
-            ),
-          ),
+            )
+            const location = raw.match(/^(.+?)#(.+?) at (.+?:\d+(?::\d+)?) — (.+)$/)
+            return location
+              ? `${location[3]} — ${location[2]}${verbose ? `: ${location[4]}` : ''}`
+              : raw
+          }),
         ),
         "Bonsai can't determine which source components these imports retain, so behavior checks can't run",
       ],
-      fix: `Use a static import for a fixed target, or a literal import with a named export. Runtime-selected targets need tracing support; see ${docsUrl.replace('/cli.md', '/roadmap.md')}`,
+      fix: `Use a static import for a fixed target, or a literal import with a named export. Runtime-selected targets need tracing support. See ${docsUrl.replace('/cli.md', '/roadmap.md')}`,
     })
   }
   const unbound = blockers.filter((message) => message.startsWith('Unbound action: '))
@@ -88,6 +93,35 @@ export function checkDiagnostics(
       fix: `Export each action from ${bindings} in the literal actions registry, mapped to a named application handler`,
     })
   }
+  const registry = blockers.filter(
+    (message) =>
+      message === 'Each action binding must be a literal key and named handler' ||
+      message === 'No exported actions registry found' ||
+      message.startsWith('Cannot resolve action handler:'),
+  )
+  if (registry.length) {
+    registry.forEach((message) => handled.add(message))
+    diagnostics.push({
+      title: "Can't resolve action registrations",
+      detail: [bindings, ...examples(registry)],
+      fix: 'Export const actions with static keys and named imported handlers, for example: export const actions = { check: handler }. Computed keys, spreads, and inline handlers need a supported registration',
+    })
+  }
+  const dependencies = blockers.filter((message) =>
+    message.startsWith('Local dependency outside maintained inventory:'),
+  )
+  if (dependencies.length) {
+    dependencies.forEach((message) => handled.add(message))
+    diagnostics.push({
+      title: `${dependencies.length} local dependencies are outside the maintained inventory`,
+      detail: examples(
+        dependencies.map((message) =>
+          message.slice('Local dependency outside maintained inventory: '.length),
+        ),
+      ),
+      fix: 'Include these authored dependencies in the reviewed maintained scope, or remove their imports. Keep trusted base policy changes explicit',
+    })
+  }
   for (const message of blockers) {
     if (handled.has(message)) continue
     diagnostics.push({
@@ -97,7 +131,12 @@ export function checkDiagnostics(
         ? 'Fix the interrupted verification or its feedback deadline, then rerun the check to collect complete evidence'
         : message === 'Maintained files changed during verification'
           ? 'Keep maintained files unchanged during verification and rerun the check'
-          : 'Fix this analysis or verification issue, then rerun the check',
+          : /\.[cm]?ts:\d+:/.test(message)
+            ? 'Correct the TypeScript error at the reported source location and rerun the check'
+            : message.startsWith('Required evidence') ||
+                message.startsWith('Missing required check')
+              ? 'Rerun verification for this candidate and ensure every declared observation produces a result'
+              : 'Resolve the reported source construct using the supported TypeScript adapter, then rerun the check',
     })
   }
   return diagnostics

@@ -40,9 +40,9 @@ Data goes to stdout; progress, errors, and diagnostics go to stderr. At a termin
 results use concise human output. Pipes default to headerless tab-separated records.
 Use `--json` for the complete stable report and `--pretty` to indent it in a pipe.
 `--quiet` suppresses human results and progress; explicit JSON/plain data and errors
-remain available. `--verbose` wins over `--quiet` and shows all violations.
-Human explanations show up to 20 components. Set `--limit N` to change this or
-`--limit 0` to show all components; JSON and plain records always include all matches.
+remain available. `--verbose` wins over `--quiet` and adds detailed results.
+Human check findings and explanations show up to 20 entries. Set `--limit N` to
+change this or `--limit 0` to show every entry. JSON and plain records stay complete.
 File targets accept project-relative paths (including `./`) and absolute paths.
 Recovery commands preserve the effective root, base, and policy options.
 
@@ -153,8 +153,21 @@ JSON gate reports retain `decision` and `snapshot`; explanation reports retain
 `Incomplete` means setup, analysis, or required evidence is missing. Resolve the
 blocking issues before acting on the provisional budget and ancestry findings.
 If verification was skipped, the report says `not run`; those checks have not
-failed assertions. `--verbose` includes all provisional findings, and JSON keeps
+failed assertions. `--verbose` includes grouped provisional findings, and JSON keeps
 the complete underlying facts.
+
+Human rejected and incomplete check reports go to stderr; successful reports go
+to stdout. Blocking alerts use red `✗` indicators and readable alert text, incomplete
+and provisional states use amber `△`, important values stay primary, and gray is
+reserved for structure. These meanings survive wrapping and remain explicit with
+`--no-color` or ASCII output. JSON and plain records keep their stdout schemas and
+contain no ANSI styling.
+
+Human findings are grouped by cause and file. `--verbose` adds source expressions,
+assertion details, and provisional ancestry; `--limit N` bounds displayed entries
+(default 20), and `--limit 0` requests every entry. Machine reports always retain
+all facts. `--quiet` preserves errors and repairs while suppressing metrics,
+progress, and retry hints.
 
 Each blocker now includes its impact and a concrete fix. For example, a commented
 initialization starter reports its `.feature` path, explains that commented scenarios
