@@ -94,8 +94,17 @@ Default section order:
 
 ## User Preferences
 
-When the user requests a durable behavior change, record it here or in the relevant child AGENTS.md
+- Use the CLI skills in `.agents/skills/` for CLI behavior, help, errors, and terminal presentation.
+- Keep automated formatting in CI rather than adding formatting instructions to agent context.
 
 ## Child DOX Index
 
-This project is not yet indexed. Before continuing you must scan the project, build the DOX tree and replace this message with the actual index. Go deep and scan files recursively to properly evaluate complexity and create nested DOX files where needed.
+The root owns package metadata, runtime dependencies, environment setup, and repository-wide contracts.
+
+- [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
+- [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests
+- [docs/AGENTS.md](docs/AGENTS.md): design, roadmap, and CLI reference
+- [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture
+- [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai adoption skill
+- [.agents/skills/AGENTS.md](.agents/skills/AGENTS.md): installed CLI design and review skills
+- [.github/AGENTS.md](.github/AGENTS.md): CI formatting, validation, and permissions
