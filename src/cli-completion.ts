@@ -232,7 +232,7 @@ function fish(): string {
         : flag.completion === 'file'
           ? ' -F'
           : ''
-    return `complete -c bonsai${scope} -l ${name}${flag.short ? ` -s ${flag.short}` : ''}${flag.type === 'string' ? ' -r' : ''}${values} -d ${quote(flag.description)}`
+    return `complete -c bonsai${scope} -l ${name}${flag.short ? ` -s ${flag.short}` : ''}${flag.type === 'string' ? ` -r${flag.completion === 'file' ? '' : ' -f'}` : ''}${values} -d ${quote(flag.description)}`
   })
   return `function __bonsai_context
   set -l tokens (commandline -opc)

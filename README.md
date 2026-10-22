@@ -23,6 +23,7 @@ bun run bonsai check --root examples/checkout --json
 
 | Command | Purpose |
 | --- | --- |
+| `bonsai init` | Create local configuration and any missing contract starters |
 | `bonsai check` | Check required behavior, ancestry, and retained size |
 | `bonsai explain <target>` | Show ancestry and relationships without running handlers |
 | `bonsai config show` | Inspect effective configuration and its origin |
@@ -44,6 +45,30 @@ Human explanations show up to 20 components. Set `--limit N` to change this or
 `--limit 0` to show all components; JSON and plain records always include all matches.
 File targets accept project-relative paths (including `./`) and absolute paths.
 Recovery commands preserve the effective root, base, and policy options.
+
+### Start using Bonsai in a project
+
+Run `bonsai init` in an existing project, or `bonsai init --root path/to/project`.
+It creates `bonsai.json` with a detected maintained inventory and initial policy;
+no knowledge of the configuration schema is needed. Existing configuration and
+application files are never overwritten, and initialization never runs handlers
+or package scripts. A missing project configuration suggests this command directly.
+
+Initialization reuses root-level `bindings.ts`, then `bonsai.bindings.ts`, and
+existing `.feature` files. If absent, it creates `bonsai.bindings.ts` with an empty
+actions registry and a commented scenario in `features/bonsai.feature`. Connect
+your real named handlers and uncomment/adapt scenarios for their observable results.
+These starters earn no behavior allowance and cannot produce a passing gate.
+
+Discovery includes existing project files while skipping VCS metadata, dependency
+directories, common build/cache outputs, and symlinks at every depth. The result
+lists skipped paths. Directories without exclusions remain directory entries so
+future files are included; directories containing exclusions expand to eligible
+children. Review this detected scope, especially after adding new top-level paths.
+The initial budget uses the README defaults below; calibrate it against the first
+real baseline. `bonsai config show` displays the effective settings, then
+`bonsai check` checks the connected behavior. `init --json` reports created paths,
+detected settings, exclusions, and next steps for automation.
 
 ### Configuration and environment
 

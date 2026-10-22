@@ -20,11 +20,11 @@ Set `BONSAI_DIR` to that checkout's absolute path and `PROJECT_DIR` to the consu
 
 ## 3. Define the maintained inventory
 
-Start from the checker's `examples/checkout/bonsai.json` and its README, then create one `bonsai.json` in the consuming project's root. Set explicit project-relative maintained paths and the executable bindings path. Include production code, contracts, bindings, relevant tests, fixtures, and maintained configuration within the declared adoption scope.
+Run `init --root "$PROJECT_DIR"` through the selected checker to create `bonsai.json` without writing the schema by hand. It discovers maintained paths, reuses conventional registries and contracts, and creates commented starters when absent. Existing files are preserved and project code never runs. The result lists exclusions and draft settings. Use the checker's README and `config show --root "$PROJECT_DIR"` to inspect them. Include production code, contracts, bindings, relevant tests, fixtures, and maintained configuration within the declared adoption scope.
 
 Compare the inventory against the actual tree. Every scoped maintained artifact must be accounted for; local dependencies must be included. Identify generated outputs and external dependencies deliberately. Rooting a symbol does not erase its file's retained cost, and excluding a troublesome directory narrows the gate's guarantee.
 
-Choose project-wide coefficients and a feedback deadline from the measured baseline and the project's intended constraint. The example numbers are demonstration settings. Record the calibration rationale; keep the resulting acceptance policy stable during ordinary implementation work.
+Choose project-wide coefficients and a feedback deadline from the measured baseline and the project's intended constraint. The initializer's defaults and example numbers are starting points, not calibrated acceptance rules. Record the calibration rationale; keep the resulting acceptance policy stable during ordinary implementation work.
 
 **Done:** each maintained path exists, the binding file is included, the scope has no unexplained exclusions, and the policy's initial allowance and deadline have a recorded rationale.
 
