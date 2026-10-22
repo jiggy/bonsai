@@ -170,15 +170,79 @@ export function analyzeSource(root: string, files: string[], bindings: string): 
       sourceRef: reference(node),
     })
   }
+  // This adapter belongs to the checker, not to arbitrary application imports.
+  // The target primitive validates the selected project's inventory and identity.
+  // A fixture project is a separate execution boundary, never ancestry for every
+  // export of this project's registry. Evidence must contain its loading receipt.
+  // Compare implementation contents as well as symbols: archives and separate
+  // checkouts have different absolute paths, while lookalikes are not adapters.
+  const implementations = new Map(
+    ['evidence.ts', 'binding-target.ts'].map((file) => [
+      file,
+      readFileSync(new URL(file, import.meta.url), 'utf8'),
+    ]),
+  )
+  const bindingImport = (call: ts.CallExpression, owner: ts.Node): boolean => {
+    if (
+      !ts.isFunctionDeclaration(owner) ||
+      owner.name?.text !== 'collectEvidence' ||
+      owner.getSourceFile().text !== implementations.get('evidence.ts') ||
+      call.arguments.length !== 1
+    )
+      return false
+    const argument = call.arguments[0]!
+    if (!ts.isPropertyAccessExpression(argument) || argument.name.text !== 'url') return false
+    const handle = checker.getSymbolAtLocation(argument.expression)?.valueDeclaration
+    if (
+      !handle ||
+      !ts.isVariableDeclaration(handle) ||
+      !ts.isIdentifier(handle.name) ||
+      !ts.isVariableDeclarationList(handle.parent) ||
+      !(handle.parent.flags & ts.NodeFlags.Const) ||
+      !handle.initializer ||
+      !ts.isCallExpression(handle.initializer)
+    )
+      return false
+    const initializer = handle.initializer
+    const primitive = unalias(checker.getSymbolAtLocation(initializer.expression))?.valueDeclaration
+    if (
+      !primitive ||
+      !ts.isFunctionDeclaration(primitive) ||
+      primitive.name?.text !== 'projectBindingTarget' ||
+      primitive.getSourceFile().text !== implementations.get('binding-target.ts') ||
+      initializer.arguments.length !== 3
+    )
+      return false
+    return [0, 1, 3].every((parameter, index) => {
+      const name = owner.parameters[parameter]?.name
+      const value = initializer.arguments[index]!
+      return (
+        name &&
+        ts.isIdentifier(name) &&
+        ts.isIdentifier(value) &&
+        checker.getSymbolAtLocation(name) === checker.getSymbolAtLocation(value)
+      )
+    })
+  }
   for (const [node, owner] of nodes) {
     const visit = (child: ts.Node): void => {
       if (ts.isCallExpression(child) && child.expression.kind === ts.SyntaxKind.ImportKeyword) {
         const specifier = child.arguments[0]
         if (!specifier || !ts.isStringLiteralLike(specifier)) {
-          const location = child.getSourceFile().getLineAndCharacterOfPosition(child.getStart())
-          source.problems.push(
-            `Dynamic import requires an adapter: ${owner.id} at ${owner.file}:${location.line + 1}:${location.character + 1} — ${child.getText().replace(/\s+/g, ' ')}`,
-          )
+          if (bindingImport(child, node)) {
+            const boundaries = (source.bindingImports ??= [])
+            boundaries.push({
+              ...reference(child),
+              from: owner.id,
+              adapter: 'project-bindings-v1',
+              bindings,
+            })
+          } else {
+            const location = child.getSourceFile().getLineAndCharacterOfPosition(child.getStart())
+            source.problems.push(
+              `Dynamic import requires an adapter: ${owner.id} at ${owner.file}:${location.line + 1}:${location.character + 1} — ${child.getText().replace(/\s+/g, ' ')}`,
+            )
+          }
         } else {
           // A named destructuring import has local symbols, not import aliases.
           // Resolve only its selected exports so unused siblings remain unrooted.

@@ -51,3 +51,10 @@ Feature: Admit only supported implementations of required behavior
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
     And response "snapshot.unrooted.length" equals 0
+
+  Scenario: Unsupported runtime imports cannot skip source tracing
+    When I invoke "check" with {"computedImport": true}
+    Then response "exitCode" equals 2
+    And response "decision.status" equals "incomplete"
+    And response "snapshot.source.problems.length" equals 1
+    And response "handlerExecuted" equals false

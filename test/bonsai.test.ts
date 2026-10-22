@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { compileContracts } from '../src/contracts.ts'
-import { countTokens, inventory } from '../src/source.ts'
+import { countTokens, inventory, fingerprint } from '../src/source.ts'
 import { snapshot, readConfig } from '../src/project.ts'
 import { ceiling, evaluate } from '../src/policy.ts'
 import { runEvidence } from '../src/evidence.ts'
@@ -257,10 +257,9 @@ test('a nonterminating action is stopped by the evidence worker deadline', async
       join(root, 'bindings.ts'),
       'export const actions = { "place-order": () => { while (true) {} } };',
     )
-    await assert.rejects(
-      runEvidence(root, 'bindings.ts', contracts(), 'candidate', 500),
-      /deadline expired/,
-    )
+    const config = readConfig(root)
+    const hash = fingerprint(root, inventory(root, config.maintained, config.exclude), config)
+    await assert.rejects(runEvidence(root, config, contracts(), hash, 500), /deadline expired/)
   } finally {
     dispose()
   }

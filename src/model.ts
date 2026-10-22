@@ -34,6 +34,11 @@ export type Source = {
   relationships: Relationship[]
   actions: Record<string, string>
   registry?: string
+  bindingImports?: (Reference & {
+    from: string
+    adapter: 'project-bindings-v1'
+    bindings: string
+  })[]
   problems: string[]
 }
 export type Policy = {
@@ -54,6 +59,7 @@ export type Evidence = {
   profile: 'in-process-v1'
   complete: boolean
   elapsedMs: number
+  bindingImport?: { adapter: 'project-bindings-v1'; file: string; fingerprint: string }
   checks: { id: string; status: 'passed' | 'failed' | 'missing'; error?: string }[]
 }
 export type Snapshot = {

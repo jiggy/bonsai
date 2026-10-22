@@ -30,7 +30,7 @@ One package, with six principal modules:
 | `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
 | `cli` | Collect facts, compare a base, explain components, and return actionable output. |
 
-`model.ts` defines their shared facts. `project.ts` joins collection, and `worker.ts` hosts execution. There is no database, daemon, LLM call, or external service.
+`model.ts` defines their shared facts. `project.ts` joins collection, `binding-target.ts` validates the configured registry target against its measured snapshot, and `worker.ts` hosts execution. There is no database, daemon, LLM call, or external service.
 
 ## Initial adapter choices
 
@@ -50,14 +50,21 @@ or new nested project markers cannot silently narrow a trusted base inventory.
 ## Self-verification
 
 Root `.feature` files specify observable Bonsai behavior; executable bindings run
-the real CLI against isolated projects. The normal test suite executes every
-required observation through the evidence worker. This establishes behavioral
-results independently of whether the root source graph is fully analyzable.
+the real CLI against isolated projects. The normal test suite invokes the full root
+`check`, requires successful source analysis, and verifies every required observation
+through the evidence worker. An explicit test-only 60-second feedback window keeps
+the committed inventory and size budget; genuine root violations still reject.
 
 Literal dynamic imports resolve selected exports without retaining unused siblings.
-Computed loading and subprocess entry points require further adapters. The root
-inventory and unchanged policy expose the current analysis gaps and retained cost;
-passing the feature suite does not assert full root acceptance.
+The internal binding-loader adapter recognizes only this checker's collector and
+target implementations, matching module contents and symbol linkage even in archived
+copies. Runtime validation checks inventory membership and the
+effective snapshot fingerprint before importing; acceptance requires the matching
+adapter, binding path, and fingerprint receipt. The source boundary retains its
+location without granting registry-wide handler ancestry. Other computed imports
+remain incomplete, and subprocess entry-point ancestry requires further adapters.
+The root's saved 15-second feedback ceiling and retained-code limits remain in
+force; passing the regression does not assert full root acceptance.
 
 ## Deliberate gaps
 

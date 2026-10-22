@@ -8,7 +8,7 @@ Design baseline, roadmap, command reference, CLI review evidence (`check-ux-revi
 
 ## Local Contracts
 
-Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit.
+Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and the full-check regression's test-only feedback window from committed root admission policy.
 
 ## Work Guidance
 

@@ -147,6 +147,8 @@ JSON gate reports retain `decision` and `snapshot`; explanation reports retain
 `fingerprint`, `components`, and `problems`. JSON setup errors keep the existing
 `status` and string `error` fields, adding `code`, `exit_code`, `run`, and
 `retryable` metadata on stderr. Stack traces require `--debug`.
+Check snapshots may add `source.bindingImports` and `evidence.bindingImport` for
+the validated internal loader boundary; existing fields remain available.
 
 ### Read a check result
 
@@ -239,19 +241,21 @@ bun run test:features
 ```
 
 `bun run test` includes the same feature suite, so CI verifies the contracts without
-running them twice. The feature runner allows 60 seconds for its nested CLI checks.
-This is behavior verification; it does not bypass the full gate or manufacture a
-passing root snapshot.
+running them twice. The regression invokes the full root `check`, requires source
+analysis to succeed, and verifies every declared observation exactly once. It uses
+an explicit test-only 60-second feedback window while preserving the committed
+inventory and retained-code budget, and expects genuine budget violations to reject.
 
 `bun run bonsai check` inspects the committed root inventory and policy. That
 inventory includes owned source, tests, contracts, documentation, and configuration;
 installed third-party CLI skills and the separate checkout example are outside
 that scope. The root policy retains its 20,000-token bootstrap, 30,000-token hard
 limit, and 15-second feedback ceiling. The current inventory exceeds that allowance.
-The computed binding-module loader and subprocess entry points also still need
-traceability adapters. Root acceptance therefore remains blocked; feature tests
-passing does not imply a root budget pass. Calibration and compaction are explicit
-work, rather than changes made to obtain a green result.
+The internal binding loader is traceable; subprocess entry points still need
+ancestry relationships. The saved feedback ceiling can also expire while the
+nested CLI contracts run. Root acceptance therefore remains blocked; feature tests
+passing does not imply a root budget pass. Calibration and compaction remain
+explicit work.
 
 ## Publish an alpha
 
@@ -396,12 +400,16 @@ The base is read from an archive without running its code. Its `bonsai.json` sup
 
 ## Limits and next steps
 
-This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. Computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
+This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. General computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
 
-Bonsai’s fixed lazy imports can now be resolved. Its computed binding loader and
-subprocess entry points still prevent complete self-analysis; the root check keeps
-that limitation visible. The supported checkout example remains available through
-`bun run bonsai check --root examples/checkout`.
+Bonsai's internal binding-loader adapter recognizes the exact collector pattern
+that imports a validated project target. Before importing, it checks the selected
+registry's inventory membership and the effective configuration/content fingerprint.
+Its evidence includes a matching loading receipt; missing or mismatched receipts
+block acceptance. The recorded boundary grants no ancestry to unrelated handlers
+or exports. This adapter does not authorize arbitrary application runtime imports.
+Subprocess entry-point ancestry remains unfinished. The supported checkout example
+is available through `bun run bonsai check --root examples/checkout`.
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 

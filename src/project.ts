@@ -69,7 +69,7 @@ export async function snapshot(
     try {
       result.evidence = await runEvidence(
         root,
-        config.bindings,
+        config,
         contracts,
         hash,
         config.policy.maxFeedbackMs - (performance.now() - started),

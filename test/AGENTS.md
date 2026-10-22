@@ -4,7 +4,7 @@ Verify acceptance rules and observable CLI behavior.
 
 ## Ownership
 
-Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which executes root `.feature` contracts through the evidence worker.
+Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which runs the real root `check` to analyze maintained source and execute every root `.feature` observation.
 
 ## Local Contracts
 
@@ -13,6 +13,8 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 ## Work Guidance
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs.
+
+Self-check regression permits a 60-second test-only feedback window through explicit policy input. Preserve the committed inventory, bindings, and budget, require complete matching-candidate evidence, and expect genuine retained-size violations to reject rather than manufacturing root acceptance.
 
 ## Verification
 

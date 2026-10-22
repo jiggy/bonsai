@@ -56,6 +56,14 @@ export function evaluate(
   ) {
     missing('Required evidence is missing, incomplete, or belongs to another candidate')
   } else {
+    for (const boundary of candidate.source.bindingImports ?? []) {
+      if (
+        evidence.bindingImport?.adapter !== boundary.adapter ||
+        evidence.bindingImport.file !== boundary.bindings ||
+        evidence.bindingImport.fingerprint !== candidate.fingerprint
+      )
+        missing(`Binding import evidence is missing or mismatched: ${boundary.from}`)
+    }
     const expected = new Set(candidate.contracts.checks.map((c) => c.id))
     const reported = new Set<string>()
     for (const result of evidence.checks) {

@@ -12,6 +12,7 @@ type ProjectInput = {
   missingContracts?: boolean
   unbound?: boolean
   ignoredCode?: boolean
+  computedImport?: boolean
 }
 
 const cli = fileURLToPath(new URL('./cli.ts', import.meta.url))
@@ -46,7 +47,10 @@ function project(input: ProjectInput = {}) {
     join(root, 'orders.ts'),
     [
       "import { writeFileSync } from 'node:fs'",
-      'export function placeOrder(input: { quantity: number }) {',
+      `export ${input.computedImport ? 'async ' : ''}function placeOrder(input: { quantity: number }) {`,
+      ...(input.computedImport
+        ? ["  const modulePath = './orders.ts'; await import(modulePath)"]
+        : []),
       `  writeFileSync(${JSON.stringify(marker)}, 'executed')`,
       `  return { status: ${input.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
       '}',

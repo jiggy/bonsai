@@ -1,7 +1,6 @@
 import { deepStrictEqual } from 'node:assert'
-import { pathToFileURL } from 'node:url'
-import { resolve } from 'node:path'
-import type { Contracts, Evidence } from './model.ts'
+import { projectBindingTarget } from './binding-target.ts'
+import type { Config, Contracts, Evidence } from './model.ts'
 
 function observe(response: unknown, selector: string): unknown {
   let value = response
@@ -16,7 +15,7 @@ function observe(response: unknown, selector: string): unknown {
 /** Trusted local execution: assertions are owned by Bonsai, not the action binding. */
 export async function collectEvidence(
   root: string,
-  bindings: string,
+  config: Config,
   contracts: Contracts,
   fingerprint: string,
 ): Promise<Evidence> {
@@ -29,10 +28,14 @@ export async function collectEvidence(
     checks: contracts.checks.map((check) => ({ id: check.id, status: 'missing' })),
   }
   try {
-    const module = (await import(
-      pathToFileURL(resolve(root, bindings)).href + `?snapshot=${fingerprint}`
-    )) as {
+    const target = projectBindingTarget(root, config, fingerprint)
+    const module = (await import(target.url)) as {
       actions: Record<string, (input: unknown) => unknown>
+    }
+    evidence.bindingImport = {
+      adapter: target.adapter,
+      file: target.file,
+      fingerprint: target.fingerprint,
     }
     for (const scenario of contracts.cases) {
       let response: unknown
@@ -73,7 +76,7 @@ export async function collectEvidence(
 /** A child process gives each run a fresh module cache and an enforceable wall-clock timeout. */
 export async function runEvidence(
   root: string,
-  bindings: string,
+  config: Config,
   contracts: Contracts,
   fingerprint: string,
   timeoutMs: number,
@@ -123,7 +126,7 @@ export async function runEvidence(
       if (result.evidence) finish(undefined, result.evidence)
       else finish(new Error(result.error ?? 'Invalid worker report'))
     })
-    child.send({ root, bindings, contracts, fingerprint })
+    child.send({ root, config, contracts, fingerprint })
     if (signal?.aborted) abort()
   })
 }
