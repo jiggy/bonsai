@@ -107,6 +107,38 @@ test('usage errors are actionable, structured when requested, and do not leak tr
   assert.ok(debug.stack)
 })
 
+test('early parse errors honor grouped JSON flags and attached output values', () => {
+  for (const args of [
+    ['check', '-jv', '--bad'],
+    ['check', '-ojson', '--bad'],
+    ['check', '-vojson', '--bad'],
+    ['check', '--bad', '-jv'],
+    ['check', '--bad', '-ojson'],
+    ['check', '-jv', '--root'],
+    ['check', '-ojson', '--root'],
+  ]) {
+    const result = run(args)
+    assert.equal(result.status, 2, result.stderr)
+    assert.equal(result.stdout, '')
+    const error = JSON.parse(result.stderr)
+    assert.equal(error.code, 'USAGE')
+    assert.equal(error.exit_code, 2)
+    assert.ok(error.error)
+  }
+  for (const args of [
+    ['check', '--bad', '--', '-jv'],
+    ['check', '--root=-jv', '--bad'],
+    ['check', '-rjv', '--bad'],
+    ['check', '-ojsonl', '--bad'],
+  ]) {
+    const result = run(args)
+    assert.equal(result.status, 2)
+    assert.equal(result.stdout, '')
+    assert.match(result.stderr, /Unknown flag/)
+    assert.throws(() => JSON.parse(result.stderr))
+  }
+})
+
 test('global options accept GNU ordering, equals syntax, combined shorts, and -- operands', () => {
   for (const args of [
     ['--json', 'explain', 'src/checkout.ts'],

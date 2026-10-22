@@ -23,17 +23,24 @@ import {
 } from './cli-interface.ts'
 
 const args = process.argv.slice(2)
-const optionArgs = args.slice(0, args.indexOf('--') < 0 ? args.length : args.indexOf('--'))
-let json =
-  optionArgs.includes('--json') ||
-  optionArgs.includes('-j') ||
-  optionArgs.some(
-    (arg, index) =>
-      arg === '--output=json' ||
-      (['--output', '-o'].includes(arg) && optionArgs[index + 1] === 'json'),
-  )
-let debug = optionArgs.includes('--debug') || optionArgs.includes('-d')
-let noColor = optionArgs.includes('--no-color')
+const options = Object.fromEntries(
+  Object.entries(flags).map(([name, flag]) => [
+    name,
+    { type: flag.type, ...('short' in flag ? { short: flag.short } : {}) },
+  ]),
+)
+// Tolerant parsing identifies output preferences before strict validation can fail.
+// Use the same flag definitions so clusters, attached values, and -- stay consistent.
+const preliminary = parseArgs({
+  args,
+  options,
+  allowPositionals: true,
+  tokens: true,
+  strict: false,
+})
+let json = preliminary.values.json === true || preliminary.values.output === 'json'
+let debug = preliminary.values.debug === true
+let noColor = preliminary.values['no-color'] === true
 const cancellation = new AbortController()
 let stopping = false
 let temporary: string | undefined
@@ -138,15 +145,7 @@ function git(root: string, parameters: string[]): string {
 }
 
 async function main(): Promise<void> {
-  const wantsHelp = optionArgs.some(
-    (arg) => arg === '--help' || /^-[qvdiVjh]*h[qvdiVjh]*$/.test(arg),
-  )
-  const options = Object.fromEntries(
-    Object.entries(flags).map(([name, flag]) => [
-      name,
-      { type: flag.type, ...('short' in flag ? { short: flag.short } : {}) },
-    ]),
-  )
+  const wantsHelp = preliminary.values.help === true
   let parsed: ReturnType<typeof parseArgs>
   try {
     parsed = parseArgs({ args, allowPositionals: true, options, tokens: true, strict: !wantsHelp })
@@ -201,7 +200,20 @@ async function main(): Promise<void> {
           process.stdout.isTTY || enabled('pretty') ? 2 : undefined,
         ),
       )
-    else write(wrap(helpText(target, wantsHelp && !optionArgs.includes('--help')), width()))
+    else
+      write(
+        wrap(
+          helpText(
+            target,
+            wantsHelp &&
+              !preliminary.tokens.some(
+                (token) =>
+                  token.kind === 'option' && token.name === 'help' && token.rawName === '--help',
+              ),
+          ),
+          width(),
+        ),
+      )
     return
   }
   if (enabled('version')) command = 'version'
