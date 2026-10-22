@@ -238,6 +238,40 @@ test('a copied recovery command preserves project, base, policy, and shell quoti
   }
 })
 
+test('copied recovery commands accept dash-prefixed files and trailing output flags', () => {
+  const { root, dispose } = fixture()
+  try {
+    writeFileSync(
+      join(root, '-feature.ts'),
+      readFileSync(join(root, 'src/checkout.ts'), 'utf8') +
+        '\nexport function unused() { return 1 }\n',
+    )
+    writeFileSync(
+      join(root, 'bindings.ts'),
+      "import { placeOrder } from './-feature.ts'\nexport const actions = { 'place-order': placeOrder }\n",
+    )
+    const policy = join(root, 'bonsai.json')
+    const config = JSON.parse(readFileSync(policy, 'utf8'))
+    config.maintained.push('-feature.ts')
+    writeFileSync(policy, JSON.stringify(config))
+    const rejected = run(['check', '--root', root, '--output', 'human'])
+    assert.equal(rejected.status, 1, rejected.stderr)
+    const next = (rejected.stdout + rejected.stderr).match(
+      /^\s*Next (?:→|->) (bonsai explain .+)$/m,
+    )
+    assert.ok(next, rejected.stdout + rejected.stderr)
+    assert.match(next[1], /-feature\.ts/)
+    const explained = runRecovery(next[1])
+    assert.equal(explained.status, 0, explained.stderr)
+    assert.deepEqual(
+      JSON.parse(explained.stdout).components.map((component: { id: string }) => component.id),
+      ['-feature.ts#unused'],
+    )
+  } finally {
+    dispose()
+  }
+})
+
 test('deadlines stop commands with held-open policy and target stdin', async () => {
   for (const args of [
     ['config', 'show', '--root', example, '--policy', '-'],
@@ -280,6 +314,50 @@ test('config show respects a deadline shorter than project startup', () => {
   assert.equal(result.status, 1, result.stderr || result.stdout)
   assert.equal(result.stdout, '')
   assert.equal(JSON.parse(result.stderr).code, 'TIMEOUT')
+})
+
+test('a deadline expiring during report serialization cannot emit successful output', () => {
+  const { root, dispose } = fixture()
+  try {
+    const preload = join(root, 'serialization-clock.js')
+    writeFileSync(
+      preload,
+      [
+        'const originalNow = Date.now',
+        'const originalStringify = JSON.stringify',
+        'let offset = 0',
+        'Date.now = () => originalNow() + offset',
+        'JSON.stringify = function (value, ...args) {',
+        '  const result = originalStringify.call(this, value, ...args)',
+        "  if (value && typeof value === 'object' && 'config' in value && 'origin' in value && 'root' in value)",
+        '    offset += 120000',
+        '  return result',
+        '}',
+        '',
+      ].join('\n'),
+    )
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--preload',
+        preload,
+        executable,
+        'config',
+        'show',
+        '--root',
+        root,
+        '--timeout',
+        '60',
+        '--json',
+      ],
+      { encoding: 'utf8', timeout: 15000, env: environment },
+    )
+    assert.equal(result.status, 1, result.stderr || result.stdout)
+    assert.equal(result.stdout, '')
+    assert.equal(JSON.parse(result.stderr).code, 'TIMEOUT')
+  } finally {
+    dispose()
+  }
 })
 
 test('the command deadline stops a stalled Git subprocess', () => {
