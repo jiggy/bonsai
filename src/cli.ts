@@ -138,7 +138,9 @@ function git(root: string, parameters: string[]): string {
 }
 
 async function main(): Promise<void> {
-  const wantsHelp = optionArgs.some((arg) => ['--help', '-h'].includes(arg))
+  const wantsHelp = optionArgs.some(
+    (arg) => arg === '--help' || /^-[qvdiVjh]*h[qvdiVjh]*$/.test(arg),
+  )
   const options = Object.fromEntries(
     Object.entries(flags).map(([name, flag]) => [
       name,
@@ -199,13 +201,7 @@ async function main(): Promise<void> {
           process.stdout.isTTY || enabled('pretty') ? 2 : undefined,
         ),
       )
-    else
-      write(
-        wrap(
-          helpText(target, optionArgs.includes('-h') && !optionArgs.includes('--help')),
-          width(),
-        ),
-      )
+    else write(wrap(helpText(target, wantsHelp && !optionArgs.includes('--help')), width()))
     return
   }
   if (enabled('version')) command = 'version'
