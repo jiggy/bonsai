@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { parseArgs } from 'node:util'
 import { resolve, join, relative, sep } from 'node:path'
-import { mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
@@ -448,16 +448,51 @@ async function main(): Promise<void> {
       'Use bonsai explain <file-or-component> or pipe targets into bonsai explain -',
     )
   if (
-    (command === 'check' && operands.length) ||
+    ((command === 'check' || command === 'init') && operands.length) ||
     (command === 'explain' && (operands.length !== 1 || !operands[0])) ||
     (command === 'config' && (operands.length !== 1 || operands[0] !== 'show'))
   )
     throw new CliError(`Invalid arguments for ${command}`, 'USAGE', `bonsai help ${command}`)
-  const { readConfig, snapshot } = await import('./project.ts')
   const rootValue = text('root') ?? process.env.BONSAI_ROOT ?? '.'
   if (!rootValue.trim() || rootValue === '-')
     throw new CliError('--root needs a project directory', 'USAGE', 'Use --root examples/checkout')
   const root = resolve(rootValue)
+  if (command === 'init') {
+    const { initialize } = await import('./init.ts')
+    let result: ReturnType<typeof initialize>
+    try {
+      result = initialize(root, checkDeadline)
+    } catch (error) {
+      if (error instanceof CliError) throw error
+      const errno = (error as NodeJS.ErrnoException).code
+      throw new CliError(
+        `Can't initialize ${root}: ${error instanceof Error ? error.message : String(error)}`,
+        'INIT',
+        `Check directory permissions and run bonsai init --root ${shellWord(root)}`,
+        errno === 'EACCES' || errno === 'EPERM' ? 3 : 2,
+      )
+    }
+    emit(
+      result,
+      [
+        ...result.created.map((path) => `created\t${join(root, path)}`),
+        ...result.next.map((step) => `next\t${step}`),
+      ],
+      [
+        `${symbol('✓', '+')} Initialized ${result.file}`,
+        ...result.created.map((path) => `  ${symbol('├─', '|-')} Created ${path}`),
+        `  ${symbol('└─', "'-")} Maintained: ${result.config.maintained.join(', ')}`,
+        ...(result.excluded.length
+          ? [`Excluded dependencies, build outputs, or links: ${result.excluded.join(', ')}`]
+          : []),
+        '',
+        ...result.next.slice(0, -1),
+        `Next ${symbol('→', '->')} ${result.next.at(-1)}`,
+      ],
+    )
+    return
+  }
+  const { readConfig, snapshot } = await import('./project.ts')
   const baseValue = text('base') ?? process.env.BONSAI_BASE
   const policyValue = text('policy') ?? process.env.BONSAI_POLICY
   if (baseValue !== undefined && !baseValue.trim())
@@ -501,7 +536,9 @@ async function main(): Promise<void> {
           ? `Configuration not found: ${path}`
           : `Can't read ${path}: ${error instanceof Error ? error.message : String(error)}`,
         'CONFIG',
-        `Check ${path} or use --root and --policy to select the project`,
+        errno === 'ENOENT' && !file && !temporary && existsSync(root)
+          ? ['bonsai', 'init', '--root', root].map(shellWord).join(' ')
+          : `Check ${path} or use --root and --policy to select the project`,
         errno === 'EACCES' ? 3 : 2,
       )
     }

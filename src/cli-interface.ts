@@ -10,7 +10,7 @@ export const flags = {
     short: 'r',
     description: 'project directory (default current directory)',
     completion: 'directory',
-    scope: ['check', 'explain', 'config'],
+    scope: ['init', 'check', 'explain', 'config'],
   },
   base: {
     type: 'string',
@@ -26,7 +26,7 @@ export const flags = {
   timeout: {
     type: 'string',
     description: 'command deadline in seconds (default none)',
-    scope: ['check', 'explain', 'config'],
+    scope: ['init', 'check', 'explain', 'config'],
   },
   limit: {
     type: 'string',
@@ -73,6 +73,17 @@ export const flags = {
 
 export type CommandName = keyof typeof commands
 export const commands = {
+  init: {
+    summary: 'Initialize local configuration and starter contracts',
+    usage: 'bonsai init [flags]',
+    description:
+      'Creates bonsai.json and missing starter bindings and a feature without overwriting files or running handlers. Replace the starter behavior with contracts for real handlers.',
+    examples: [
+      'bonsai init',
+      'bonsai init --root packages/checkout',
+      'bonsai init --root packages/checkout --json',
+    ],
+  },
   check: {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
@@ -168,15 +179,15 @@ export function helpText(command?: CommandName, concise = false): string {
   const examples = command
     ? commands[command].examples
     : [
+        'bonsai init',
         'bonsai check --root examples/checkout',
         'bonsai explain src/checkout.ts --root examples/checkout',
-        'bonsai help check --json',
       ]
   const lines = [info.description, '', 'USAGE', `  ${info.usage}`]
   if (command && !concise) lines.push('', commands[command].description)
   if (!command) {
     lines.push('', 'PROJECT COMMANDS')
-    for (const name of ['check', 'explain', 'config'] as const)
+    for (const name of ['init', 'check', 'explain', 'config'] as const)
       lines.push(`  ${name.padEnd(12)}${commands[name].summary}`)
     lines.push('', 'OTHER COMMANDS')
     for (const name of ['completion', 'help', 'version'] as const)
@@ -200,7 +211,8 @@ export function helpText(command?: CommandName, concise = false): string {
       'EXIT CODES',
       ...Object.entries(exitCodes).map(([code, text]) => `  ${code.padEnd(5)}${text}`),
     )
-    if (command && ['check', 'explain', 'config'].includes(command))
+    if (command === 'init') lines.push('', 'ENVIRONMENT', '  --root overrides BONSAI_ROOT')
+    else if (command && ['check', 'explain', 'config'].includes(command))
       lines.push(
         '',
         'ENVIRONMENT',

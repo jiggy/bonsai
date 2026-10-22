@@ -2,6 +2,53 @@
 
 Bonsai 0.0.0-alpha.0. Generated with `bonsai help --markdown`.
 
+## init
+
+```text
+Initialize local configuration and starter contracts
+
+USAGE
+  bonsai init [flags]
+
+Creates bonsai.json and missing starter bindings and a feature without overwriting files or running handlers. Replace the starter behavior with contracts for real handlers.
+
+EXAMPLES
+  $ bonsai init
+  $ bonsai init --root packages/checkout
+  $ bonsai init --root packages/checkout --json
+
+OPTIONS
+  -r, --root string         project directory (default current directory)
+      --timeout string      command deadline in seconds (default none)
+  -j, --json                write JSON data and JSON errors
+      --plain               write headerless tab-separated records
+  -o, --output string       output: auto, human, plain, json (default auto)
+      --pretty              indent JSON (default only on a terminal)
+  -q, --quiet               suppress human results and progress
+  -v, --verbose             show all result details, overrides --quiet
+  -d, --debug               show error traces on stderr
+      --no-color            disable ANSI color and styling
+      --no-input            disable prompts, including at a terminal
+  -i, --interactive         enable prompts when stdin and stderr are terminals
+  -h, --help                show help (-h concise, --help complete)
+  -V, --version             show the installed version
+
+EXIT CODES
+  0    success or gate pass
+  1    gate rejection or runtime failure
+  2    incomplete gate, invalid input, or usage error
+  3    permission denied
+  4    component or file not found by explain
+  130  interrupted by SIGINT
+  143  stopped by SIGTERM
+
+ENVIRONMENT
+  --root overrides BONSAI_ROOT
+
+See also: bonsai help check, bonsai help explain
+Docs: https://github.com/jiggy/bonsai/blob/main/docs/cli.md#init
+```
+
 ## check
 
 ```text
