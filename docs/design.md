@@ -47,6 +47,18 @@ configuration, including boundaries around nested Bonsai projects. Inventory use
 those saved rules from the effective policy source. Candidate ignore-file edits
 or new nested project markers cannot silently narrow a trusted base inventory.
 
+## Self-verification
+
+Root `.feature` files specify observable Bonsai behavior; executable bindings run
+the real CLI against isolated projects. The normal test suite executes every
+required observation through the evidence worker. This establishes behavioral
+results independently of whether the root source graph is fully analyzable.
+
+Literal dynamic imports resolve selected exports without retaining unused siblings.
+Computed loading and subprocess entry points require further adapters. The root
+inventory and unchanged policy expose the current analysis gaps and retained cost;
+passing the feature suite does not assert full root acceptance.
+
 ## Deliberate gaps
 
 The original design calls for broader evidence and trusted CI integration than this first adapter provides. The README documents the executable scope precisely. Keep unsupported capabilities incomplete or explicitly outside the configured deployment scope; do not manufacture passing coverage, mutation, unit-runner, or framework evidence.

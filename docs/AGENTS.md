@@ -4,7 +4,7 @@ Explain Bonsai’s supported behavior and limits.
 
 ## Ownership
 
-Design baseline, roadmap, command reference, and CLI review evidence.
+Design baseline, roadmap, command reference, CLI review evidence, and the distinction between executable behavior contracts and full self-budget acceptance.
 
 ## Local Contracts
 

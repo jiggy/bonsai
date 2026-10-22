@@ -15,7 +15,11 @@ function fixture(dynamic: boolean) {
       'export async function handler() {',
       `  writeFileSync(${JSON.stringify(marker)}, 'executed')`,
       ...(dynamic
-        ? ["  const helper = await import('./helper.ts')", '  return { status: helper.status }']
+        ? [
+            "  const modulePath = './helper.ts'",
+            '  const helper = await import(modulePath)',
+            '  return { status: helper.status }',
+          ]
         : ["  return { status: 'ok' }"]),
       '}',
     ].join('\n'),
@@ -79,13 +83,17 @@ test('an empty registry leads with one actionable blocker instead of pruning con
     assert.equal(verbose.status, 2, verbose.stderr)
     assert.match(verbose.stdout, /Additional findings \(provisional\)/)
     assert.match(verbose.stdout, /No contract ancestry/)
-    assert.match(result.stdout, /^! Incomplete\n\nBlocking issues\n- Unbound action: sample/)
-    assert.equal(result.stdout.match(/Unbound action: sample/g)?.length, 1)
+    assert.match(
+      result.stdout,
+      /^! Incomplete\n\nBlocking issues\n- 1 action has no executable binding/,
+    )
+    assert.match(result.stdout, /"sample" required by check.feature:4/)
+    assert.match(result.stdout, /Fix: Export each action from bindings.ts/)
     assert.match(result.stdout, /Required checks: 1 failed \(1 expected\)/)
     assert.match(result.stdout, /Inventory measurements/)
     assert.match(result.stdout, /Potential overage: \d+ tokens \(provisional\)/)
     assert.doesNotMatch(result.stdout, /No contract ancestry|Required reduction|Failed check:/)
-    assert.ok(result.stdout.includes(`Next -> bonsai config show --root ${root}`))
+    assert.ok(result.stdout.includes(`Next -> bonsai check --root ${root}`))
   } finally {
     dispose()
   }
@@ -96,10 +104,10 @@ test('unsupported analysis reports checks not run while keeping JSON and plain f
   try {
     const human = run(root, 'human')
     assert.equal(human.status, 2, human.stderr)
-    assert.match(
-      human.stdout,
-      /^! Incomplete\n\nBlocking issues\n- Dynamic import requires an adapter: handler.ts#handler/,
-    )
+    assert.match(human.stdout, /^! Incomplete\n\nBlocking issues\n- Can't trace 1 runtime import/)
+    assert.match(human.stdout, /handler.ts#handler at handler.ts:5:\d+.*import\(modulePath\)/)
+    assert.match(human.stdout, /Fix: Use a static import for a fixed target/)
+    assert.match(human.stdout, /which source components these imports retain/)
     assert.match(human.stdout, /Required checks: not run \(1 expected\)/)
     assert.doesNotMatch(
       human.stdout,
@@ -108,7 +116,7 @@ test('unsupported analysis reports checks not run while keeping JSON and plain f
     assert.ok(
       human.stdout.indexOf('Blocking issues') < human.stdout.indexOf('Inventory measurements'),
     )
-    assert.ok(human.stdout.includes(`Next -> bonsai config show --root ${root}`))
+    assert.ok(human.stdout.includes(`Next -> bonsai check --root ${root}`))
     const json = run(root, 'json')
     assert.equal(json.status, 2, json.stderr)
     assert.equal(json.stderr, '')
@@ -166,6 +174,58 @@ test('an interrupted verification reports missing completion rather than claimin
     assert.equal(result.status, 2, result.stderr)
     assert.match(result.stdout, /Evidence collection interrupted/)
     assert.match(result.stdout, /Required checks: not completed \(1 expected\)/)
+    assert.equal(existsSync(marker), false)
+  } finally {
+    dispose()
+  }
+})
+
+test('a commented initialization starter explains both the missing scenarios and the empty registry', () => {
+  const { root, marker, dispose } = fixture(false)
+  try {
+    writeFileSync(
+      join(root, 'check.feature'),
+      '# Feature: Sample\n# Scenario: Replace this starter\n# When I invoke "sample" with {}\n# Then response "status" equals "ok"\n',
+    )
+    const result = run(root, 'human')
+    assert.equal(result.status, 2, result.stderr)
+    assert.match(result.stdout, /No executable scenarios in 1 .feature file/)
+    assert.match(result.stdout, /check.feature/)
+    assert.match(result.stdout, /Commented starter scenarios don't run/)
+    assert.match(result.stdout, /No action handlers are registered in bindings.ts/)
+    assert.match(
+      result.stdout,
+      /Fix: Add an uncommented Scenario with When I invoke and Then response steps/,
+    )
+    assert.match(result.stdout, /bind its action in bindings.ts/)
+    assert.match(result.stdout, /Required checks: not run \(0 expected\)/)
+    assert.doesNotMatch(result.stdout, /Next -> bonsai config show/)
+    assert.equal(existsSync(marker), false)
+  } finally {
+    dispose()
+  }
+})
+
+test('missing .feature inventory and repeated runtime imports each get one concrete explanation', () => {
+  const { root, marker, dispose } = fixture(true)
+  try {
+    const path = join(root, 'bonsai.json')
+    const config = JSON.parse(readFileSync(path, 'utf8'))
+    config.maintained = config.maintained.filter((file: string) => !file.endsWith('.feature'))
+    writeFileSync(path, JSON.stringify(config))
+    writeFileSync(
+      join(root, 'handler.ts'),
+      readFileSync(join(root, 'handler.ts'), 'utf8') +
+        '\nexport async function secondHandler(path: string) { return import(path) }\n',
+    )
+    const result = run(root, 'human')
+    assert.equal(result.status, 2, result.stderr)
+    assert.match(result.stdout, /No .feature files in the maintained inventory/)
+    assert.match(result.stdout, /Fix: Add a .feature file under a maintained path/)
+    assert.match(result.stdout, /Can't trace 2 runtime imports/)
+    assert.match(result.stdout, /handler.ts#handler at handler.ts:5:/)
+    assert.match(result.stdout, /handler.ts#secondHandler at handler.ts:8:/)
+    assert.equal(result.stdout.match(/Fix: Use a static import for a fixed target/g)?.length, 1)
     assert.equal(existsSync(marker), false)
   } finally {
     dispose()

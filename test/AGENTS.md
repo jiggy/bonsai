@@ -4,7 +4,7 @@ Verify acceptance rules and observable CLI behavior.
 
 ## Ownership
 
-Core gate tests and subprocess CLI tests.
+Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which executes root `.feature` contracts through the evidence worker.
 
 ## Local Contracts
 
@@ -16,7 +16,7 @@ Preserve regression coverage for budget, ancestry, evidence identity, worker dea
 
 ## Verification
 
-`bun run test`
+`bun run test` includes the executable product contracts; `bun run test:features` runs those alone.
 
 ## Child DOX Index
 

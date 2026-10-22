@@ -156,6 +156,13 @@ If verification was skipped, the report says `not run`; those checks have not
 failed assertions. `--verbose` includes all provisional findings, and JSON keeps
 the complete underlying facts.
 
+Each blocker now includes its impact and a concrete fix. For example, a commented
+initialization starter reports its `.feature` path, explains that commented scenarios
+do not execute, and identifies an empty action registry. Untraceable runtime imports
+are grouped with their exact file, line, and expression. Fix those causes, then run
+the suggested `check` command again; merely inspecting the configuration cannot
+resolve a missing scenario or an unsupported dependency.
+
 Retained tokens measure the configured inventory, including maintained tests,
 contracts, docs, and configuration. The ceiling comes from the selected policy;
 the initializer's 20,000-token bootstrap is a draft default. A potential overage
@@ -205,6 +212,33 @@ Use `bun install --frozen-lockfile`, `bun run check`, `bun run test`, and
 `bun run --silent bonsai help --markdown > docs/cli.md` after command changes.
 Bun remains the supported distribution/runtime; static binary releases and a
 self-updater are outside this CLI rewrite.
+
+## Bonsai's own executable contracts
+
+Bonsai defines its product behavior in [`features/`](features/AGENTS.md), with
+`bonsai.bindings.ts` connecting those contracts to the actual CLI. They cover
+admission, rejection, incomplete verification, read-only inspection, initialization,
+help, and shell completion. The bindings create isolated fixture projects, invoke
+the real executable, and return its reports and filesystem outcomes for assertion.
+
+```sh
+bun run test:features
+```
+
+`bun run test` includes the same feature suite, so CI verifies the contracts without
+running them twice. The feature runner allows 60 seconds for its nested CLI checks.
+This is behavior verification; it does not bypass the full gate or manufacture a
+passing root snapshot.
+
+`bun run bonsai check` inspects the committed root inventory and policy. That
+inventory includes owned source, tests, contracts, documentation, and configuration;
+installed third-party CLI skills and the separate checkout example are outside
+that scope. The root policy retains its 20,000-token bootstrap, 30,000-token hard
+limit, and 15-second feedback ceiling. The current inventory exceeds that allowance.
+The computed binding-module loader and subprocess entry points also still need
+traceability adapters. Root acceptance therefore remains blocked; feature tests
+passing does not imply a root budget pass. Calibration and compaction are explicit
+work, rather than changes made to obtain a green result.
 
 ## Publish an alpha
 
@@ -349,12 +383,13 @@ The base is read from an archive without running its code. Its `bonsai.json` sup
 
 ## Limits and next steps
 
-This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, asset reads, and dynamically accessed module exports need adapters. Dynamic `import()` is flagged, but this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
+This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. Computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
 
-Bonsai's own CLI and worker use dynamic imports, so the current adapter cannot
-fully verify this repository against itself. The checkout example is a separate
-supported project: `bun run bonsai check --root examples/checkout`.
+Bonsai’s fixed lazy imports can now be resolved. Its computed binding loader and
+subprocess entry points still prevent complete self-analysis; the root check keeps
+that limitation visible. The supported checkout example remains available through
+`bun run bonsai check --root examples/checkout`.
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 
-Coverage, mutation effectiveness, unit-runner evidence, structural quality floors, trusted checker distribution, merge-candidate enforcement, and branch protection are **not implemented yet**. The repository's CI checks this prototype and its example; it is not the trusted admission system described in the design. See [the design](docs/design.md) and [the implementation roadmap](docs/roadmap.md).
+Coverage, mutation effectiveness, unit-runner evidence, structural quality floors, trusted checker distribution, merge-candidate enforcement, and branch protection are **not implemented yet**. The repository's CI checks the implementation, its executable product contracts, and its example; it is not the trusted admission system described in the design. See [the design](docs/design.md) and [the implementation roadmap](docs/roadmap.md).

@@ -96,7 +96,7 @@ test('unmaintained JSON imports still block an otherwise complete candidate', as
   }
 })
 
-test('measured JSON does not make dynamic imports supported', async () => {
+test('literal dynamic JSON imports resolve while remaining measured data', async () => {
   const { root, config, dispose } = fixture()
   try {
     writeFileSync(
@@ -104,17 +104,8 @@ test('measured JSON does not make dynamic imports supported', async () => {
       "export async function readVersion() { const manifest = await import('./package.json', { with: { type: 'json' } }); return { value: manifest.default.version } }\n",
     )
     const candidate = await snapshot(root, config, false)
-    assert.ok(
-      candidate.source.problems.includes(
-        'Dynamic import requires an adapter: metadata.ts#readVersion',
-      ),
-    )
-    assert.ok(
-      !candidate.source.problems.some((problem) =>
-        problem.includes('outside maintained inventory'),
-      ),
-    )
-    assert.equal(evaluate(undefined, complete(candidate), config.policy).status, 'incomplete')
+    assert.deepEqual(candidate.source.problems, [])
+    assert.equal(evaluate(undefined, complete(candidate), config.policy).status, 'pass')
   } finally {
     dispose()
   }

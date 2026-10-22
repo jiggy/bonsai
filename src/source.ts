@@ -157,27 +157,91 @@ export function analyzeSource(root: string, files: string[], bindings: string): 
     }
   }
   const seen = new Set<string>()
+  const connect = (owner: Component, target: Component | undefined, node: ts.Node) => {
+    if (!target || target.id === owner.id) return
+    const key = `${owner.id}\0${target.id}`
+    if (seen.has(key)) return
+    seen.add(key)
+    source.relationships.push({
+      from: owner.id,
+      to: target.id,
+      kind: 'reference',
+      origin: 'static',
+      sourceRef: reference(node),
+    })
+  }
   for (const [node, owner] of nodes) {
     const visit = (child: ts.Node): void => {
       if (ts.isCallExpression(child) && child.expression.kind === ts.SyntaxKind.ImportKeyword) {
-        source.problems.push(`Dynamic import requires an adapter: ${owner.id}`)
+        const specifier = child.arguments[0]
+        if (!specifier || !ts.isStringLiteralLike(specifier)) {
+          const location = child.getSourceFile().getLineAndCharacterOfPosition(child.getStart())
+          source.problems.push(
+            `Dynamic import requires an adapter: ${owner.id} at ${owner.file}:${location.line + 1}:${location.character + 1} — ${child.getText().replace(/\s+/g, ' ')}`,
+          )
+        } else {
+          // A named destructuring import has local symbols, not import aliases.
+          // Resolve only its selected exports so unused siblings remain unrooted.
+          let expression: ts.Node = child
+          while (
+            ts.isAwaitExpression(expression.parent) ||
+            ts.isParenthesizedExpression(expression.parent) ||
+            ts.isAsExpression(expression.parent)
+          )
+            expression = expression.parent
+          if (
+            ts.isVariableDeclaration(expression.parent) &&
+            ts.isObjectBindingPattern(expression.parent.name)
+          ) {
+            const module = checker.getSymbolAtLocation(specifier)
+            const exports = module ? checker.getExportsOfModule(module) : []
+            for (const binding of expression.parent.name.elements) {
+              const name = binding.propertyName ?? binding.name
+              if (
+                binding.dotDotDotToken ||
+                !ts.isIdentifier(binding.name) ||
+                (!ts.isIdentifier(name) && !ts.isStringLiteral(name))
+              ) {
+                source.problems.push(
+                  `Unsupported dynamic import selection: ${owner.id} at ${owner.file}:${reference(child).line}`,
+                )
+                continue
+              }
+              const selected = exports.find((entry) => entry.getName() === name.text)
+              const symbol = unalias(selected)
+              const target = symbol && symbols.get(symbol)
+              const local = checker.getSymbolAtLocation(binding.name)
+              if (local && target) symbols.set(local, target)
+              connect(owner, target, child)
+            }
+          }
+        }
+      }
+      if (ts.isElementAccessExpression(child)) {
+        const namespace = checker.getTypeAtLocation(child.expression)
+        const localModule = namespace
+          .getSymbol()
+          ?.declarations?.some(
+            (declaration) =>
+              ts.isSourceFile(declaration) && !program.isSourceFileFromExternalLibrary(declaration),
+          )
+        if (localModule) {
+          if (ts.isStringLiteralLike(child.argumentExpression)) {
+            const selected = unalias(
+              checker.getPropertyOfType(namespace, child.argumentExpression.text),
+            )
+            connect(owner, selected && symbols.get(selected), child)
+          } else {
+            source.problems.push(
+              `Unsupported dynamic import selection: ${owner.id} at ${owner.file}:${reference(child).line} — ${child.getText()}`,
+            )
+          }
+        }
       }
       if (ts.isIdentifier(child)) {
         const symbol = unalias(checker.getSymbolAtLocation(child))
         const target = symbol && symbols.get(symbol)
-        if (target && target.id !== owner.id) {
-          const key = `${owner.id}\0${target.id}`
-          if (!seen.has(key)) {
-            seen.add(key)
-            source.relationships.push({
-              from: owner.id,
-              to: target.id,
-              kind: 'reference',
-              origin: 'static',
-              sourceRef: reference(child),
-            })
-          }
-        }
+        connect(owner, target, child)
       }
       ts.forEachChild(child, visit)
     }

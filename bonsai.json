@@ -1,0 +1,43 @@
+{
+  "maintained": [
+    ".editorconfig",
+    ".envrc",
+    ".github",
+    ".gitignore",
+    "AGENTS.md",
+    "README.md",
+    "biome.json",
+    "bonsai.bindings.ts",
+    "bonsai.json",
+    "docs",
+    "features",
+    "package.json",
+    "shell.nix",
+    "skills",
+    "src",
+    "test",
+    "tsconfig.json"
+  ],
+  "exclude": [
+    ".git",
+    "node_modules",
+    "work",
+    "dist",
+    "build",
+    "coverage",
+    "*.lock",
+    "*.lockb",
+    "skills-lock.json",
+    ".direnv",
+    ".bonsai",
+    ".agents/skills"
+  ],
+  "bindings": "bonsai.bindings.ts",
+  "policy": {
+    "bootstrap": 20000,
+    "bootstrapSurface": 20,
+    "perDoubling": 2000,
+    "hardLimit": 30000,
+    "maxFeedbackMs": 15000
+  }
+}

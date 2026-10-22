@@ -15,7 +15,8 @@
     "bonsai": "bun src/cli.ts",
     "demo": "bun src/cli.ts check --root examples/checkout",
     "format": "biome format --write .",
-    "format:check": "biome format ."
+    "format:check": "biome format .",
+    "test:features": "bun test --timeout 60000 test/self-host.test.ts"
   },
   "dependencies": {
     "@cucumber/gherkin": "^37.0.0",

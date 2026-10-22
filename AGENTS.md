@@ -12,6 +12,8 @@ Preserve these invariants:
 
 Use Bun by default for dependency installation and package scripts. Install with `bun install --frozen-lockfile`; keep `bun.lock` current and do not generate npm lockfiles. Bun also runs the CLI, tests, and verification workers.
 
+Define Bonsai’s observable behavior in executable `features/*.feature` contracts. The normal test suite must execute them against the real CLI; `bun run test:features` runs them alone. Keep feature verification distinct from the root retained-code gate.
+
 Run `bun run check`, `bun run test`, and `bun run demo`. Add behavioral tests for changes to acceptance or graph propagation. Do not claim broader framework or verification support than the collector actually supplies. Keep README limitations current.
 
 ---
@@ -102,6 +104,7 @@ Default section order:
 The root owns package metadata, runtime dependencies, environment setup, and repository-wide contracts.
 
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
+- [features/AGENTS.md](features/AGENTS.md): executable contracts for Bonsai’s own observable behavior
 - [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests
 - [docs/AGENTS.md](docs/AGENTS.md): design, roadmap, and CLI reference
 - [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture

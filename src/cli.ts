@@ -23,6 +23,7 @@ import {
   type CommandName,
 } from './cli-interface.ts'
 import { completion } from './cli-completion.ts'
+import { checkDiagnostics } from './check-diagnostics.ts'
 
 const invokedAt = Date.now()
 const args = process.argv.slice(2)
@@ -774,7 +775,8 @@ async function main(): Promise<void> {
     const provisional = [
       ...new Set(decision.violations.filter((message) => secondary.has(message))),
     ]
-    const shown = enabled('verbose') ? blockers : blockers.slice(0, 20)
+    const diagnostics = checkDiagnostics(candidate, config.bindings, blockers, enabled('verbose'))
+    const shown = enabled('verbose') ? diagnostics : diagnostics.slice(0, 20)
     const results = candidate.evidence
       ? (['passed', 'failed', 'missing'] as const)
           .flatMap((status) => {
@@ -789,14 +791,18 @@ async function main(): Promise<void> {
           )
         ? 'not completed'
         : 'not run'
-    const recovery = invocation(['config', 'show'])
+    const recovery = invocation(['check'])
     const lines = [
       `${symbol('△', '!')} Incomplete`,
       '',
       'Blocking issues',
-      ...shown.map((message) => `- ${message}`),
-      ...(shown.length < blockers.length
-        ? [`${blockers.length - shown.length} more blocking issues. Use --verbose to show all`]
+      ...shown.flatMap((diagnostic) => [
+        `- ${diagnostic.title}`,
+        ...diagnostic.detail.map((detail) => `  ${symbol('├─', '|-')} ${detail}`),
+        `  ${symbol('└─', "'-")} Fix: ${diagnostic.fix}`,
+      ]),
+      ...(shown.length < diagnostics.length
+        ? [`${diagnostics.length - shown.length} more blocking issues. Use --verbose to show all`]
         : []),
       '',
       'Verification',
@@ -821,13 +827,14 @@ async function main(): Promise<void> {
     ]
     await emit({ decision, snapshot: candidate }, rows, lines)
     if (!json && (!human || quiet)) {
-      for (const blocker of shown) write(`incomplete: ${blocker}`, process.stderr)
+      for (const blocker of blockers) write(`incomplete: ${blocker}`, process.stderr)
+      for (const diagnostic of shown) write(`fix: ${diagnostic.fix}`, process.stderr)
       if (enabled('verbose'))
         for (const finding of provisional)
           write(`incomplete (provisional): ${finding}`, process.stderr)
-      if (shown.length < blockers.length)
+      if (shown.length < diagnostics.length)
         write(
-          `${blockers.length - shown.length} more blocking issues. Use --verbose to show all`,
+          `${diagnostics.length - shown.length} more blocking issues. Use --verbose to show all`,
           process.stderr,
         )
       write(`Next ${symbol('→', '->')} ${recovery}`, process.stderr)

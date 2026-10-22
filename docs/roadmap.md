@@ -2,6 +2,13 @@
 
 ## 1. Harden the first adapter
 
+Bonsai’s own `.feature` contracts now execute against its real CLI as part of the
+normal suite. Full self-budget acceptance remains blocked: implement executable
+entry-point relationships for CLI/worker subprocesses and derive the computed
+binding-loader target from the effective configuration. Retain the current root
+policy while measuring compaction and deliberate calibration; behavioral tests
+alone do not establish a budget pass.
+
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
 - Track side-effect imports and resource dependencies, with precise unresolved-edge diagnostics.
 - Extend explanation output to show actual contract-to-component paths and verification subjects.

@@ -8,7 +8,7 @@ Automate formatting and verify proposed changes.
 
 ## Local Contracts
 
-Formatting and candidate validation have read-only tokens with no persisted credentials. Only isolated jobs apply patches, push branch updates, or report check results. PR validation checks the merge result.
+Formatting and candidate validation have read-only tokens with no persisted credentials. Only isolated jobs apply patches, push branch updates, or report check results. PR validation checks the merge result. The normal test step includes Bonsai’s executable feature contracts; a passing suite does not claim the root retained-code gate passes.
 
 ## Work Guidance
 
