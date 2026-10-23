@@ -1,0 +1,148 @@
+/* Explicit file and function types inside the dark desktop only. */
+.demo-frame .ancestry-map {
+  padding: 28px 30px;
+}
+.demo-frame .graph-node {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 330px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 15px 17px;
+  border-radius: 12px;
+}
+.demo-frame .node-content {
+  min-width: 0;
+}
+.demo-frame .node-type {
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0.015em;
+}
+.demo-frame .graph-node strong {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.demo-frame .graph-node small {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.demo-frame .contract-root {
+  background: #142a23;
+  border-color: #366b51;
+}
+.demo-frame .contract-root strong {
+  color: #b4dea9;
+}
+.demo-frame .function-node {
+  background: #172536;
+  border-color: #36577e;
+}
+.demo-frame .function-node strong {
+  color: #9bc6f3;
+}
+.demo-frame .helper-node {
+  background: #201e33;
+  border-color: #514477;
+}
+.demo-frame .helper-node strong {
+  color: #c5b7f2;
+}
+.demo-frame .node-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 48px;
+  flex: 0 0 44px;
+  border-radius: 9px;
+  color: #a9df96;
+  background: #224130;
+}
+.demo-frame .node-icon svg {
+  width: 35px;
+  height: 40px;
+}
+.demo-frame .node-icon-function {
+  color: #9bc6f3;
+  background: #253e5d;
+}
+.demo-frame .node-icon-function > span {
+  font:
+    italic 31px Georgia,
+    serif;
+  padding-bottom: 6px;
+}
+.demo-frame .node-icon-function b {
+  position: absolute;
+  right: 5px;
+  bottom: 3px;
+  font: 600 10px var(--mono);
+  color: inherit;
+}
+.demo-frame .helper-node .node-icon {
+  color: #c5b7f2;
+  background: #393052;
+}
+.demo-frame .graph-node .function-parens {
+  float: none;
+  color: #8792a5;
+}
+.demo-frame .graph-connector {
+  height: 24px;
+  background: #7a899c;
+}
+.demo-frame .graph-connector::after {
+  background: #7a899c;
+}
+.demo-frame .graph-node.unrooted-node {
+  width: 300px;
+  max-width: calc(100% - 40px);
+  right: 20px;
+  bottom: 24px;
+  transform: rotate(-3deg);
+}
+.demo-frame .unrooted-node .node-icon {
+  color: #eea3b2;
+  background: #4a2733;
+}
+.demo-frame .unrooted-node small {
+  color: #eea3b2;
+}
+.demo-frame .ancestry-map:has(.unrooted-node:not([hidden])) {
+  min-height: 510px;
+  padding-bottom: 156px;
+}
+.demo-frame .ancestry-command {
+  color: var(--od-foreground);
+}
+@media (max-width: 800px) {
+  .demo-frame .ancestry-map {
+    padding-inline: 24px;
+  }
+  .demo-frame .graph-node {
+    padding: 14px;
+    gap: 12px;
+  }
+  .demo-frame .graph-node.unrooted-node {
+    right: 16px;
+    max-width: calc(100% - 32px);
+  }
+}
+@media (max-width: 600px) {
+  .demo-frame .graph-node {
+    width: 330px;
+  }
+  .demo-frame .graph-node.unrooted-node {
+    position: static;
+    margin-top: 25px;
+    max-width: 100%;
+    transform: none;
+  }
+  .demo-frame .ancestry-map:has(.unrooted-node:not([hidden])) {
+    min-height: 0;
+    padding-bottom: 28px;
+  }
+}
