@@ -1,5 +1,7 @@
 # Bonsai
 
+[![Bonsai — Grow the product. Prune the code.](website/public/assets/readme-banner.png)](https://jiggy.github.io/bonsai/)
+
 **Deliberate growth. Continuous pruning.**
 
 Bonsai gives a codebase a finite space to grow. Executable product contracts earn a global allowance; retained code consumes it. Code without contract ancestry blocks acceptance, even when its own unit test imports it.

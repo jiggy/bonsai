@@ -48,6 +48,68 @@ const tags = [...html.matchAll(/<([a-z][\w:-]*)\b([^>]*?)>/gi)].map((match) => (
     ]),
   ),
 }))
+const site = new URL(process.env.SITE_URL?.trim() || 'https://jiggy.github.io/bonsai/')
+site.search = ''
+site.hash = ''
+site.pathname = `${site.pathname.replace(/\/+$/, '')}/`
+const metadata = new Map()
+for (const key of [
+  'description',
+  'og:title',
+  'og:description',
+  'og:type',
+  'og:site_name',
+  'og:url',
+  'og:image',
+  'og:image:type',
+  'og:image:width',
+  'og:image:height',
+  'og:image:alt',
+  'twitter:card',
+  'twitter:title',
+  'twitter:description',
+  'twitter:image',
+  'twitter:image:alt',
+]) {
+  const matches = tags.filter(
+    ({ name, attributes }) => name === 'meta' && (attributes.property ?? attributes.name) === key,
+  )
+  const value = matches[0]?.attributes.content?.trim()
+  if (matches.length !== 1 || !value) errors.push(`Expected one nonempty ${key} meta tag`)
+  metadata.set(key, value)
+}
+const canonical = tags.filter(
+  ({ name, attributes }) => name === 'link' && attributes.rel === 'canonical',
+)
+if (canonical.length !== 1 || canonical[0]?.attributes.href !== site.href)
+  errors.push(`Canonical URL must be ${site.href}`)
+for (const [key, expected] of [
+  ['og:url', site.href],
+  ['og:image', new URL('assets/social-card.png', site).href],
+  ['twitter:image', new URL('assets/social-card.png', site).href],
+  ['og:type', 'website'],
+  ['og:image:type', 'image/png'],
+  ['og:image:width', '1200'],
+  ['og:image:height', '630'],
+  ['twitter:card', 'summary_large_image'],
+]) {
+  if (metadata.get(key) !== expected) errors.push(`${key} must be ${expected}`)
+}
+const socialImage = resolve(output, 'assets/social-card.png')
+if (!existsSync(socialImage) || !statSync(socialImage).isFile()) {
+  errors.push('Social image is missing: assets/social-card.png')
+} else {
+  const png = readFileSync(socialImage)
+  if (
+    png.length < 33 ||
+    png.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a' ||
+    png.readUInt32BE(8) !== 13 ||
+    png.toString('ascii', 12, 16) !== 'IHDR' ||
+    png.readUInt32BE(16) !== 1200 ||
+    png.readUInt32BE(20) !== 630
+  )
+    errors.push('Social image must be a 1200×630 PNG')
+}
 const ids = new Set()
 for (const { attributes } of tags) {
   if (!attributes.id) continue

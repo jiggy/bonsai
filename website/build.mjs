@@ -20,8 +20,8 @@ const html = readFileSync(index, 'utf8')
   .replace(/(<link rel="canonical" href=")[^"]*(")/, `$1${site.href}$2`)
   .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${site.href}$2`)
   .replace(
-    /(<meta property="og:image" content=")[^"]*(")/,
-    `$1${new URL('assets/social.png', site).href}$2`,
+    /(<meta (?:property="og:image"|name="twitter:image") content=")[^"]*(")/g,
+    `$1${new URL('assets/social-card.png', site).href}$2`,
   )
 writeFileSync(index, html)
 console.log(`Built _site for ${site.href}`)
