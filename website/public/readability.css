@@ -1,0 +1,852 @@
+/* Load after styles.css. Keep text readable instead of shrinking it to fit. */
+
+/* Marketing copy has one stable size across desktop and mobile. */
+.section-heading > p:last-child,
+.rules-grid p,
+.section-copy > p:not(.eyebrow),
+.ancestry-copy > p,
+.budget-demo-copy > p,
+.workflow-grid p,
+.loop-card > p,
+.start-copy > p,
+.faq-list details > p {
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.hero-description {
+  font-size: 18px;
+  line-height: 1.6;
+}
+
+.eyebrow,
+.hero > .eyebrow,
+.ancestry-copy .eyebrow,
+.budget-demo-copy .eyebrow,
+.closing-cta .eyebrow,
+.stage-intro > span,
+.chart-unit {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Navigation, actions, and tabs remain comfortably tappable. */
+.nav-links {
+  font-size: 14px;
+}
+
+.nav-links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.button,
+.button-small,
+.hero-actions .button,
+.start-copy .button,
+.button-demo,
+.demo-experiment .button-demo,
+.source-action .button-demo,
+.stage-tabs button,
+.curve-selector button,
+.quickstart-heading button {
+  min-height: 44px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.hero-actions {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hero-actions .button {
+  text-align: center;
+  white-space: normal;
+}
+
+.stage-tabs button {
+  padding: 11px 18px;
+}
+
+.announcement {
+  min-height: 44px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+}
+
+.tiny-label {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.stack-strip > p,
+.stack-strip > div > span {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.stack-strip > div {
+  flex-wrap: wrap;
+  gap: 16px 30px;
+}
+
+.stack-strip .stack-ts {
+  font-size: 12px !important;
+}
+
+.stage-intro > p {
+  font-size: 18px;
+  line-height: 1.5;
+}
+
+/* Meaningful walkthrough labels are not miniature screenshot text. */
+.demo-topbar {
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.demo-project {
+  min-width: 0;
+  flex-wrap: wrap;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.demo-project strong {
+  font-size: 16px;
+}
+
+.demo-label,
+.experiment-caption,
+.source-note,
+.verdict-line p,
+.verdict-line .badge,
+.demo-metrics,
+.demo-metrics dd span,
+.meter-caption,
+.demo-bottom p,
+.demo-disclaimer {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.demo-label {
+  flex-wrap: wrap;
+}
+
+.pane-heading {
+  height: auto;
+  min-height: 54px;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  padding-block: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.pane-caption {
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.file-icon {
+  font-size: 12px;
+}
+
+.pane-heading code {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.source-pane,
+.result-pane,
+.contract-card,
+.quickstart-card,
+.ancestry-copy,
+.budget-demo-copy {
+  min-width: 0;
+}
+
+.code-lines {
+  min-width: 0;
+  font-size: 13px;
+  line-height: 1.9;
+  overflow-x: auto;
+}
+
+.code-lines > div {
+  min-width: max-content;
+  white-space: pre;
+}
+
+.code-lines i {
+  min-width: 44px;
+  padding-right: 16px;
+  font-size: 12px;
+}
+
+.code-lines code {
+  font-size: 1em;
+  white-space: pre;
+}
+
+.source-note {
+  align-items: flex-start;
+}
+
+.source-note .note-dot {
+  margin-top: 8px;
+}
+
+.source-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px 20px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.source-action p,
+.source-action p > span {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.verdict-line {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.verdict-line > div {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.verdict-line p {
+  max-width: none;
+}
+
+.demo-metrics > div {
+  gap: 8px 16px;
+}
+
+.demo-metrics dt,
+.demo-metrics dd {
+  min-width: 0;
+}
+
+.meter-caption {
+  gap: 16px;
+}
+
+.demo-bottom p {
+  max-width: 100%;
+}
+
+.demo-disclaimer {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.brand-line {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.node-type,
+.unrooted-node .node-type {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.graph-node strong,
+.unrooted-node strong {
+  font-size: 14px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.graph-node small,
+.graph-fact p,
+.budget-ring span,
+.ring-label,
+.budget-demo-copy dl {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.graph-node {
+  max-width: 100%;
+}
+
+.unrooted-node {
+  min-width: 210px;
+  max-width: calc(100% - 32px);
+}
+
+.ancestry-map:has(.unrooted-node:not([hidden])) {
+  min-height: 470px;
+  padding-bottom: 135px;
+}
+
+.ancestry-copy > code,
+.workflow-grid code,
+.loop-card > code {
+  font-size: 13px;
+  line-height: 1.8;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.budget-demo-copy dl > div {
+  flex-wrap: wrap;
+  gap: 6px 20px;
+}
+
+/* Feature descriptions and contract examples retain their scale when narrow. */
+.rules-grid a,
+.text-link,
+.faq-heading .text-link,
+.contract-stats > div > span,
+.budget-annotation p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rules-grid a,
+.text-link {
+  min-height: 44px;
+}
+
+.rules-grid a {
+  margin-top: 10px;
+}
+
+.contract-stats {
+  flex-wrap: wrap;
+  gap: 20px 38px;
+}
+
+.feature-code,
+.code-window .feature-code {
+  font-size: 13px;
+  line-height: 1.9;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.feature-code code {
+  font-size: 1em;
+}
+
+.pair-footer {
+  gap: 12px 20px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.pair-footer > span {
+  font-size: 14px;
+}
+
+.pair-footer code,
+.code-window .pair-footer code {
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.chart-header {
+  flex-wrap: wrap;
+  gap: 12px 20px;
+}
+
+.chart-header p,
+.chart-header div > span,
+.curve-stat > span,
+.curve-selector > span,
+.surface-control,
+.surface-control label,
+.surface-control output,
+.curve-hint,
+.curve-note {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.curve-stat {
+  flex-wrap: wrap;
+  gap: 6px 12px;
+}
+
+/* SVG labels scale with their 500-unit viewBox, so increase their source size. */
+.chart-labels text {
+  font-size: 17px;
+}
+
+.chart-labels .chart-y-label {
+  text-anchor: end;
+}
+
+.curve-selector {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.curve-selector button {
+  min-width: 44px;
+  padding: 10px 12px;
+}
+
+.surface-control label {
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.surface-control input[type="range"] {
+  width: 100%;
+  min-height: 44px;
+}
+
+.surface-ticks,
+.surface-ticks span {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.curve-insight {
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+/* Keep the capability matrix readable; scroll it instead of compressing type. */
+.feature-matrix,
+.comparison-table {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.feature-matrix table {
+  min-width: 720px;
+}
+
+.feature-matrix thead th,
+.feature-matrix tbody th,
+.feature-matrix .matrix-corner,
+.matrix-alone,
+.matrix-note,
+.comparison-table table,
+.comparison-table thead th {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.feature-matrix th,
+.feature-matrix td {
+  padding: 20px;
+}
+
+.feature-matrix .matrix-corner {
+  display: block;
+  max-width: none;
+}
+
+.feature-matrix .matrix-brand {
+  flex-direction: row;
+  flex-wrap: wrap;
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.feature-matrix .matrix-badge {
+  display: inline-block;
+  font-size: 12px;
+}
+
+.matrix-mark {
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
+}
+
+.matrix-no {
+  font-size: 22px;
+}
+
+.matrix-note {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+/* The highlighted strip in comment 7 is content, not a miniature UI caption. */
+.local-strip {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 16px 30px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.local-strip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.local-strip a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-left: auto;
+}
+
+.loop-caption,
+.alpha-badge,
+.start-copy .requirements,
+.quickstart-heading,
+.quickstart-card.code-window .quickstart-heading,
+.quickstart-result,
+.quickstart-card.code-window .quickstart-result,
+.adoption-note,
+.copy-feedback,
+.footer-top > div > p,
+.footer-links,
+.footer-byline {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.quickstart-heading,
+.quickstart-card.code-window .quickstart-heading {
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.quickstart-heading > span {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.quickstart-heading button {
+  padding: 10px 12px;
+}
+
+.quickstart-card pre,
+.quickstart-card.code-window pre {
+  font-size: 13px;
+  line-height: 2;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.quickstart-card pre code {
+  font-size: 1em;
+}
+
+.code-window .release-note {
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.code-window .release-note > span {
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.faq-list summary {
+  min-height: 60px;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.footer-top,
+.footer-links {
+  flex-wrap: wrap;
+}
+
+.footer-links {
+  gap: 16px 26px;
+}
+
+.footer-links a,
+.footer-byline a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* Decorative diagram labels can be smaller, but remain actual readable text. */
+.mini-contract > span,
+.mini-contract i,
+.floating-label,
+.mini-root,
+.mini-forks span,
+.mini-size-caption,
+.loop-step,
+.measure-mini > span:first-child,
+.measure-mini small,
+.measure-mini .measure-room,
+.inspect-mini > span,
+.loop-card .inspect-mini > span,
+.inspect-mini b,
+.deleted-code,
+.prune-savings,
+.verify-mini > span:last-child {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.mini-contract {
+  width: 170px;
+  padding: 14px;
+}
+
+.floating-label {
+  padding: 5px 9px;
+}
+
+.mini-forks span {
+  padding: 7px 10px;
+}
+
+.measure-mini {
+  width: min(180px, calc(100% - 24px));
+  padding: 14px 12px;
+}
+
+.loop-visual {
+  min-height: 200px;
+}
+
+.loop-card .inspect-mini > span {
+  min-width: 130px;
+  padding: 7px 10px;
+}
+
+@media (max-width: 1100px) {
+  .chart-labels text {
+    font-size: 22px;
+  }
+
+  .loop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .nav-links {
+    gap: 14px;
+  }
+
+  .ancestry-panel,
+  .budget-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .split-section {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .ancestry-map {
+    min-height: 390px;
+    padding-inline: 24px;
+  }
+
+  .graph-node {
+    min-width: min(270px, 100%);
+  }
+
+  .graph-node.unrooted-node {
+    min-width: 210px;
+  }
+
+  .budget-demo-copy dl {
+    font-size: 14px;
+  }
+
+  .local-strip a {
+    margin-left: 0;
+    width: auto;
+  }
+
+  .curve-card {
+    padding: 24px;
+  }
+
+  .chart-labels text {
+    font-size: 17px;
+  }
+}
+
+@media (max-width: 600px) {
+  .demo-band {
+    padding-top: 164px;
+  }
+
+  .stage-tabs button {
+    padding-inline: 15px;
+  }
+
+  .code-lines,
+  .pane-heading code,
+  .feature-code,
+  .code-window .feature-code,
+  .pair-footer code,
+  .code-window .pair-footer code,
+  .ancestry-copy > code,
+  .workflow-grid code,
+  .loop-card > code,
+  .quickstart-card pre,
+  .quickstart-card.code-window pre {
+    font-size: 12px;
+  }
+
+  .pane-heading {
+    padding-inline: 16px;
+  }
+
+  .demo-metrics {
+    column-gap: 20px;
+  }
+
+  .demo-metrics > div {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-bottom: 20px;
+  }
+
+  .demo-disclaimer {
+    max-width: 100%;
+  }
+
+  .rules-grid > article {
+    display: block;
+  }
+
+  .rule-visual {
+    height: 190px;
+    margin-bottom: 22px;
+  }
+
+  .mini-contract > span {
+    padding-bottom: 7px;
+    margin-bottom: 7px;
+  }
+
+  .mini-contract i {
+    margin-top: 7px;
+  }
+
+  .mini-root {
+    padding: 8px 16px;
+  }
+
+  .mini-forks {
+    gap: 12px;
+  }
+
+  .mini-forks:before {
+    width: 92px;
+    left: 33px;
+  }
+
+  .mini-size-caption {
+    margin-left: 44px;
+  }
+
+  .floating-label {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .feature-code,
+  .code-window .feature-code {
+    padding-inline: 18px;
+  }
+
+  .curve-card {
+    padding-inline: 22px;
+  }
+
+  .chart-labels text {
+    font-size: 22px;
+  }
+
+  .curve-stat > span {
+    max-width: 170px;
+  }
+
+  .loop-grid {
+    grid-template-columns: 1fr;
+    gap: 36px;
+  }
+
+  .loop-visual {
+    height: 200px;
+  }
+
+  .loop-card h3 {
+    font-size: 21px;
+  }
+
+  .measure-mini {
+    width: 175px;
+    padding: 14px;
+  }
+
+  .measure-mini strong {
+    font-size: 31px;
+  }
+
+  .loop-card .inspect-mini > span {
+    min-width: 145px;
+  }
+
+  .local-strip {
+    gap: 16px 26px;
+  }
+
+  .local-strip a {
+    width: 100%;
+  }
+
+  .start-panel {
+    padding-inline: 22px;
+  }
+
+  .quickstart-card.code-window pre {
+    padding: 26px 18px;
+  }
+
+  .quickstart-card.code-window .quickstart-heading,
+  .quickstart-card.code-window .quickstart-result {
+    padding-inline: 16px;
+  }
+
+  .footer-byline {
+    white-space: normal;
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 460px) {
+  .chart-labels text {
+    font-size: 26px;
+  }
+}
+
+@media (max-width: 380px) {
+  .chart-labels text {
+    font-size: 32px;
+  }
+}

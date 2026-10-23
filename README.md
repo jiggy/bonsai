@@ -6,6 +6,8 @@ Bonsai gives a codebase a finite space to grow. Executable product contracts ear
 
 This is an initial working prototype for **TypeScript with in-process application handlers**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It does not yet provide a hardened merge gate or general framework support.
 
+The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`](website/README.md) and published to GitHub Pages by the Website Actions workflow after changes merge into `main`.
+
 ## Try it
 
 Requires Bun 1.4.3 or later. Bun manages dependencies and runs the CLI, tests, and verification workers.

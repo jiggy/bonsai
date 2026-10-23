@@ -111,4 +111,5 @@ The root owns package metadata, runtime dependencies, environment setup, and rep
 - [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture
 - [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai adoption skill
 - [.agents/skills/AGENTS.md](.agents/skills/AGENTS.md): installed CLI design and review skills
-- [.github/AGENTS.md](.github/AGENTS.md): CI formatting, validation, and permissions
+- [.github/AGENTS.md](.github/AGENTS.md): CI formatting, validation, permissions, and website deployment
+- [website/AGENTS.md](website/AGENTS.md): landing page, static assets, and GitHub Pages artifact
