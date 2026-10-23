@@ -2,17 +2,25 @@
 
 ## 1. Harden the first adapter
 
-Bonsai’s own `.feature` contracts execute through the full root `check` as part of
-the normal suite. Its internal binding loader validates and records the configured
-project target. Full self-budget acceptance remains blocked: implement executable
-entry-point relationships for CLI/worker subprocesses, reduce retained cost, and
-bring feedback within the saved policy. The regression's explicit test-only
-feedback window leaves the root policy unchanged and does not establish a budget
-pass.
+Bonsai’s own `.feature` contracts execute through the actual CLI in an explicitly
+scoped non-Rust fixture. A separate full-root check requires the complete inventory
+and exactly the known unsupported Rust source blockers. Its internal binding loader
+validates and records the configured project target. Full self-budget acceptance
+remains blocked: add Rust ancestry analysis and executable entry-point relationships
+for CLI/worker subprocesses, reduce retained cost, and bring feedback within the
+saved policy. The supported-scope regression's test-only feedback window leaves
+the root policy unchanged and does not establish a budget pass.
 
 Check profiles now expose command and phase durations, including interrupted
 verification. Use those measurements to target feedback-time reductions while
 preserving every required observation.
+
+The [Rust/Oxc source collector prototype](native-prototype.md) now has a versioned
+JSONL boundary, differential fixtures, and reproducible cold/warm benchmarks.
+It runs alongside the TypeScript default and omits TypeScript diagnostics and
+runtime evidence. Expand parity beyond the bounded fixtures, preserve checker
+diagnostics, and compare complete-check performance before adopting a native
+backend. Structural collection timings alone cannot justify that switch.
 
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
 - Track side-effect imports and resource dependencies, with precise unresolved-edge diagnostics.

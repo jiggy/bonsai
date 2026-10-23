@@ -22,6 +22,8 @@ Incomplete human reports lead with deduplicated blockers, distinguish unrun chec
 
 The internal `project-bindings-v1` adapter recognizes only the known evidence collector's `import(target.url)`, where a const target comes directly from `projectBindingTarget` with the collector's own project/config/fingerprint parameters. Match both modules' contents to the installed checker implementation, including in archives; symbol linkage alone or filenames never authorize a loader. Validate maintained membership and fingerprint before loading; require a matching binding-import receipt in evidence. Record source provenance without granting registry-export ancestry. Other computed imports, including lookalike helpers, remain unsupported. Pass the effective configuration through the worker; never substitute candidate-local scope for trusted policy input.
 
+The Rust collector is an experimental sibling, not a default acceptance backend. Maintained `.rs` files consume retained cost and explicitly block unsupported source ancestry; do not silently treat them as data. Structural native results without TypeScript diagnostics cannot replace the existing complete collector.
+
 ## Work Guidance
 
 Use the repository CLI skills for changes to the command contract and presentation. Keep policy overrides explicit and preserve trusted base rules.

@@ -3,3 +3,4 @@ node_modules/
 .bonsai/
 coverage/
 work/
+native/target/

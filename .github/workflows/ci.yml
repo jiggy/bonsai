@@ -26,6 +26,7 @@ jobs:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
       - run: bun run format
+      - run: bun run native:format
       - name: Export formatting patch
         id: patch
         run: |
@@ -72,7 +73,7 @@ jobs:
           # Push and PR runs produce the same commit when formatting the same head.
           export GIT_AUTHOR_DATE="$(git show -s --format=%cI HEAD)"
           export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
-          git commit -m 'style: apply Biome formatting'
+          git commit -m 'style: apply formatting'
           git push origin "HEAD:refs/heads/$TARGET_BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -83,7 +84,7 @@ jobs:
       (needs.format.result == 'success' || needs.format.result == 'skipped') &&
       (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -103,7 +104,11 @@ jobs:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
       - run: bun run format:check
+      - run: bun run native:format:check
       - run: bun run check
+      - run: bun run native:test
+      - run: bun run native:build
+      - run: bun run native:compare
       - name: Verify unit, CLI, and executable feature contracts
         run: bun run test
       - run: bun run demo

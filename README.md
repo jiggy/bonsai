@@ -257,6 +257,12 @@ Use `bun install --frozen-lockfile`, `bun run check`, `bun run test`, and
 Bun remains the supported distribution/runtime; static binary releases and a
 self-updater are outside this CLI rewrite.
 
+The [Rust collector prototype](docs/native-prototype.md) is available from a source
+checkout. Build it with `bun run native:build`, verify structural parity with
+`bun run native:compare`, and measure cold and warm collection with
+`bun run native:bench`. It uses a pinned Rust toolchain and Oxc parser; it does not
+replace the TypeScript collector used by `bonsai check` or run TypeScript diagnostics.
+
 ## Bonsai's own executable contracts
 
 Bonsai defines its product behavior in [`features/`](features/AGENTS.md), with
@@ -270,21 +276,25 @@ bun run test:features
 ```
 
 `bun run test` includes the same feature suite, so CI verifies the contracts without
-running them twice. The regression invokes the full root `check`, requires source
-analysis to succeed, and verifies every declared observation exactly once. It uses
-an explicit test-only 60-second feedback window while preserving the committed
-inventory and retained-code budget, and expects genuine budget violations to reject.
+running them twice. Two actual CLI checks cover different scopes. The committed
+root check requires the complete inventory and exactly the known unsupported Rust
+source diagnostics; it must remain incomplete without running evidence. An isolated
+fixture explicitly selects the non-Rust maintained files, invokes its copied CLI,
+and verifies every declared observation exactly once. That fixture uses a test-only
+60-second feedback window, preserves the retained-code budget, and rejects its
+genuine budget overage.
 
 `bun run bonsai check` inspects the committed root inventory and policy. That
 inventory includes owned source, tests, contracts, documentation, and configuration;
 installed third-party CLI skills and the separate checkout example are outside
 that scope. The root policy retains its 20,000-token bootstrap, 30,000-token hard
 limit, and 15-second feedback ceiling. The current inventory exceeds that allowance.
-The internal binding loader is traceable; subprocess entry points still need
-ancestry relationships. The saved feedback ceiling can also expire while the
-nested CLI contracts run. Root acceptance therefore remains blocked; feature tests
-passing does not imply a root budget pass. Calibration and compaction remain
-explicit work.
+Authored Rust prototype files remain in the measured inventory and produce explicit
+`Unsupported source language` blockers until a Rust ancestry adapter exists;
+generated `native/target/` outputs are excluded. The internal binding loader is
+traceable; subprocess entry points still need ancestry relationships. Root
+acceptance therefore remains blocked; feature tests passing does not imply a root
+budget pass. Calibration and compaction remain explicit work.
 
 ## Publish an alpha
 
@@ -444,6 +454,11 @@ block acceptance. The recorded boundary grants no ancestry to unrelated handlers
 or exports. This adapter does not authorize arbitrary application runtime imports.
 Subprocess entry-point ancestry remains unfinished. The supported checkout example
 is available through `bun run bonsai check --root examples/checkout`.
+
+The experimental native collector supplies a bounded subset of structural facts;
+Oxc parsing and symbol analysis do not replace the TypeScript checker. Its parity
+and timing reports are development evidence, not gate acceptance. See the
+[prototype scope and adoption criteria](docs/native-prototype.md).
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 

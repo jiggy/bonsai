@@ -104,6 +104,7 @@ Default section order:
 The root owns package metadata, runtime dependencies, environment setup, and repository-wide contracts.
 
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
+- [native/AGENTS.md](native/AGENTS.md): experimental Rust collector, differential comparisons, and benchmarks
 - [features/AGENTS.md](features/AGENTS.md): executable contracts for Bonsai’s own observable behavior
 - [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests
 - [docs/AGENTS.md](docs/AGENTS.md): design, roadmap, and CLI reference

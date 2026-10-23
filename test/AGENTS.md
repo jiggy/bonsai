@@ -4,7 +4,7 @@ Verify acceptance rules and observable CLI behavior.
 
 ## Ownership
 
-Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which runs the real root `check` to analyze maintained source and execute every root `.feature` observation.
+Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which checks the full maintained root and exercises every root `.feature` observation through an isolated TypeScript implementation's real CLI.
 
 ## Local Contracts
 
@@ -16,7 +16,7 @@ Preserve regression coverage for budget, ancestry, evidence identity, worker dea
 
 Timing regressions exercise real CLI work and delayed handlers, retained measurements after feedback/command timeouts, skipped verification, and base analysis outside candidate feedback. Assert finite nonnegative durations and tolerant relationships to wall time rather than exact timings. Normalize only elapsed values when comparing presentation across separate runs; verify primary duration colors and semantic interruption states through PTYs.
 
-Self-check regression permits a 60-second test-only feedback window through explicit policy input. Preserve the committed inventory, bindings, and budget, require complete matching-candidate evidence, and expect genuine retained-size violations to reject rather than manufacturing root acceptance.
+The full root regression preserves committed inventory and requires exactly the known unsupported Rust-source blockers, no unexpected TypeScript or loader blockers, and no fabricated evidence. Rust sources stay measured until ancestry support exists. A separate copied fixture explicitly selects the authored non-Rust inventory and permits a 60-second test-only feedback window through policy input. Require complete matching-candidate evidence for every declared observation through that fixture's real CLI; preserve budget rules and genuine retained-size rejection. Fixture success never establishes root acceptance.
 
 ## Verification
 

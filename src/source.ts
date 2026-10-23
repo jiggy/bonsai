@@ -76,7 +76,7 @@ export function analyzeSource(root: string, files: string[], bindings: string): 
       file,
       tokens: countTokens(readFileSync(resolve(root, file), 'utf8'), /\.[cm]?ts$/.test(file)),
     })
-    if (/\.[cm]?[jt]sx?$/.test(file) && !/\.[cm]?ts$/.test(file))
+    if ((/\.[cm]?[jt]sx?$/.test(file) && !/\.[cm]?ts$/.test(file)) || file.endsWith('.rs'))
       source.problems.push(`Unsupported source language: ${file}`)
   }
   const program = ts.createProgram(

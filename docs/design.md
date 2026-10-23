@@ -65,10 +65,13 @@ integrity check; collecting timings never changes a limit or gate decision.
 ## Self-verification
 
 Root `.feature` files specify observable Bonsai behavior; executable bindings run
-the real CLI against isolated projects. The normal test suite invokes the full root
-`check`, requires successful source analysis, and verifies every required observation
-through the evidence worker. An explicit test-only 60-second feedback window keeps
-the committed inventory and size budget; genuine root violations still reject.
+the real CLI against isolated projects. The normal suite checks the committed root
+inventory and requires exactly the known unsupported Rust source blockers, with no
+evidence collected. A second check copies the explicitly selected non-Rust inventory
+into an isolated fixture and invokes its actual CLI. That supported-scope check
+requires successful source analysis and every required observation through the
+evidence worker. Its test-only 60-second feedback window preserves the size budget;
+genuine budget violations still reject.
 
 Literal dynamic imports resolve selected exports without retaining unused siblings.
 The internal binding-loader adapter recognizes only this checker's collector and
@@ -80,6 +83,28 @@ location without granting registry-wide handler ancestry. Other computed imports
 remain incomplete, and subprocess entry-point ancestry requires further adapters.
 The root's saved 15-second feedback ceiling and retained-code limits remain in
 force; passing the regression does not assert full root acceptance.
+
+## Native collector prototype
+
+An experimental Rust/Oxc collector implements the source-fact boundary alongside
+the default TypeScript engine. It is a source-checkout development tool, not a CLI
+backend or published runtime dependency. Versioned JSONL requests carry the measured
+inventory and binding path; responses contain structural facts, explicit problems,
+and collection time. They declare TypeScript diagnostics as not run and provide no
+runtime evidence.
+
+Differential fixtures compare exact supported facts and derived policy results
+under the same assumed observations. Those observations test the evaluator and
+cannot establish acceptance. Separate benchmarks measure the full TypeScript
+collector, native structural collector, and TypeScript diagnostics alone, with
+fresh-process and persistent-process samples. Their responsibilities differ, so
+these timings do not establish an equivalent full-gate speedup.
+
+Authored Rust remains in the maintained inventory and receives explicit unsupported
+source-language diagnostics from the default collector. Generated build output is
+excluded. Adoption requires broader parity, preserved diagnostic and evidence
+guarantees, a Rust ancestry adapter, and measured improvement of complete checks
+under the saved policy. See [the prototype protocol, scope, and commands](native-prototype.md).
 
 ## Deliberate gaps
 
