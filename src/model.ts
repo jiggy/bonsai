@@ -80,8 +80,10 @@ export type Snapshot = {
   timing?: CheckTiming
   analysis?: {
     engine: 'rust'
-    validation: 'typescript-reference'
-    status: 'matched' | 'unsupported' | 'mismatch'
+    backend: 'tsrs'
+    validation: 'native-diagnostics'
+    status: 'complete' | 'unsupported'
+    version: string
   }
 }
 export type Decision = {

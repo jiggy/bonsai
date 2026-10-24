@@ -31,7 +31,7 @@ function contracts() {
   )
 }
 
-function check(root: string, config?: Config) {
+function check(root: string, config?: Config, engine: 'typescript' | 'rust' = 'typescript') {
   const result = spawnSync(
     process.execPath,
     [
@@ -41,6 +41,8 @@ function check(root: string, config?: Config) {
       root,
       ...(config ? ['--policy', '-'] : []),
       '--json',
+      '--engine',
+      engine,
     ],
     {
       cwd: root,
@@ -72,29 +74,44 @@ function recognizedBindings(candidate: Snapshot, bindings: string) {
   assert.equal(candidate.source.bindingImports[0]!.bindings, bindings)
 }
 
-test('the root gate measures Rust source and reports its unsupported analysis', () => {
+test('the native root gate verifies its full committed inventory within the saved feedback policy', {
+  timeout: 30000,
+}, () => {
   const config = readConfig(repository)
   const files = inventory(repository, config.maintained, config.exclude)
-  const rust = files.filter((file) => file.endsWith('.rs'))
-  assert.ok(rust.length, 'Native source must remain in the committed maintained scope')
-  const report = check(repository)
-  assert.equal(report.status, 2, report.stderr)
-  assert.equal(report.decision.status, 'incomplete')
+  assert.ok(
+    !files.some((file) => file.endsWith('.rs')),
+    'The obsolete collector must be removed, not excluded',
+  )
+  const report = check(repository, undefined, 'rust')
+  assert.equal(report.status, 1, report.stderr)
+  assert.equal(report.decision.status, 'reject')
   assert.deepEqual(
     report.snapshot.source.files.map((file) => file.file),
     files,
   )
-  assert.deepEqual(
-    report.snapshot.source.problems.toSorted(),
-    rust.map((file) => `Unsupported source language: ${file}`).toSorted(),
-    'Known Rust limitations must never hide unexpected TypeScript or loader blockers',
-  )
-  assert.equal(report.snapshot.evidence, undefined)
+  assert.deepEqual(report.snapshot.source.problems, [], report.stderr)
   recognizedBindings(report.snapshot, config.bindings)
   assert.deepEqual(report.snapshot.contracts, contracts())
+  assert.equal(report.snapshot.analysis?.backend, 'tsrs')
+  assert.equal(report.snapshot.analysis?.status, 'complete')
+  const evidence = report.snapshot.evidence
+  assert.ok(evidence, report.stderr)
+  assert.equal(evidence.complete, true)
+  assert.deepEqual(
+    evidence.checks.filter((check) => check.status !== 'passed'),
+    [],
+  )
+  assert.equal(evidence.checks.length, contracts().checks.length)
+  assert.equal(report.snapshot.timing?.feedback?.limitMs, config.policy.maxFeedbackMs)
+  assert.ok(evidence.elapsedMs <= config.policy.maxFeedbackMs)
+  assert.ok(
+    report.decision.requiredReduction > 0,
+    'Passing behavior must not erase the retained-size overage',
+  )
 })
 
-test('the scoped TypeScript implementation fulfills every feature through the real CLI', {
+test('the reference TypeScript implementation fulfills every feature through the real CLI', {
   timeout: 90000,
 }, () => {
   const required = contracts()
@@ -102,11 +119,8 @@ test('the scoped TypeScript implementation fulfills every feature through the re
   assert.ok(required.cases.length >= 10)
   assert.ok(required.checks.length > required.pairs.length)
   const config = readConfig(repository)
-  // This isolated fixture tests the supported TypeScript implementation. The separate
-  // root regression above retains and rejects Rust until an ancestry adapter exists.
-  const files = inventory(repository, config.maintained, config.exclude).filter(
-    (file) => !file.endsWith('.rs'),
-  )
+  // The reference uses the same complete inventory, copied for archive/loader coverage.
+  const files = inventory(repository, config.maintained, config.exclude)
   const work = resolve(repository, 'work')
   mkdirSync(work, { recursive: true })
   const root = mkdtempSync(resolve(work, 'typescript-self-host-'))
@@ -127,7 +141,7 @@ test('the scoped TypeScript implementation fulfills every feature through the re
     assert.deepEqual(
       report.snapshot.source.files.map((file) => file.file),
       files,
-      'The fixture must analyze its complete explicitly selected TypeScript scope',
+      'The reference fixture must analyze the complete committed scope',
     )
     const evidence = report.snapshot.evidence
     assert.ok(evidence, report.stderr)

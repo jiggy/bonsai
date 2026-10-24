@@ -5,6 +5,24 @@ Feature: Admit only supported implementations of required behavior
     And response "code" equals "RUST_COLLECTOR"
     And response "handlerExecuted" equals false
 
+  Scenario: Verify behavior with the Rust TypeScript checker
+    When I invoke "check" with {"engine": "rust", "examples": 2}
+    Then response "exitCode" equals 0
+    And response "snapshot.analysis.engine" equals "rust"
+    And response "snapshot.analysis.backend" equals "tsrs"
+    And response "snapshot.analysis.validation" equals "native-diagnostics"
+    And response "snapshot.analysis.status" equals "complete"
+    And response "snapshot.evidence.complete" equals true
+    And response "snapshot.evidence.checks.length" equals 2
+    And response "handlerExecuted" equals true
+
+  Scenario: Rust tracing keeps unsupported runtime imports incomplete
+    When I invoke "check" with {"engine": "rust", "computedImport": true}
+    Then response "exitCode" equals 2
+    And response "decision.status" equals "incomplete"
+    And response "snapshot.source.problems.length" equals 1
+    And response "handlerExecuted" equals false
+
   Scenario: Verify every example without multiplying the allowance
     When I invoke "check" with {"examples": 3}
     Then response "exitCode" equals 0

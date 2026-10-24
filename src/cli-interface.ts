@@ -94,7 +94,7 @@ export const commands = {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
     description:
-      'Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json. Experimental --engine rust checks native source facts against TypeScript before running handlers.',
+      'Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json. Experimental --engine rust uses the Rust TypeScript checker for source analysis.',
     examples: [
       'bonsai check',
       'bonsai check --root examples/checkout --json',
@@ -105,7 +105,7 @@ export const commands = {
     summary: 'Show why a file or component is retained',
     usage: 'bonsai explain <file-or-component> [flags]',
     description:
-      'Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin. Experimental --engine rust checks native source facts against TypeScript.',
+      'Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin. Experimental --engine rust uses the Rust TypeScript checker for source analysis.',
     examples: [
       'bonsai explain src/checkout.ts --root examples/checkout',
       "bonsai explain 'src/checkout.ts#placeOrder' --root examples/checkout --json",

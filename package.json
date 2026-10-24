@@ -19,10 +19,6 @@
     "test:features": "bun test --timeout 60000 test/self-host.test.ts",
     "website:build": "bun website/build.mjs",
     "website:check": "bun website/check.mjs",
-    "native:build": "cargo build --locked --release --manifest-path native/Cargo.toml",
-    "native:test": "cargo test --locked --manifest-path native/Cargo.toml",
-    "native:format": "cargo fmt --manifest-path native/Cargo.toml",
-    "native:format:check": "cargo fmt --manifest-path native/Cargo.toml -- --check",
     "native:compare": "bun native/tools/compare.ts",
     "native:bench": "bun native/tools/bench.ts"
   },
@@ -30,6 +26,7 @@
     "@cucumber/gherkin": "^37.0.0",
     "@cucumber/messages": "^32.0.0",
     "ignore": "^7.0.13",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "~5.9.3"
   },
   "devDependencies": {

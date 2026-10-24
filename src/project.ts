@@ -77,23 +77,21 @@ export async function snapshot(
     )
     const sourceTimer = new Timer()
     timer.start('source', sourceTimer)
-    let source = analyzeSource(root, files, config.bindings, sourceTimer)
+    let source
     let analysis: Snapshot['analysis']
     if (engine === 'rust') {
-      sourceTimer.start('native')
       const collected = await collectRustSource(
         root,
         files,
         config.bindings,
-        source,
         signal,
         execute ? config.policy.maxFeedbackMs - (performance.now() - started) : undefined,
+        sourceTimer,
       )
       source = collected.source
       analysis = collected.analysis
-      sourceTimer.finish(collected.interrupted ? 'interrupted' : 'completed')
       if (collected.interrupted) timer.finish('interrupted')
-    }
+    } else source = analyzeSource(root, files, config.bindings, sourceTimer)
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
     if (analysis) result.analysis = analysis
@@ -108,6 +106,7 @@ export async function snapshot(
           hash,
           config.policy.maxFeedbackMs - (performance.now() - started),
           signal,
+          engine,
         )
         timer.finish()
       } catch (error) {

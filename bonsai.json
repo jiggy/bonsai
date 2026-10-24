@@ -14,7 +14,6 @@
     "native",
     "package.json",
     "shell.nix",
-    "rust-toolchain.toml",
     "skills",
     "src",
     "test",

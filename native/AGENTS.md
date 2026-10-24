@@ -1,30 +1,30 @@
 # Purpose
 
-Prototype a Rust TypeScript source collector and measure it against the existing engine.
+Compare the native TypeScript checker with the reference engine and measure complete CLI checks.
 
 ## Ownership
 
-One Cargo crate in `src/`, with Bun comparison and benchmark tools in `tools/`. The CLI defaults to TypeScript and offers opt-in Rust compatibility mode through its existing Bun frontend.
+Bun development tools in `tools/`: shared differential fixtures, canonical source facts, reference/native comparisons, and fresh-process CLI benchmarks. The production native collector lives under `src/` at the repository root and uses the pinned tsrs package; this directory contains no Cargo crate or native implementation.
 
 ## Local Contracts
 
-Use a mature TypeScript parser. Preserve exact component, relationship, token, binding, and source-location facts for supported syntax. Unsupported syntax or unresolved dependencies must remain explicit. Native structural collection does not supply TypeScript compiler diagnostics and cannot independently establish gate acceptance.
+Compare component, relationship, token, binding, source-location, and diagnostic facts against the TypeScript reference. tsrs performs the native compiler work. Reference comparison belongs in development tooling; production native checks do not repeat the reference compiler pass.
 
-CLI compatibility mode runs the full TypeScript reference and only permits verification after matching native facts. Unsupported or mismatched native analysis remains incomplete without a passing fallback. Keep this validation mode distinct from standalone structural benchmarks and from an eventual faster native default.
+Unsupported source or unresolved dependencies remain explicit. A matching source comparison does not establish runtime evidence or gate acceptance. Any assumed observations used to compare derived ancestry and policy decisions stay labeled as development inputs and never authorize acceptance.
 
-Keep Rust source and this tooling in maintained inventory. Build output is generated material. Until Rust ancestry is supported, the default collector must report Rust source as unsupported rather than silently classifying it as data.
+Keep this authored tooling in maintained inventory. Retire obsolete implementations by deleting them, rather than excluding retained source. Other projects' authored Rust remains measured and unsupported until a Rust ancestry adapter exists.
 
-Compare both engines on identical inputs. Count process startup and any preparation in cold-run timings; label warm runs and diagnostics costs separately. Never present a structural-only comparison as an equivalent full-gate speedup.
+Compare both engines on identical inputs. Benchmarks launch fresh CLI processes, include startup, alternate engines, and preserve individual samples, decisions, and verification state. Cold means a fresh process, without flushing operating-system file caches. Distinguish incomplete runs from completed verification and never report skipped work as a complete-check speedup.
 
-Full-reference and diagnostics-only workers share the production compiler-session rules: fresh programs and diagnostics each request, with bounded exact-content document reuse within a warm process. No diagnostic or source-result cache is persisted.
+The reference collector retains its production compiler-session rules. No benchmark or comparison persists trusted diagnostics, source results, or runtime evidence.
 
 ## Work Guidance
 
-Keep the prototype bounded and its protocol versioned. Do not switch the default engine before compatibility and performance are demonstrated.
+Keep development commands small and their JSON reports versioned. Do not switch the default engine before compatibility and performance are demonstrated.
 
 ## Verification
 
-Cargo tests, the native differential comparison command, and actual CLI engine comparison tests in the normal Bun suite.
+`bun run native:compare`, `bun run native:bench`, and the normal Bun suite's source and real-CLI engine comparisons.
 
 ## Child DOX Index
 

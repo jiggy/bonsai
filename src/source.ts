@@ -36,14 +36,8 @@ export function countTokens(text: string, typescript = false): number {
   return count
 }
 
-export function analyzeSource(
-  root: string,
-  files: string[],
-  bindings: string,
-  timer?: Timer,
-): Source {
-  timer?.start('measurement')
-  root = realpathSync(root)
+/** Whole-inventory cost is independent of the selected semantic checker. */
+export function measureSource(root: string, files: string[]): Source {
   const source: Source = {
     files: [],
     components: [],
@@ -51,7 +45,6 @@ export function analyzeSource(
     actions: Object.create(null),
     problems: [],
   }
-  const scriptFiles = files.filter((file) => /\.[cm]?ts$/.test(file))
   for (const file of files) {
     source.files.push({
       file,
@@ -60,6 +53,19 @@ export function analyzeSource(
     if ((/\.[cm]?[jt]sx?$/.test(file) && !/\.[cm]?ts$/.test(file)) || file.endsWith('.rs'))
       source.problems.push(`Unsupported source language: ${file}`)
   }
+  return source
+}
+
+export function analyzeSource(
+  root: string,
+  files: string[],
+  bindings: string,
+  timer?: Timer,
+): Source {
+  timer?.start('measurement')
+  root = realpathSync(root)
+  const source = measureSource(root, files)
+  const scriptFiles = files.filter((file) => /\.[cm]?ts$/.test(file))
   timer?.start('program')
   const program = compiler.program(scriptFiles.map((file) => resolve(root, file)))
   timer?.start('diagnostics')
@@ -73,6 +79,20 @@ export function analyzeSource(
     }),
   )
   timer?.start('graph')
+  const result = collectSourceGraph(root, files, bindings, source, program)
+  timer?.finish()
+  return result
+}
+
+/** Shared Bonsai rules consume either compiler's resolved semantic facts. */
+export function collectSourceGraph(
+  root: string,
+  files: string[],
+  bindings: string,
+  source: Source,
+  program: ts.Program,
+): Source {
+  const scriptFiles = files.filter((file) => /\.[cm]?ts$/.test(file))
   const checker = program.getTypeChecker()
   const nodes = new Map<ts.Node, Component>()
   const symbols = new Map<ts.Symbol, Component>()
@@ -322,6 +342,5 @@ export function analyzeSource(
     }
   }
   if (!source.registry) source.problems.push('No exported actions registry found')
-  timer?.finish()
   return source
 }

@@ -1,54 +1,26 @@
-import { spawnSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { collectRustSource } from '../../src/collector.ts'
 import type { Source } from '../../src/model.ts'
 
-export type NativeResponse = {
-  protocol: 1
-  structuralComplete: boolean
-  typescriptDiagnostics: 'not-run'
-  source: Source
-  elapsedMs: number
+/** Exercise the production native collector; reference analysis belongs in the caller. */
+export function collectNative(root: string, files: string[], bindings: string) {
+  return collectRustSource(root, files, bindings, undefined, 30000)
 }
 
-export function binaryPath() {
-  const name = `bonsai-collector-prototype${process.platform === 'win32' ? '.exe' : ''}`
-  return (
-    process.env.BONSAI_NATIVE_BINARY ??
-    resolve(process.env.CARGO_TARGET_DIR ?? 'native/target', 'release', name)
-  )
-}
-
-export function collectNative(root: string, files: string[], bindings: string): NativeResponse {
-  const binary = binaryPath()
-  if (!existsSync(binary))
-    throw new Error(`Native prototype isn't built: ${binary}. Run bun run native:build`)
-  const result = spawnSync(binary, [], {
-    input: JSON.stringify({ protocol: 1, root, files, bindings }) + '\n',
-    encoding: 'utf8',
-    timeout: 30000,
-    maxBuffer: 64 * 1024 * 1024,
-  })
-  if (result.error) throw result.error
-  if (result.status !== 0) throw new Error(`Native collector failed: ${result.stderr}`)
-  const response = JSON.parse(result.stdout)
-  if (response.error) throw new Error(response.error)
-  if (
-    response.protocol !== 1 ||
-    response.typescriptDiagnostics !== 'not-run' ||
-    !response.source ||
-    typeof response.structuralComplete !== 'boolean' ||
-    !Number.isFinite(response.elapsedMs)
-  )
-    throw new Error('Invalid native collector response')
-  return response
-}
-
-export function canonicalSource(source: Source): unknown {
+export function canonicalSource(source: Source): Source {
   const copy = structuredClone(source)
   copy.files.sort((a, b) => a.file.localeCompare(b.file))
   copy.components.sort((a, b) => a.id.localeCompare(b.id))
-  copy.relationships.sort((a, b) => `${a.from}\0${a.to}`.localeCompare(`${b.from}\0${b.to}`))
+  copy.relationships.sort((a, b) =>
+    `${a.from}\0${a.to}\0${a.sourceRef.file}\0${a.sourceRef.line}`.localeCompare(
+      `${b.from}\0${b.to}\0${b.sourceRef.file}\0${b.sourceRef.line}`,
+    ),
+  )
+  copy.actions = Object.fromEntries(
+    Object.entries(copy.actions).sort(([a], [b]) => a.localeCompare(b)),
+  )
+  copy.bindingImports?.sort((a, b) =>
+    `${a.file}\0${a.line}\0${a.from}`.localeCompare(`${b.file}\0${b.line}\0${b.from}`),
+  )
   copy.problems.sort()
   return copy
 }

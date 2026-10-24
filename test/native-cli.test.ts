@@ -11,15 +11,23 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join, relative, resolve } from 'node:path'
+import { createRequire } from 'node:module'
 import { stripVTControlCharacters } from 'node:util'
 import { analyzeSource } from '../src/source.ts'
-import { binaryPath } from '../native/tools/client.ts'
 
 const repository = resolve('.')
 const executable = resolve('src/cli.ts')
-const native = binaryPath()
-const hasNative = existsSync(native)
+const require = createRequire(import.meta.url)
+let native: string | undefined
+try {
+  const manifest = require.resolve('tsrs/package.json')
+  const getExePath = require(join(dirname(manifest), 'lib/getExePath.js')).default
+  native = getExePath()
+} catch {
+  // Unsupported platforms can still exercise enum/help and mocked runtime failures.
+}
+const hasNative = native !== undefined && existsSync(native)
 const hasPty = process.platform === 'linux' && spawnSync('script', ['--version']).status === 0
 const canRunMocks = process.platform !== 'win32'
 const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
@@ -73,6 +81,7 @@ function environment(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     BONSAI_BASE: undefined,
     BONSAI_POLICY: undefined,
     BONSAI_NATIVE_BINARY: native,
+    TSRS_BINARY: undefined,
     BONSAI_NO_COLOR: '',
     NO_COLOR: '',
     FORCE_COLOR: '',
@@ -138,7 +147,7 @@ function withoutHumanMeasurements(text: string) {
   let timing = false
   return stripVTControlCharacters(text)
     .split('\n')
-    .filter((line) => !line.includes('Rust compatibility comparison:'))
+    .filter((line) => !line.includes('Rust worker overhead:'))
     .map((line) => {
       if (line === 'Timing') timing = true
       else if (timing && !line.trim()) timing = false
@@ -159,21 +168,6 @@ function mock(root: string, source: string) {
   const path = join(root, 'collector-worker.mjs')
   writeFileSync(path, `#!${process.execPath}\n${source}\n`, { mode: 0o755 })
   return path
-}
-
-function mismatchingWorker(root: string, files: string[], log?: string) {
-  const source = analyzeSource(root, files, 'bindings.ts')
-  assert.deepEqual(source.problems, [])
-  source.components[0]!.tokens += 1
-  return mock(
-    root,
-    [
-      "import { readFileSync, appendFileSync } from 'node:fs'",
-      "const request = JSON.parse(readFileSync(0, 'utf8'))",
-      ...(log ? [`appendFileSync(${JSON.stringify(log)}, request.root + '\\n')`] : []),
-      `process.stdout.write(JSON.stringify(${JSON.stringify({ protocol: 1, structuralComplete: true, typescriptDiagnostics: 'not-run', source, elapsedMs: 0 })}) + '\\n')`,
-    ].join('\n'),
-  )
 }
 
 function expectReadableRed(text: string, phrase: string, after?: string) {
@@ -218,11 +212,11 @@ test('the Rust engine preserves actual check facts and outcomes for supported pr
       const reference = report(project.root, 'typescript')
       const rust = report(project.root, 'rust')
       assert.equal(rust.result.status, reference.result.status)
-      assert.deepEqual(rust.value.snapshot.analysis, {
-        engine: 'rust',
-        validation: 'typescript-reference',
-        status: 'matched',
-      })
+      assert.equal(rust.value.snapshot.analysis.engine, 'rust')
+      assert.equal(rust.value.snapshot.analysis.backend, 'tsrs')
+      assert.equal(rust.value.snapshot.analysis.validation, 'native-diagnostics')
+      assert.equal(rust.value.snapshot.analysis.status, 'complete')
+      assert.equal(rust.value.snapshot.analysis.version, require('tsrs/package.json').version)
       assert.deepEqual(withoutMeasurements(rust.value), withoutMeasurements(reference.value))
       assert.equal(rust.value.snapshot.evidence.complete, true)
     } finally {
@@ -246,8 +240,9 @@ test('Rust checks keep human, plain, quiet and inspection output on the shared C
       const rust = cli(['check', '--root', project.root, '--engine', 'rust', ...args])
       assert.equal(rust.status, reference.status)
       if (args.includes('--verbose')) {
-        assert.match(rust.stderr, /Rust compatibility comparison:/)
-        assert.doesNotMatch(reference.stderr, /Rust compatibility comparison:/)
+        assert.match(rust.stderr, /Rust worker overhead:/)
+        assert.doesNotMatch(reference.stderr, /Rust worker overhead:/)
+        assert.doesNotMatch(rust.stderr, /Rust compatibility comparison/)
       }
       assert.equal(
         withoutHumanMeasurements(rust.stdout),
@@ -288,7 +283,7 @@ test('Rust checks keep human, plain, quiet and inspection output on the shared C
   }
 })
 
-test('Rust validation retains TypeScript diagnostics and blocks unsupported native source', {
+test('Rust checks collect native diagnostics and support interpolated templates', {
   skip: !hasNative,
 }, () => {
   for (const handler of [
@@ -298,10 +293,10 @@ test('Rust validation retains TypeScript diagnostics and blocks unsupported nati
     const project = fixture({ handler })
     try {
       const rust = report(project.root, 'rust')
-      assert.equal(rust.result.status, 2)
-      assert.equal(rust.value.decision.status, 'incomplete')
-      assert.equal(rust.value.snapshot.evidence, undefined)
       if (handler.includes('wrong:')) {
+        assert.equal(rust.result.status, 2)
+        assert.equal(rust.value.decision.status, 'incomplete')
+        assert.equal(rust.value.snapshot.evidence, undefined)
         const reference = report(project.root, 'typescript')
         assert.deepEqual(
           rust.value.snapshot.source.problems,
@@ -309,8 +304,16 @@ test('Rust validation retains TypeScript diagnostics and blocks unsupported nati
         )
         assert.match(rust.value.snapshot.source.problems.join('\n'), /not assignable/)
       } else {
-        assert.equal(rust.value.snapshot.analysis.status, 'unsupported')
-        assert.match(rust.value.snapshot.source.problems.join('\n'), /Rust/)
+        assert.equal(rust.result.status, 1)
+        assert.equal(rust.value.decision.status, 'reject')
+        assert.equal(rust.value.snapshot.analysis.status, 'complete')
+        assert.deepEqual(rust.value.snapshot.source.problems, [])
+        assert.equal(rust.value.snapshot.evidence.complete, true)
+        assert.ok(
+          rust.value.snapshot.evidence.checks.every(
+            (check: { status: string }) => check.status === 'failed',
+          ),
+        )
       }
     } finally {
       project.dispose()
@@ -332,7 +335,7 @@ test('engine selection validates early and help never requires a native binary',
   assert.match(JSON.parse(invalid.stderr).run, /typescript.*rust/)
 })
 
-test('native worker failures are structured runtime errors and mismatches cannot run checks', {
+test('native server failures are structured runtime errors and cannot run handlers', {
   skip: !canRunMocks,
 }, () => {
   const project = fixture()
@@ -350,7 +353,7 @@ test('native worker failures are structured runtime errors and mismatches cannot
     assert.equal(missing.stdout, '')
     assert.equal(JSON.parse(missing.stderr).code, 'RUST_COLLECTOR')
     assert.match(JSON.parse(missing.stderr).error, /missing-collector/)
-    assert.match(JSON.parse(missing.stderr).run, /native:build|BONSAI_NATIVE_BINARY/)
+    assert.match(JSON.parse(missing.stderr).run, /bun install|BONSAI_NATIVE_BINARY/)
     for (const worker of [
       "process.stderr.write('private worker output'); process.exit(7)",
       "process.stdout.write('not JSON')",
@@ -362,30 +365,58 @@ test('native worker failures are structured runtime errors and mismatches cannot
       assert.equal(result.stdout, '')
       assert.equal(JSON.parse(result.stderr).code, 'RUST_COLLECTOR')
       assert.doesNotMatch(result.stderr, /private worker output|not JSON|SyntaxError/)
+      assert.equal(existsSync(marker), false, 'Failed native servers cannot run handlers')
     }
-    const result = cli(['check', '--root', project.root, '--engine', 'rust', '--json'], {
-      env: { BONSAI_NATIVE_BINARY: mismatchingWorker(project.root, project.files) },
-    })
-    assert.equal(result.status, 2, result.stderr)
-    const candidate = JSON.parse(result.stdout)
-    assert.equal(candidate.snapshot.analysis.status, 'mismatch')
-    assert.equal(candidate.snapshot.evidence, undefined)
-    assert.equal(candidate.decision.status, 'incomplete')
-    assert.match(candidate.snapshot.source.problems.join('\n'), /Rust/)
-    assert.equal(existsSync(marker), false, 'Failed native analysis must never run the handler')
+  } finally {
+    project.dispose()
+  }
+})
+
+test('unsupported maintained source remains measured and cannot run handlers', {
+  skip: !hasNative,
+}, () => {
+  const project = fixture()
+  try {
+    const marker = join(project.root, 'handler-executed')
+    writeFileSync(
+      join(project.root, 'handler.ts'),
+      `import { writeFileSync } from 'node:fs'\nexport function sample() { writeFileSync(${JSON.stringify(marker)}, 'executed'); return { status: 'accepted' } }\n`,
+    )
+    writeFileSync(join(project.root, 'unsupported.rs'), 'pub fn unsupported() {}\n')
+    const config = JSON.parse(readFileSync(join(project.root, 'bonsai.json'), 'utf8'))
+    config.maintained.push('unsupported.rs')
+    writeFileSync(join(project.root, 'bonsai.json'), JSON.stringify(config))
+    const rust = report(project.root, 'rust')
+    assert.equal(rust.result.status, 2)
+    assert.equal(rust.value.decision.status, 'incomplete')
+    assert.equal(rust.value.snapshot.evidence, undefined)
+    assert.deepEqual(rust.value.snapshot.source.problems, [
+      'Unsupported source language: unsupported.rs',
+    ])
+    assert.ok(
+      rust.value.snapshot.source.files.find(
+        (file: { file: string; tokens: number }) =>
+          file.file === 'unsupported.rs' && file.tokens > 0,
+      ),
+    )
+    assert.equal(existsSync(marker), false)
   } finally {
     project.dispose()
   }
 })
 
 test('Rust source validation also protects the archived base before candidate execution', {
-  skip: !canRunMocks,
+  skip: !hasNative,
 }, () => {
   const project = fixture()
   try {
+    writeFileSync(join(project.root, 'unsupported.rs'), 'pub fn unsupported() {}\n')
+    const config = JSON.parse(readFileSync(join(project.root, 'bonsai.json'), 'utf8'))
+    config.maintained.push('unsupported.rs')
+    writeFileSync(join(project.root, 'bonsai.json'), JSON.stringify(config))
     for (const args of [
       ['init', '-b', 'main', project.root],
-      ['-C', project.root, 'add', ...project.files],
+      ['-C', project.root, 'add', ...project.files, 'unsupported.rs'],
       [
         '-C',
         project.root,
@@ -401,23 +432,26 @@ test('Rust source validation also protects the archived base before candidate ex
       const git = spawnSync('git', args, { encoding: 'utf8', timeout: 5000 })
       assert.equal(git.status, 0, git.stderr)
     }
-    const log = join(project.root, 'roots.log')
-    const result = cli(
-      ['check', '--root', project.root, '--base', 'HEAD', '--engine', 'rust', '--json'],
-      { env: { BONSAI_NATIVE_BINARY: mismatchingWorker(project.root, project.files, log) } },
-    )
+    const result = cli([
+      'check',
+      '--root',
+      project.root,
+      '--base',
+      'HEAD',
+      '--engine',
+      'rust',
+      '--json',
+    ])
     assert.equal(result.status, 2, result.stderr)
     assert.equal(result.stdout, '')
     assert.equal(JSON.parse(result.stderr).code, 'BASE_INCOMPLETE')
-    const roots = readFileSync(log, 'utf8').trim().split('\n')
-    assert.equal(roots.length, 1, 'A mismatching Rust base must stop before candidate collection')
-    assert.notEqual(roots[0], project.root)
+    assert.match(JSON.parse(result.stderr).error, /unsupported\.rs/)
   } finally {
     project.dispose()
   }
 })
 
-test('native binary discovery follows the checker checkout rather than the caller directory', {
+test('native package discovery follows the checker checkout rather than the caller directory', {
   skip: !hasNative,
 }, () => {
   const project = fixture()
@@ -426,22 +460,37 @@ test('native binary discovery follows the checker checkout rather than the calle
   try {
     cpSync(resolve('src'), join(checker, 'src'), { recursive: true })
     cpSync(resolve('package.json'), join(checker, 'package.json'))
-    const installedBinary = join(
-      checker,
-      'native/target/release',
-      process.platform === 'win32'
-        ? 'bonsai-collector-prototype.exe'
-        : 'bonsai-collector-prototype',
+    const marker = join(project.root, 'candidate-server-executed')
+    const fakePackage = join(project.root, 'node_modules/tsrs')
+    mkdirSync(fakePackage, { recursive: true })
+    writeFileSync(
+      join(fakePackage, 'package.json'),
+      '{"name":"tsrs","version":"0.0.0","main":"index.js"}',
     )
-    mkdirSync(dirname(installedBinary), { recursive: true })
-    cpSync(native, installedBinary)
+    writeFileSync(
+      join(fakePackage, 'index.js'),
+      `require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'executed'); throw new Error('candidate tsrs must not load')`,
+    )
     const result = cli(['check', '--root', project.root, '--engine', 'rust', '--json'], {
       cwd: project.root,
       executable: join(checker, 'src/cli.ts'),
       env: { BONSAI_NATIVE_BINARY: undefined, CARGO_TARGET_DIR: undefined },
     })
     assert.equal(result.status, 0, result.stderr)
-    assert.equal(JSON.parse(result.stdout).snapshot.analysis.status, 'matched')
+    assert.equal(JSON.parse(result.stdout).snapshot.analysis.status, 'complete')
+    assert.equal(existsSync(marker), false)
+    assert.ok(native)
+    const relativeOverride = cli(['check', '--root', project.root, '--engine', 'rust', '--json'], {
+      cwd: project.root,
+      executable: join(checker, 'src/cli.ts'),
+      env: { BONSAI_NATIVE_BINARY: relative(project.root, native), CARGO_TARGET_DIR: undefined },
+    })
+    assert.equal(relativeOverride.status, 0, relativeOverride.stderr)
+    assert.deepEqual(
+      withoutMeasurements(JSON.parse(relativeOverride.stdout)),
+      withoutMeasurements(JSON.parse(result.stdout)),
+    )
+    assert.equal(existsSync(marker), false)
   } finally {
     project.dispose()
     rmSync(checker, { recursive: true, force: true })
@@ -453,17 +502,18 @@ test('native blockers retain readable red text through narrow-terminal wrapping'
 }, () => {
   const project = fixture({
     handler:
-      'export function sample(input: { quantity: number }) { return { status: `value${input.quantity}` } }\n',
+      'export function sample(input: { quantity: number }) { const target = "./handler.ts"; return import(target) }\n',
   })
   try {
     const args = ['check', '--root', project.root, '--engine', 'rust', '--verbose']
-    const color = cli(args, { tty: true, env: { COLUMNS: '40' } })
+    const color = cli(args, { tty: true, env: { COLUMNS: '24' } })
     assert.equal(color.status, 2, color.stdout + color.stderr)
     const output = color.stdout + color.stderr
-    expectReadableRed(output, 'Rust collector')
-    // The alert's final word wraps at 40 columns; it must retain its role.
-    expectReadableRed(output, 'source', 'Rust collector')
-    const plain = cli([...args, '--no-color'], { tty: true, env: { COLUMNS: '40' } })
+    expectReadableRed(output, "Can't trace")
+    // The alert's final word wraps at 24 columns; it must retain its role.
+    assert.match(stripVTControlCharacters(output), /Can't trace[^\n]*\n\s*import/)
+    expectReadableRed(output, 'import', "Can't trace")
+    const plain = cli([...args, '--no-color'], { tty: true, env: { COLUMNS: '24' } })
     assert.equal(plain.status, 2)
     assert.doesNotMatch(plain.stdout + plain.stderr, /\x1b\[/)
     assert.equal(
@@ -473,11 +523,11 @@ test('native blockers retain readable red text through narrow-terminal wrapping'
     const redirected = join(project.root, 'report.txt')
     const separate = cli(args, {
       tty: true,
-      env: { COLUMNS: '40' },
+      env: { COLUMNS: '24' },
       redirect: ` > ${quote(redirected)}`,
     })
     assert.equal(separate.status, 2)
-    expectReadableRed(separate.stdout + separate.stderr, 'Rust collector')
+    expectReadableRed(separate.stdout + separate.stderr, "Can't trace")
     const records = readFileSync(redirected, 'utf8')
     assert.match(records, /^incomplete\t/)
     assert.equal(records.trim().split('\t').length, 8)

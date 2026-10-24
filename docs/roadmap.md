@@ -2,29 +2,18 @@
 
 ## 1. Harden the first adapter
 
-Bonsai’s own `.feature` contracts execute through the actual CLI in an explicitly
-scoped non-Rust fixture. A separate full-root check requires the complete inventory
-and exactly the known unsupported Rust source blockers. Its internal binding loader
-validates and records the configured project target. Full self-budget acceptance
-remains blocked: add Rust ancestry analysis and executable entry-point relationships
-for CLI/worker subprocesses, reduce retained cost, and bring feedback within the
-saved policy. The supported-scope regression's test-only feedback window leaves
-the root policy unchanged and does not establish a budget pass.
+Bonsai's own `.feature` contracts execute through the real CLI against the
+complete committed inventory. The native backend uses tsrs for TypeScript
+semantics without a reference compiler pass; development tests compare it with
+TypeScript separately. Its unused Oxc predecessor was deleted. Full self-budget
+acceptance still requires executable entry-point relationships and retained-code
+reduction; complete feature evidence is separate from a budget pass.
 
-Check profiles now expose command and phase durations, including interrupted
-verification. Use those measurements to target feedback-time reductions while
-preserving every required observation.
-
-The [Rust/Oxc source collector prototype](native-prototype.md) now has a versioned
-JSONL boundary, differential fixtures, reproducible cold/warm benchmarks, and
-`--engine rust` compatibility mode in the existing `check` and `explain` CLI.
-This mode runs the full TypeScript reference and its diagnostics alongside Rust,
-blocks unsupported or mismatched analysis, and shares the established frontend.
-The native binary alone supplies neither compiler diagnostics nor runtime evidence.
-Expand parity beyond the bounded fixtures, preserve checker diagnostics without
-repeating the full reference collector, and compare complete-check performance
-before adopting a native default. Compatibility mode can be slower; structural
-collection timings alone cannot justify the switch.
+Profiles expose command, source, and verification durations, including interrupted
+work. Native benchmarks use fresh processes and retain evidence completion state.
+Expand real-project and diagnostic conformance before adopting a native default;
+known TypeScript 5/7 gaps remain explicit blockers. See [native scope](native-prototype.md)
+and [performance evidence](performance.md).
 
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
 - Track side-effect imports and resource dependencies, with precise unresolved-edge diagnostics.

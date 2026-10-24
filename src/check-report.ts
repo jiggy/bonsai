@@ -41,7 +41,7 @@ export function timingLines(timing: CheckTiming): HumanLine[] {
     program: 'Compiler setup',
     diagnostics: 'Type checking',
     graph: 'Dependency graph',
-    native: 'Rust compatibility comparison',
+    native: 'Rust worker overhead',
     retention: 'Contract ancestry',
     verification: 'Verification',
     integrity: 'Final integrity check',

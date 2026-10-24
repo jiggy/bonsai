@@ -774,9 +774,9 @@ async function main(): Promise<void> {
         'BASE_INCOMPLETE',
         'Fix the base contracts or select another --base revision',
       )
-    if (engine === 'rust' && base.analysis?.status !== 'matched')
+    if (engine === 'rust' && base.analysis?.status !== 'complete')
       throw new CliError(
-        `Rust collector can't check base '${baseValue}': ${base.source.problems.filter((problem) => problem.startsWith('Rust collector')).join(', ')}`,
+        `Rust checker can't check base '${baseValue}': ${base.source.problems.join(', ')}`,
         'BASE_INCOMPLETE',
         'Use --engine typescript for this base, or select a base supported by the Rust collector',
       )

@@ -63,20 +63,20 @@ The separate feedback measurement preserves its policy boundary before the final
 integrity check; collecting timings never changes a limit or gate decision.
 
 Source analysis nests retained-size measurement, compiler setup, type checking,
-and dependency graph collection. Rust compatibility records its additional
-comparison separately. These child phases remain available in parent reports,
+and dependency graph collection. Rust records native worker overhead separately. These child phases remain available in parent reports,
 including partial failures.
 
 ## Self-verification
 
 Root `.feature` files specify observable Bonsai behavior; executable bindings run
-the real CLI against isolated projects. The normal suite checks the committed root
-inventory and requires exactly the known unsupported Rust source blockers, with no
-evidence collected. A second check copies the explicitly selected non-Rust inventory
-into an isolated fixture and invokes its actual CLI. That supported-scope check
-requires successful source analysis and every required observation through the
-evidence worker. Its test-only 60-second feedback window preserves the size budget;
-genuine budget violations still reject.
+the real CLI against isolated projects. The native root check measures the complete
+committed inventory and requires every observation under the saved feedback
+policy. Its bindings inherit the selected engine for nested check/explain commands;
+application action signatures and verification obligations are unchanged. A copied
+reference fixture checks the same full inventory with TypeScript and a test-only
+60-second window. Both preserve the budget and must reject genuine retained-size
+violations. The retired prototype was deleted, without exclusions or a claim of
+Rust source ancestry support.
 
 Literal dynamic imports resolve selected exports without retaining unused siblings.
 The internal binding-loader adapter recognizes only this checker's collector and
@@ -89,38 +89,36 @@ remain incomplete, and subprocess entry-point ancestry requires further adapters
 The root's saved 15-second feedback ceiling and retained-code limits remain in
 force; passing the regression does not assert full root acceptance.
 
-## Native collector prototype
+## Native semantic backend
 
-An experimental Rust/Oxc collector implements the source-fact boundary alongside
-the default TypeScript engine. `check --engine rust` and `explain --engine rust`
-use the existing Bun CLI and presentation in strict compatibility mode. The Rust
-binary is built separately from a source checkout. Versioned JSONL requests carry
-the measured inventory and binding path; responses contain structural facts,
-explicit problems, and collection time. The binary declares TypeScript diagnostics
-as not run and provides no runtime evidence.
+`check --engine rust` and `explain --engine rust` use the pinned tsrs compiler for
+program construction, all compiler diagnostic categories, and symbol resolution.
+The existing Bun frontend launches a Bun semantic worker using tsrs's asynchronous
+SDK. No TypeScript reference compiler runs on this path. TypeScript's lexical
+scanner and source parser still supply the exact metric and local ASTs; shared
+Bonsai rules consume native semantic facades. Batched symbol and type queries
+avoid a request for each identifier. Owned and imported declarations are resolved
+back to source locations without granting unused exports ancestry.
 
-Compatibility mode runs the full TypeScript reference collector and its diagnostics
-on the same input. Only matching native source facts may continue to verification.
-Unsupported native analysis and mismatches keep the gate incomplete; TypeScript
-facts may supply provisional reporting but cannot authorize a fallback pass.
-Runtime worker failures use the CLI's existing error path. Engine selection applies
-to base and candidate analysis and remains explicit in recovery commands. Optional
-analysis metadata records the Rust engine, reference validation, and match status.
+The adapter supplies the same explicit root files and preserves the reference's
+ambient type discovery. TypeScript 5.9 and tsrs's pinned TypeScript 7 compiler are
+not universally equivalent. Known default-library directive differences and local
+parser gaps produce explicit incomplete analysis, never a fallback pass. Compiler
+diagnostics, unsupported inputs, and interrupted analysis prevent verification.
 
-Differential fixtures compare exact supported facts and derived policy results
-under the same assumed observations. Those observations test the evaluator and
-cannot establish acceptance. Separate benchmarks measure the full TypeScript
-collector, native structural collector, and TypeScript diagnostics alone, with
-fresh-process and persistent-process samples. Their responsibilities differ, so
-these timings do not establish an equivalent full-gate speedup. Strict compatibility
-mode deliberately runs both collectors and can be slower than the default.
+The parent validates protocol identity, complete diagnostic categories, source
+facts, and timing shapes. It bounds output and deadlines, requests graceful worker
+cancellation so the compiler is killed and reaped, and forces process-group cleanup
+if necessary. Missing or broken installations use the existing CLI error path.
+Native metadata records the backend, pinned version, native diagnostic validation,
+and completion state. Base and candidate use the same selected engine.
 
-Authored Rust remains in the maintained inventory and receives explicit unsupported
-source-language diagnostics from the default collector. Generated build output is
-excluded. Adoption requires broader parity, preserved diagnostic and evidence
-guarantees without repeating the full reference collector, a Rust ancestry adapter,
-and measured improvement of complete checks under the saved policy. See
-[the prototype protocol, scope, and commands](native-prototype.md).
+Development comparisons run the TypeScript reference separately on identical
+inputs, comparing diagnostics, token costs, graph facts, ancestry, and policy
+results. Real CLI tests require candidate-bound observations. Fresh-process
+benchmarks record completed checks and actual evidence as well as timings; an
+incomplete run cannot establish a completed-gate speedup. The default remains
+TypeScript pending broader project validation. See [native scope and commands](native-prototype.md).
 
 ## Deliberate gaps
 

@@ -156,7 +156,7 @@ Check snapshots may add `source.bindingImports` and `evidence.bindingImport` for
 the validated internal loader boundary; existing fields remain available.
 Check reports also include additive `timing` and `snapshot.timing` measurements.
 Rust-mode snapshots add `analysis` metadata for the selected engine and its
-TypeScript reference comparison.
+native compiler identity and diagnostic status.
 
 ### Read a check result
 
@@ -215,8 +215,7 @@ evidence exists. Setup errors and `--timeout` errors carry available timing on
 stderr in JSON mode.
 
 Source analysis includes nested retained-size measurement, compiler setup, type
-checking, and dependency graph timings. Rust compatibility adds its comparison
-phase. See [performance research and measurements](docs/performance.md) for the
+checking, and dependency graph timings. Rust adds measured worker overhead. See [performance research and measurements](docs/performance.md) for the
 current bottlenecks, optimizations, and Rust checker evaluation.
 
 Command elapsed time starts at the runtime clock origin and ends after report
@@ -269,22 +268,24 @@ Use `bun install --frozen-lockfile`, `bun run check`, `bun run test`, and
 Bun remains the supported distribution/runtime; static binary releases and a
 self-updater are outside this CLI rewrite.
 
-The [Rust collector prototype](docs/native-prototype.md) is available from a source
-checkout. Build it with `bun run native:build`, verify structural parity with
-`bun run native:compare`, and measure cold and warm collection with
-`bun run native:bench`. Try it through the existing CLI and presentation:
+The experimental [Rust TypeScript checker](docs/native-prototype.md) is installed
+with the pinned `tsrs` dependency; no Cargo build is required. Try it through the
+same CLI and presentation:
 
 ```sh
+bun install --frozen-lockfile
 bun run ./src/cli.ts check --engine rust --verbose
 bun run ./src/cli.ts check --root examples/checkout --engine rust --verbose
 ```
 
-`--engine typescript` remains the default for `check` and `explain`. Rust mode
-runs both the Rust collector and the full TypeScript reference, preserves compiler
-diagnostics, and permits verification only when their source facts match. Native
-unsupported forms and mismatches keep the gate incomplete. This compatibility mode
-can be slower; the structural benchmark alone does not justify migration. The
-compiled Rust binary is a collector, while Bun retains the shared CLI frontend.
+`--engine typescript` remains the default. `--engine rust` uses native compiler
+diagnostics and symbol resolution independently; it does not run the TypeScript
+reference compiler. Both share Bonsai's lexical token metric, structural rules,
+CLI, and evidence worker. Differential comparisons run in tests and through
+`bun run native:compare`; `bun run native:bench` measures fresh complete commands.
+The pinned package supports Linux x64/arm64 and macOS arm64. Unsupported forms and
+known compiler gaps block acceptance. See the native documentation for platform,
+configuration, and TypeScript-version limits.
 
 ## Bonsai's own executable contracts
 
@@ -298,26 +299,24 @@ the real executable, and return its reports and filesystem outcomes for assertio
 bun run test:features
 ```
 
-`bun run test` includes the same feature suite, so CI verifies the contracts without
-running them twice. Two actual CLI checks cover different scopes. The committed
-root check requires the complete inventory and exactly the known unsupported Rust
-source diagnostics; it must remain incomplete without running evidence. An isolated
-fixture explicitly selects the non-Rust maintained files, invokes its copied CLI,
-and verifies every declared observation exactly once. That fixture uses a test-only
-60-second feedback window, preserves the retained-code budget, and rejects its
-genuine budget overage.
+`bun run test` includes the same feature suite. The native root regression checks
+the complete committed inventory through the actual CLI and verifies every
+observation under the saved 15-second feedback policy. Bonsai's own feature
+bindings inherit the selected engine for nested CLI checks. A copied reference
+fixture runs the same full inventory with TypeScript and a test-only 60-second
+feedback window, preserving the retained-code budget and archive-loader coverage.
 
-`bun run bonsai check` inspects the committed root inventory and policy. That
-inventory includes owned source, tests, contracts, documentation, and configuration;
-installed third-party CLI skills and the separate checkout example are outside
-that scope. The root policy retains its 20,000-token bootstrap, 30,000-token hard
-limit, and 15-second feedback ceiling. The current inventory exceeds that allowance.
-Authored Rust prototype files remain in the measured inventory and produce explicit
-`Unsupported source language` blockers until a Rust ancestry adapter exists;
-generated `native/target/` outputs are excluded. The internal binding loader is
-traceable; subprocess entry points still need ancestry relationships. Root
-acceptance therefore remains blocked; feature tests passing does not imply a root
-budget pass. Calibration and compaction remain explicit work.
+`bun run bonsai check --engine rust` inspects the committed root inventory and
+policy. Owned source, tests, contracts, documentation, and configuration remain
+measured; installed third-party CLI skills and the separate checkout example stay
+outside that scope. The root policy keeps its 20,000-token bootstrap, 30,000-token
+hard limit, and 15-second feedback ceiling. The current inventory exceeds that
+allowance, and subprocess entry points still need ancestry relationships. Complete
+feature evidence therefore still produces a genuine rejection, not a budget pass.
+
+The unused Oxc prototype was deleted when tsrs replaced it. Its Cargo files and
+Rust sources were removed rather than excluded. Authored Rust in consuming
+projects remains unsupported and measured until a language adapter exists.
 
 ## Publish an alpha
 
@@ -478,12 +477,13 @@ or exports. This adapter does not authorize arbitrary application runtime import
 Subprocess entry-point ancestry remains unfinished. The supported checkout example
 is available through `bun run bonsai check --root examples/checkout`.
 
-The experimental native collector supplies a bounded subset of structural facts;
-Oxc parsing and symbol analysis do not replace the TypeScript checker. Opt-in
-`--engine rust` compares each result with the full reference before allowing
-verification. Its standalone parity and timing reports are development evidence,
-not gate acceptance or a universal equivalence guarantee. See the
-[prototype scope and adoption criteria](docs/native-prototype.md).
+The experimental native backend uses the pinned tsrs TypeScript 7 checker while
+the default reference uses TypeScript 5.9. Shared lexical parsing and graph rules
+preserve Bonsai's supported accounting. The native adapter explicitly preserves
+ambient type discovery and blocks known semantic gaps, including disabling the
+default library through a source directive. This is not universal compiler
+compatibility. See [native scope and commands](docs/native-prototype.md) and
+[performance measurements](docs/performance.md).
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 

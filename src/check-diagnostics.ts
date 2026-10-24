@@ -53,17 +53,12 @@ export function checkDiagnostics(
   }
   for (const [prefix, title, fix] of [
     [
-      'Rust collector unsupported: ',
-      "Rust collector doesn't support this source",
-      `Use --engine typescript for this project, or extend the Rust collector's supported syntax and tracing. See ${docsUrl.replace('/cli.md', '/native-prototype.md')}`,
+      'Rust checker unsupported: ',
+      "Rust checker doesn't support this source",
+      `Use --engine typescript for this project, or add support for the reported source form. See ${docsUrl.replace('/cli.md', '/native-prototype.md')}`,
     ],
     [
-      'Rust collector mismatch: ',
-      'Rust and TypeScript disagree about this source',
-      'Use --engine typescript and report the mismatch at https://github.com/jiggy/bonsai/issues',
-    ],
-    [
-      'Rust collector interrupted: ',
+      'Rust checker interrupted: ',
       'Rust source check stopped before completion',
       'Use --verbose to inspect phase timings, then shorten source collection while preserving the required checks',
     ],
@@ -75,8 +70,8 @@ export function checkDiagnostics(
       title,
       detail: [
         ...examples(messages.map((message) => message.slice(prefix.length))),
-        "Bonsai hasn't accepted Rust's source facts, so behavior checks can't run",
-        'Measurements and ancestry below use provisional TypeScript facts',
+        "Rust analysis is incomplete, so behavior checks can't run",
+        'Measurements and ancestry below are provisional',
       ],
       fix,
     })

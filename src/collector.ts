@@ -2,24 +2,39 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Snapshot, Source } from './model.ts'
+import { createRequire } from 'node:module'
+import { measureSource } from './source.ts'
+import type { Snapshot, Source, Timing, TimingStage } from './model.ts'
+import type { Timer } from './timing.ts'
 
 export type SourceEngine = 'typescript' | 'rust'
-type Analysis = NonNullable<Snapshot['analysis']>
-type Collection = { source: Source; analysis: Analysis; interrupted?: boolean }
-type NativeResponse = {
-  protocol: 1
-  structuralComplete: boolean
-  typescriptDiagnostics: 'not-run'
+type Collection = {
   source: Source
+  analysis: NonNullable<Snapshot['analysis']>
+  interrupted?: boolean
+}
+type NativeResponse = {
+  protocol: 2
+  source: Source
+  diagnostics: 'run'
+  diagnosticCategories: string[]
+  backend: 'tsrs'
+  version: string
   elapsedMs: number
+  timing: Timing
 }
 
 const checkout = fileURLToPath(new URL('../', import.meta.url))
+const worker = fileURLToPath(new URL('./tsrs-worker.ts', import.meta.url))
+const require = createRequire(import.meta.url)
+const version: string = require('../package.json').dependencies.tsrs
+const categories = ['config', 'options', 'syntactic', 'bind', 'global', 'semantic']
 const shellWord = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
-const build = `cd ${shellWord(checkout)} && bun run native:build`
+const install = `cd ${shellWord(checkout)} && bun install --frozen-lockfile`
 const repair = () =>
-  process.env.BONSAI_NATIVE_BINARY === undefined ? build : `unset BONSAI_NATIVE_BINARY && ${build}`
+  process.env.BONSAI_NATIVE_BINARY === undefined
+    ? install
+    : `unset BONSAI_NATIVE_BINARY && ${install}`
 
 export class CollectorError extends Error {
   readonly code = 'RUST_COLLECTOR'
@@ -38,23 +53,8 @@ class CollectorInterrupted extends Error {}
 
 function workerError(message: string, details?: string): CollectorError {
   const error = new CollectorError(message)
-  if (details) error.stack += `\nRust collector diagnostics:\n${details}`
+  if (details) error.stack += `\nRust checker diagnostics:\n${details}`
   return error
-}
-
-function binaryPath(): string {
-  const override = process.env.BONSAI_NATIVE_BINARY
-  if (override !== undefined) {
-    if (!override.trim())
-      throw new CollectorError('BONSAI_NATIVE_BINARY needs an executable Rust collector path')
-    return resolve(override)
-  }
-  const name = `bonsai-collector-prototype${process.platform === 'win32' ? '.exe' : ''}`
-  return resolve(
-    process.env.CARGO_TARGET_DIR ?? resolve(checkout, 'native/target'),
-    'release',
-    name,
-  )
 }
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -129,27 +129,90 @@ function validSource(value: unknown): value is Source {
   )
 }
 
-function response(output: string): NativeResponse {
+function validStage(stage: unknown): stage is TimingStage {
+  return (
+    record(stage) &&
+    typeof stage.name === 'string' &&
+    ['completed', 'interrupted', 'skipped'].includes(String(stage.status)) &&
+    (stage.status === 'skipped'
+      ? stage.elapsedMs === null
+      : typeof stage.elapsedMs === 'number' &&
+        Number.isFinite(stage.elapsedMs) &&
+        stage.elapsedMs >= 0) &&
+    (stage.stages === undefined || (Array.isArray(stage.stages) && stage.stages.every(validStage)))
+  )
+}
+
+function consistentSource(source: Source, files: string[], bindings: string): boolean {
+  // Incomplete graphs may contain duplicate overloads; they already block evidence.
+  if (source.problems.length) return true
+  const measured = new Set(files)
+  const components = new Map(source.components.map((component) => [component.id, component]))
+  if (components.size !== source.components.length) return false
+  for (const component of components.values()) {
+    const kind =
+      component.file === bindings
+        ? 'binding'
+        : /(?:^|\/)(?:test|tests)\/|\.(?:test|spec)\./.test(component.file)
+          ? 'test'
+          : 'production'
+    if (
+      !measured.has(component.file) ||
+      component.id !== `${component.file}#${component.name}` ||
+      component.kind !== kind
+    )
+      return false
+  }
+  const registry = source.registry && components.get(source.registry)
+  if (!registry || registry.kind !== 'binding' || registry.name !== 'actions') return false
+  if (!Object.values(source.actions).every((id) => components.get(id)?.kind === 'production'))
+    return false
+  if (
+    !source.relationships.every(
+      (edge) =>
+        components.has(edge.from) &&
+        components.has(edge.to) &&
+        components.get(edge.from)?.file === edge.sourceRef.file,
+    )
+  )
+    return false
+  return (source.bindingImports ?? []).every(
+    (boundary) =>
+      components.get(boundary.from)?.file === boundary.file && boundary.bindings === bindings,
+  )
+}
+
+function response(output: string, files: string[], bindings: string): NativeResponse {
   let value: unknown
   try {
     value = JSON.parse(output)
   } catch {
-    throw new CollectorError('Rust collector returned malformed JSON')
+    throw new CollectorError('Rust checker returned malformed JSON')
   }
-  if (record(value) && value.protocol === 1 && typeof value.error === 'string')
-    throw new CollectorError(`Rust collector failed: ${value.error}`)
+  if (record(value) && value.protocol === 2 && typeof value.error === 'string')
+    throw new CollectorError(`Rust checker failed: ${value.error}`)
   if (
     !record(value) ||
-    value.protocol !== 1 ||
-    value.typescriptDiagnostics !== 'not-run' ||
-    typeof value.structuralComplete !== 'boolean' ||
+    value.protocol !== 2 ||
+    value.backend !== 'tsrs' ||
+    value.version !== version ||
+    value.diagnostics !== 'run' ||
+    !Array.isArray(value.diagnosticCategories) ||
+    JSON.stringify(value.diagnosticCategories) !== JSON.stringify(categories) ||
     !validSource(value.source) ||
-    value.structuralComplete !== (value.source.problems.length === 0) ||
+    !consistentSource(value.source, files, bindings) ||
+    JSON.stringify(value.source.files.map((file) => file.file)) !== JSON.stringify(files) ||
     typeof value.elapsedMs !== 'number' ||
     !Number.isFinite(value.elapsedMs) ||
-    value.elapsedMs < 0
+    value.elapsedMs < 0 ||
+    !record(value.timing) ||
+    typeof value.timing.elapsedMs !== 'number' ||
+    !Number.isFinite(value.timing.elapsedMs) ||
+    value.timing.elapsedMs < 0 ||
+    !Array.isArray(value.timing.stages) ||
+    !value.timing.stages.every(validStage)
   )
-    throw new CollectorError('Rust collector returned an invalid protocol response')
+    throw new CollectorError('Rust checker returned an invalid protocol response')
   return value as NativeResponse
 }
 
@@ -162,17 +225,25 @@ async function nativeSource(
 ): Promise<NativeResponse> {
   if (signal?.aborted) throw new CollectorInterrupted('Command interrupted')
   if (timeoutMs !== undefined && timeoutMs <= 0)
-    throw new CollectorInterrupted('Feedback deadline expired before Rust collection')
-  const binary = binaryPath()
-  if (!existsSync(binary)) throw new CollectorError(`Rust collector is not built: ${binary}`)
+    throw new CollectorInterrupted('Feedback deadline expired before Rust analysis')
+  const binary = process.env.BONSAI_NATIVE_BINARY
+  if (binary !== undefined && (!binary.trim() || !existsSync(resolve(binary))))
+    throw new CollectorError(`Rust checker executable is unavailable: ${binary || '(empty path)'}`)
   return new Promise((resolveResult, reject) => {
-    let child: ReturnType<typeof spawn>
-    try {
-      child = spawn(binary, [], { stdio: ['pipe', 'pipe', 'pipe'] })
-    } catch (error) {
-      reject(workerError(`Can't start Rust collector: ${binary}`, String(error)))
-      return
-    }
+    const {
+      TSRS_BINARY: _tsrsOverride,
+      NODE_TEST_CONTEXT: _testContext,
+      ...environment
+    } = process.env
+    const child = spawn(process.execPath, [worker], {
+      cwd: checkout,
+      env: {
+        ...environment,
+        ...(binary !== undefined && { BONSAI_NATIVE_BINARY: resolve(binary) }),
+      },
+      detached: process.platform !== 'win32',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    })
     let failure: Error | undefined
     let closed = false
     let settled = false
@@ -180,11 +251,24 @@ async function nativeSource(
     const errors: Buffer[] = []
     let outputBytes = 0
     let errorBytes = 0
-    const stopWorker = () => child.kill('SIGKILL')
+    let forcedStop: ReturnType<typeof setTimeout> | undefined
+    const forceStop = () => {
+      if (child.pid && process.platform !== 'win32') {
+        try {
+          process.kill(-child.pid, 'SIGKILL')
+        } catch {
+          /* Already stopped. */
+        }
+      }
+      child.kill('SIGKILL')
+    }
+    // Let the worker kill and reap its native child before terminating itself.
+    const stopWorker = () => child.kill('SIGTERM')
     const fail = (error: Error) => {
       if (settled || failure) return
       failure = error
       stopWorker()
+      forcedStop = setTimeout(forceStop, 250)
       if (closed) finish()
     }
     const abort = () => fail(new CollectorInterrupted('Command interrupted'))
@@ -192,21 +276,22 @@ async function nativeSource(
       timeoutMs === undefined
         ? undefined
         : setTimeout(
-            () =>
-              fail(new CollectorInterrupted('Feedback deadline expired during Rust collection')),
+            () => fail(new CollectorInterrupted('Feedback deadline expired during Rust analysis')),
             timeoutMs,
           )
     const finish = () => {
       if (settled) return
       settled = true
       if (deadline) clearTimeout(deadline)
+      if (forcedStop) clearTimeout(forcedStop)
       process.removeListener('exit', stopWorker)
       signal?.removeEventListener('abort', abort)
       child.stdin?.destroy()
+      if (failure && child.exitCode === null && child.signalCode === null) forceStop()
       if (failure) reject(failure)
       else {
         try {
-          resolveResult(response(Buffer.concat(output).toString('utf8')))
+          resolveResult(response(Buffer.concat(output).toString('utf8'), files, bindings))
         } catch (error) {
           reject(error)
         }
@@ -215,135 +300,81 @@ async function nativeSource(
     process.once('exit', stopWorker)
     signal?.addEventListener('abort', abort, { once: true })
     child.once('error', (error) =>
-      fail(workerError(`Can't run Rust collector: ${binary}`, error.stack ?? error.message)),
+      fail(workerError('Cannot start the Rust checker worker', error.stack)),
     )
     child.once('close', (code, stoppedBy) => {
       closed = true
-      if (!failure && code !== 0) {
-        const detail = Buffer.concat(errors).toString('utf8').trim()
+      if (!failure && code !== 0)
         failure = workerError(
-          `Rust collector ${binary} exited ${stoppedBy ? `after ${stoppedBy}` : `with status ${code}`}`,
-          detail,
+          `Rust checker worker exited ${stoppedBy ? `after ${stoppedBy}` : `with status ${code}`}`,
+          Buffer.concat(errors).toString('utf8').trim(),
         )
-      }
       finish()
     })
     child.stdout?.on('data', (chunk: Buffer) => {
       if (failure) return
       outputBytes += chunk.length
       if (outputBytes > 64 * 1024 * 1024)
-        fail(new CollectorError('Rust collector exceeded its 64 MiB output limit'))
+        fail(new CollectorError('Rust checker exceeded its 64 MiB output limit'))
       else output.push(chunk)
     })
     child.stderr?.on('data', (chunk: Buffer) => {
       if (failure) return
       errorBytes += chunk.length
       if (errorBytes > 64 * 1024)
-        fail(new CollectorError('Rust collector exceeded its diagnostic output limit'))
+        fail(new CollectorError('Rust checker exceeded its diagnostic output limit'))
       else errors.push(chunk)
     })
     child.stdin?.once('error', (error) =>
-      fail(
-        workerError(`Can't send input to Rust collector: ${binary}`, error.stack ?? error.message),
-      ),
+      fail(workerError('Cannot send input to the Rust checker worker', error.stack)),
     )
-    child.stdin?.end(JSON.stringify({ protocol: 1, root, files, bindings }) + '\n')
+    child.stdin?.end(
+      JSON.stringify({ protocol: 2, root, files, bindings, cwd: process.cwd() }) + '\n',
+    )
     if (signal?.aborted) abort()
   })
 }
 
-function canonical(value: unknown): string {
-  const sorted = (item: unknown): unknown => {
-    if (Array.isArray(item)) return item.map(sorted)
-    if (record(item))
-      return Object.fromEntries(
-        Object.keys(item)
-          .sort()
-          .map((key) => [key, sorted(item[key])]),
-      )
-    return item
-  }
-  return JSON.stringify(sorted(value))
-}
-
-function facts(source: Source) {
-  const sort = <T>(items: T[]) =>
-    [...items].sort((left, right) => canonical(left).localeCompare(canonical(right)))
-  return {
-    files: sort(source.files),
-    components: sort(source.components),
-    relationships: sort(source.relationships),
-    actions: source.actions,
-    registry: source.registry,
-    bindingImports: source.bindingImports && sort(source.bindingImports),
-  }
-}
-
-/** Match complete facts first, then preserve the reference's established display order. */
-function ordered<T>(items: T[], reference: T[]): T[] {
-  const available = new Map<string, T[]>()
-  for (const item of items) {
-    const key = canonical(item)
-    if (!available.has(key)) available.set(key, [])
-    available.get(key)!.push(item)
-  }
-  return reference.map((item) => available.get(canonical(item))!.shift()!)
-}
-
+/** The selected native checker supplies diagnostics and facts; no reference compiler runs here. */
 export async function collectRustSource(
   root: string,
   files: string[],
   bindings: string,
-  reference: Source,
   signal?: AbortSignal,
   timeoutMs?: number,
+  timer?: Timer,
 ): Promise<Collection> {
-  const blocked = (
-    status: 'unsupported' | 'mismatch',
-    problems: string[],
-    interrupted = false,
-  ): Collection => ({
-    source: { ...reference, problems: [...reference.problems, ...problems] },
-    analysis: { engine: 'rust', validation: 'typescript-reference', status },
-    ...(interrupted && { interrupted: true }),
-  })
-  let native: NativeResponse
+  let timing: Timing = { elapsedMs: 0, stages: [] }
+  timer?.start('native', { report: () => timing })
   try {
-    native = await nativeSource(root, files, bindings, signal, timeoutMs)
+    const native = await nativeSource(root, files, bindings, signal, timeoutMs)
+    timing = native.timing
+    timer?.finishWith(timing.stages)
+    return {
+      source: native.source,
+      analysis: {
+        engine: 'rust',
+        backend: 'tsrs',
+        validation: 'native-diagnostics',
+        status: native.source.problems.length ? 'unsupported' : 'complete',
+        version: native.version,
+      },
+    }
   } catch (error) {
-    if (error instanceof CollectorInterrupted)
-      return blocked('unsupported', [`Rust collector interrupted: ${error.message}`], true)
-    throw error
-  }
-  if (!native.structuralComplete)
-    return blocked(
-      'unsupported',
-      native.source.problems.map((problem) => `Rust collector unsupported: ${problem}`),
-    )
-  const expected = facts(reference)
-  const actual = facts(native.source)
-  const different = (Object.keys(expected) as (keyof typeof expected)[]).filter(
-    (key) => canonical(actual[key]) !== canonical(expected[key]),
-  )
-  if (different.length)
-    return blocked('mismatch', [
-      `Rust collector mismatch: ${different.join(', ')} differ from TypeScript`,
-    ])
-  return {
-    source: {
-      ...native.source,
-      files: ordered(native.source.files, reference.files),
-      components: ordered(native.source.components, reference.components),
-      relationships: ordered(native.source.relationships, reference.relationships),
-      actions: Object.fromEntries(
-        Object.keys(reference.actions).map((key) => [key, native.source.actions[key]!]),
-      ),
-      ...(native.source.bindingImports && {
-        bindingImports: ordered(native.source.bindingImports, reference.bindingImports!),
-      }),
-      // Native collection intentionally does not supply TypeScript diagnostics.
-      problems: [...reference.problems],
-    },
-    analysis: { engine: 'rust', validation: 'typescript-reference', status: 'matched' },
+    timer?.finish('interrupted')
+    if (!(error instanceof CollectorInterrupted)) throw error
+    const source = measureSource(root, files)
+    source.problems.push(`Rust checker interrupted: ${error.message}`)
+    return {
+      source,
+      analysis: {
+        engine: 'rust',
+        backend: 'tsrs',
+        validation: 'native-diagnostics',
+        status: 'unsupported',
+        version,
+      },
+      interrupted: true,
+    }
   }
 }

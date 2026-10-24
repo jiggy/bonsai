@@ -8,12 +8,12 @@ const copyStage = (stage: TimingStage): TimingStage => ({
 /** Monotonic phase measurements stay available while work is running or interrupted. */
 export class Timer {
   private stages: TimingStage[] = []
-  private active?: { name: string; started: number; child?: Timer }
+  private active?: { name: string; started: number; child?: Pick<Timer, 'report'> }
   private began = false
 
   constructor(private readonly started = performance.now()) {}
 
-  start(name: string, child?: Timer): void {
+  start(name: string, child?: Pick<Timer, 'report'>): void {
     this.finish()
     this.active = { name, started: this.began ? performance.now() : this.started, child }
     this.began = true
@@ -28,6 +28,21 @@ export class Timer {
       ...(this.active.child
         ? { stages: this.active.child.report(status === 'interrupted').stages }
         : {}),
+    })
+    this.active = undefined
+  }
+
+  /** Keep worker phases at the same level and account for its unmeasured overhead. */
+  finishWith(stages: TimingStage[]): void {
+    if (!this.active) return
+    const elapsedMs = performance.now() - this.active.started
+    this.stages.push(...stages.map(copyStage), {
+      name: this.active.name,
+      elapsedMs: Math.max(
+        0,
+        elapsedMs - stages.reduce((sum, stage) => sum + (stage.elapsedMs ?? 0), 0),
+      ),
+      status: 'completed',
     })
     this.active = undefined
   }

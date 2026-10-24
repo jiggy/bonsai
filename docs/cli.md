@@ -57,7 +57,7 @@ Check behavior, ancestry, and the retained-code budget
 USAGE
   bonsai check [flags]
 
-Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json. Experimental --engine rust checks native source facts against TypeScript before running handlers.
+Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json. Experimental --engine rust uses the Rust TypeScript checker for source analysis.
 
 EXAMPLES
   $ bonsai check
@@ -109,7 +109,7 @@ Show why a file or component is retained
 USAGE
   bonsai explain <file-or-component> [flags]
 
-Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin. Experimental --engine rust checks native source facts against TypeScript.
+Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin. Experimental --engine rust uses the Rust TypeScript checker for source analysis.
 
 EXAMPLES
   $ bonsai explain src/checkout.ts --root examples/checkout

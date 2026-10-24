@@ -81,6 +81,7 @@ export async function runEvidence(
   fingerprint: string,
   timeoutMs: number,
   signal?: AbortSignal,
+  engine: 'typescript' | 'rust' = 'typescript',
 ): Promise<Evidence> {
   const { fork } = await import('node:child_process')
   return new Promise((resolveResult, reject) => {
@@ -126,7 +127,7 @@ export async function runEvidence(
       if (result.evidence) finish(undefined, result.evidence)
       else finish(new Error(result.error ?? 'Invalid worker report'))
     })
-    child.send({ root, config, contracts, fingerprint })
+    child.send({ root, config, contracts, fingerprint, engine })
     if (signal?.aborted) abort()
   })
 }

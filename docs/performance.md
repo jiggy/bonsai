@@ -1,9 +1,9 @@
 # Performance
 
-TypeScript compiler work and repeated verification processes are the main targets
-for improving `check`. The Rust structural collector still runs after the complete
-TypeScript reference in compatibility mode, so faster Rust parsing alone cannot
-remove that cost. See [the native collector boundary](native-prototype.md).
+The native engine replaces the TypeScript program, binder, and checker with the
+pinned tsrs implementation. The Bun frontend, token metric, graph rules, and real
+verification remain shared. Reference comparisons run in development tests, outside
+the production native command. See [the native boundary](native-prototype.md).
 
 ## Measure a complete check
 
@@ -93,9 +93,10 @@ Both SDK variants worked under Node 24: create a snapshot/project, collect seman
 diagnostics, traverse a remote AST, resolve an imported alias across files, query
 and format its type, and resolve its declaration. Under Bun 1.4.3 the synchronous
 SDK failed at `syncChannel.js:131` because `stdout._handle.fd` was undefined. The
-asynchronous SDK reported `API server connection lost: server closed the
-connection`. These bounded probes did not diagnose the asynchronous failure.
-The tsrs CLI itself worked through Bun.
+asynchronous SDK initially reported a closed connection inside the managed
+execution sandbox. Repeating the same probe with IPC allowed succeeded under Bun
+1.4.3, including ASTs, diagnostics, aliases, types, and declarations. The asynchronous
+SDK now runs Bonsai's native worker; no Node runtime dependency is required.
 
 For an independent CLI trial, install the prerelease in an isolated directory:
 
@@ -114,13 +115,14 @@ preserve all diagnostics and inspect differences before comparing durations.
 This installs a research tool under ignored `work/`, without adding a Bonsai
 engine or changing its production dependencies.
 
-Adoption needs a compatible Bun transport or Node sidecar, an AST/checker adapter,
-batching, and differential checks for diagnostics, retained components, tokens,
-relationships, and source locations. An integrated native checker must replace
-the reference pass to realize its compiler gains while preserving evidence and
-admission requirements.
+The integrated adapter uses Bun's asynchronous SDK and batches native symbol/type
+queries before running the shared graph rules. TypeScript supplies lexical parsing
+and scanning, not a compiler program. Runtime tests trap JS compiler factories to
+verify this distinction. Native compiler gaps remain explicit blockers: the pinned
+release ignores source directives disabling default libraries, so Bonsai marks
+those inputs incomplete. Local lexical-parser failures also block acceptance.
 
-## Internal optimizations and complete-check results
+## Earlier internal optimizations
 
 The existing TypeScript engine now avoids two repeated costs:
 
@@ -136,10 +138,10 @@ The existing TypeScript engine now avoids two repeated costs:
   of source text. Fresh CLI processes start without this cache; base and candidate
   analyses in one invocation can share library documents.
 
-The same source timings now expose retained-size measurement, compiler setup,
-type checking, and dependency graph collection in JSON and `--verbose`. Rust
-compatibility includes an additional comparison phase; it still runs the full
-reference and does not become a faster native default.
+Those changes retained the full reference compiler. Their process-local reuse
+helped repeated analyses and base/candidate comparisons, while lighter workers
+helped only checks that actually reached verification. They did not remove the
+compiler bottleneck from fresh root commands.
 
 A Linux x64/Bun 1.4.3 comparison used baseline `93e5755` and the optimized tree on
 2026-10-24. Each command launched a fresh process against the same checkout
@@ -167,3 +169,68 @@ changes, package resolution changes, newly created and deleted modules, ambient
 type packages, and changing root sets. Real-worker tests verify complete evidence
 without loading the compiler; CLI tests retain timing, deadline, stream, and
 semantic color guarantees.
+
+## Native complete-check measurements
+
+The native implementation now runs the compiler only once through tsrs. The
+unused Oxc prototype, Cargo metadata, and Rust sources were deleted. Its syntax
+and token limitations therefore no longer gate the project. Rust source in other
+projects remains explicitly unsupported; nothing was excluded to manufacture
+self-hosting support.
+
+Source timings retain measurement, program, diagnostics, and graph phases. Worker
+startup, transport, and cleanup overhead are recorded separately. Native graph
+work includes lexical AST mapping and batched semantic transfer, which can become
+the next source-analysis bottleneck after type checking is removed.
+
+The benchmark runs fresh TypeScript and Rust CLI processes alternately against the
+same inventory and policy, comparing decisions, source facts, and runtime
+evidence. It retains mismatched results with structured details and exits 1 after
+writing the report. It records every observation and completion state. An incomplete
+or mismatched run cannot establish a completed-gate speedup. Root measurements also include nested
+CLI checks: Bonsai's own bindings inherit the selected engine, so the backend being
+measured performs those checks too.
+
+On 2026-10-24, Linux x64 with Bun 1.4.3, an Intel Xeon Platinum 8573C, and five
+available logical CPUs produced these external wall-time medians. Each sample
+launched a fresh CLI process; filesystem caches were not flushed. Engines
+alternated, and all timed facts and runtime evidence matched.
+
+| Complete check | Samples per engine | TypeScript | Rust/tsrs | Reduction |
+| --- | ---: | ---: | ---: | ---: |
+| Checkout example, all 3 observations | 5 | 1,501 ms | 774 ms | 48% |
+| Full Bonsai inventory, all 95 observations | 3 | 23,093 ms | 13,215 ms | 43% |
+
+The full-root workload copied all 81 maintained files into a disposable project.
+Both engines used that same inventory and saved configuration, with only that
+fixture's feedback window set to 60 seconds so both could finish. The size budget
+was unchanged. Every full-root sample correctly rejected its retained-size and
+ancestry violations after executing all observations; every checkout sample passed.
+The committed root's 15-second policy was not changed.
+
+For the full-root workload, median source analysis fell from 2,986 ms to 1,622 ms.
+Native program construction and diagnostics took about 169 ms combined, while
+lexical mapping and graph transfer took 1,120 ms. Required verification fell from
+19,403 ms to 11,274 ms as nested CLI checks inherited the selected engine. These
+phase medians have separate measurement boundaries and need not sum to the median
+external command time. Verification is now the largest remaining cost, followed
+by native graph transfer.
+
+A separate fresh pair used the actual root's saved 15-second policy. TypeScript
+was incomplete at 15,325 ms external wall time; Rust completed all 95 observations
+and correctly rejected the policy violations at 13,803 ms. The benchmark preserved
+both results, reported the mismatch, exited 1, and set `completedCheckSpeedup` to
+`null`. Unequal completion states do not establish a speedup.
+
+Reproduce the checkout workload with:
+
+```sh
+bun run native:bench --runs 5 --root examples/checkout --output work/checkout-benchmark.json
+```
+
+For an equivalent complete-root comparison, pass `--root` pointing to a disposable
+copy with the same maintained files and an explicit 60-second feedback window.
+Running the tool on the original root preserves its saved limit and records any
+completion difference. These small samples establish improvement on the measured
+workloads, not a guarantee for other projects or machines. Complete feature
+evidence does not erase ancestry or retained-size violations.

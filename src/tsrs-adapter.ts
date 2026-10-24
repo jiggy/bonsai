@@ -1,0 +1,503 @@
+import ts from 'typescript'
+import { readFileSync } from 'node:fs'
+import { resolve, relative } from 'node:path'
+import type { ChildProcess } from 'node:child_process'
+import {
+  API,
+  SymbolFlags,
+  type Symbol as NativeSymbol,
+  type Type as NativeType,
+  type Diagnostic as NativeDiagnostic,
+  type CompilerOptions as NativeCompilerOptions,
+} from 'tsrs/unstable/async'
+import {
+  SyntaxKind,
+  type Node as NativeNode,
+  type SourceFile as NativeSourceFile,
+} from 'tsrs/unstable/ast'
+import { sourceCompilerOptions } from './compiler.ts'
+import type { Timer } from './timing.ts'
+
+type Span = Map<string, ts.Node>
+type RemoteSpan = Map<string, NativeNode>
+type SymbolView = Pick<ts.Symbol, 'flags' | 'declarations' | 'valueDeclaration' | 'getName'>
+type TypeView = Pick<ts.Type, 'getSymbol'>
+
+const nodeKey = (start: number, end: number, kind: string) => `${start}:${end}:${kind}`
+const symbolKey = (symbol: NativeSymbol) => {
+  const reference = symbol.reference
+  return JSON.stringify([
+    reference.kind,
+    reference.file?.nodeId,
+    reference.snapshot,
+    reference.project,
+    reference.id,
+  ])
+}
+const canonical = (file: string) => {
+  const absolute = resolve(file)
+  return ts.sys.useCaseSensitiveFileNames ? absolute : absolute.toLowerCase()
+}
+
+function diagnosticView(diagnostic: NativeDiagnostic): ts.Diagnostic {
+  const chain = (entry: NativeDiagnostic): ts.DiagnosticMessageChain => ({
+    messageText: entry.text,
+    category: diagnostic.category,
+    code: diagnostic.code,
+    ...(entry.messageChain?.length ? { next: entry.messageChain.map(chain) } : {}),
+  })
+  const fileName = diagnostic.fileName
+  return {
+    category: diagnostic.category,
+    code: diagnostic.code,
+    file: fileName
+      ? ({ fileName, path: canonical(fileName) } as unknown as ts.SourceFile)
+      : undefined,
+    start: diagnostic.pos,
+    length:
+      diagnostic.end === undefined || diagnostic.pos === undefined
+        ? undefined
+        : diagnostic.end - diagnostic.pos,
+    messageText: diagnostic.messageChain?.length
+      ? {
+          messageText: diagnostic.text,
+          code: diagnostic.code,
+          category: diagnostic.category,
+          next: diagnostic.messageChain.map(chain),
+        }
+      : diagnostic.text,
+    ...(diagnostic.relatedInformation?.length
+      ? {
+          relatedInformation: diagnostic.relatedInformation.map(
+            diagnosticView,
+          ) as ts.DiagnosticRelatedInformation[],
+        }
+      : {}),
+  }
+}
+
+/** Native semantics with local lexical ASTs; this never creates a JS compiler program. */
+export async function createTsrsProgram(
+  root: string,
+  files: string[],
+  cwd: string,
+  timer?: Timer,
+  signal?: AbortSignal,
+) {
+  timer?.start('program')
+  const host = { ...ts.sys, getCurrentDirectory: () => cwd }
+  const options = {
+    ...sourceCompilerOptions,
+    // TypeScript 7 defaults differ. Preserve this collector's automatic TS5 roots.
+    types: ts.getAutomaticTypeDirectiveNames(sourceCompilerOptions, host),
+    typeRoots: ts.getEffectiveTypeRoots(sourceCompilerOptions, host),
+  }
+  const api = new API({
+    cwd,
+    runExternalCode: false,
+    ...(process.env.BONSAI_NATIVE_BINARY !== undefined && {
+      tsserverPath: resolve(process.env.BONSAI_NATIVE_BINARY),
+    }),
+  })
+  // The pinned SDK's public close waits for initialization. A server that never
+  // answers initialization therefore needs to be stopped and reaped first.
+  const client = (
+    api as unknown as {
+      client: { connecting?: Promise<void>; process?: ChildProcess }
+    }
+  ).client
+  let stopping: Promise<void> | undefined
+  let closing: Promise<void> | undefined
+  const stopServer = () =>
+    (stopping ??= (async () => {
+      await client.connecting?.catch(() => {})
+      const child = client.process
+      if (child && child.exitCode === null && child.signalCode === null) {
+        const closed = new Promise<void>((done) => child.once('close', () => done()))
+        child.kill('SIGKILL')
+        await closed
+      }
+    })())
+  const abort = () => {
+    void stopServer().catch(() => {})
+  }
+  signal?.addEventListener('abort', abort, { once: true })
+  const close = () =>
+    (closing ??= (async () => {
+      try {
+        await stopping
+        await api.close()
+      } finally {
+        signal?.removeEventListener('abort', abort)
+      }
+    })())
+  try {
+    if (signal?.aborted) throw new Error('Rust analysis interrupted')
+    const scriptFiles = files.filter((file) => /\.[cm]?ts$/.test(file))
+    const names = scriptFiles.map((file) => resolve(root, file))
+    const nativeProgram = await api.createProgram(
+      names,
+      options as unknown as NativeCompilerOptions,
+    )
+    const checker = nativeProgram.getProject().checker
+
+    timer?.start('diagnostics')
+    const categories = await Promise.all([
+      nativeProgram.getConfigFileParsingDiagnostics(),
+      nativeProgram.getProgramDiagnostics(),
+      nativeProgram.getSyntacticDiagnostics(),
+      nativeProgram.getBindDiagnostics(),
+      nativeProgram.getGlobalDiagnostics(),
+      nativeProgram.getSemanticDiagnostics(),
+    ])
+    const diagnostics = ts.sortAndDeduplicateDiagnostics(categories.flat().map(diagnosticView))
+    const problems = diagnostics.map((diagnostic) => {
+      const original = categories
+        .flat()
+        .find(
+          (entry) =>
+            entry.fileName === diagnostic.file?.fileName &&
+            entry.pos === diagnostic.start &&
+            entry.code === diagnostic.code,
+        )
+      const location =
+        diagnostic.file && original?.startPosition
+          ? `${relative(root, diagnostic.file.fileName)}:${original.startPosition.line + 1}: `
+          : ''
+      return location + ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
+    })
+
+    timer?.start('graph')
+    const allNames = await nativeProgram.getSourceFileNames()
+    const metadata = await Promise.all(
+      allNames.map((file) => nativeProgram.getSourceFileMetadata(file)),
+    )
+    const external = new Set(
+      allNames.filter((_file, index) => metadata[index]?.isFromExternalLibrary).map(canonical),
+    )
+    const libraries = new Set(
+      allNames.filter((_file, index) => metadata[index]?.isDefaultLibrary).map(canonical),
+    )
+    for (const file of allNames) {
+      if (
+        !libraries.has(canonical(file)) &&
+        ts.preProcessFile(readFileSync(file, 'utf8'), false).isLibFile
+      ) {
+        problems.push(
+          `Rust checker unsupported: ${relative(root, file)} disables default libraries with no-default-lib; tsrs does not preserve this directive's diagnostics`,
+        )
+      }
+    }
+    const localFiles = new Map<string, ts.SourceFile>()
+    const localSpans = new Map<string, Span>()
+    const nativeFiles = new Map<string, NativeSourceFile>()
+    const nativeSpans = new Map<string, RemoteSpan>()
+    const requests: { local: ts.Node; native: NativeNode }[][] = []
+    const elements: ts.ElementAccessExpression[] = []
+    const importSpecifiers: ts.StringLiteralLike[] = []
+    const importTargets: ts.Expression[] = []
+    let unsupportedLexical = false
+    for (const file of names) {
+      const ast = ts.createSourceFile(
+        file,
+        readFileSync(file, 'utf8'),
+        ts.ScriptTarget.ES2023,
+        true,
+      )
+      localFiles.set(canonical(file), ast)
+      const parseDiagnostics = (
+        ast as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+      ).parseDiagnostics
+      if (!diagnostics.length && parseDiagnostics.length) {
+        unsupportedLexical = true
+        problems.push(
+          `Rust checker unsupported: ${relative(root, file)} uses syntax outside Bonsai's lexical AST adapter`,
+        )
+      }
+    }
+    if (unsupportedLexical) {
+      return { program: undefined, problems, close }
+    }
+    const remoteFiles = await Promise.all(names.map((file) => nativeProgram.getSourceFile(file)))
+    for (const [index, file] of names.entries()) {
+      const ast = localFiles.get(canonical(file))!
+      const text = ast.text
+      const remote = remoteFiles[index]
+      if (!remote || remote.text !== text)
+        throw new Error(`Source changed during native analysis: ${scriptFiles[index]}`)
+      const remoteNodes: RemoteSpan = new Map()
+      const visitRemote = (node: NativeNode): void => {
+        remoteNodes.set(nodeKey(node.getStart(remote), node.end, SyntaxKind[node.kind]), node)
+        node.forEachChild(visitRemote)
+      }
+      visitRemote(remote)
+      const spans: Span = new Map()
+      const queries: { local: ts.Node; native: NativeNode }[] = []
+      const visit = (node: ts.Node): void => {
+        // The shared collector never visits these standalone declarations. Uses
+        // of their imported symbols are queried at each retained component.
+        if (node.parent === ast && (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)))
+          return
+        const key = nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind])
+        spans.set(key, node)
+        if (
+          ts.isIdentifier(node) ||
+          ts.isStringLiteralLike(node) ||
+          ts.isPropertyAccessExpression(node)
+        ) {
+          const matching = remoteNodes.get(key)
+          if (!matching)
+            throw new Error(
+              `Unsupported native AST mapping: ${file}:${node.getStart(ast)} (${ts.SyntaxKind[node.kind]})`,
+            )
+          queries.push({ local: node, native: matching })
+        }
+        if (ts.isElementAccessExpression(node)) elements.push(node)
+        if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+          const specifier = node.arguments[0]
+          if (specifier && ts.isStringLiteralLike(specifier)) importSpecifiers.push(specifier)
+          else if (
+            specifier &&
+            ts.isPropertyAccessExpression(specifier) &&
+            specifier.name.text === 'url'
+          )
+            importTargets.push(specifier.expression)
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(ast)
+      localSpans.set(canonical(file), spans)
+      nativeFiles.set(canonical(file), remote)
+      nativeSpans.set(canonical(file), remoteNodes)
+      requests.push(queries)
+    }
+
+    const allFiles = allNames.map(
+      (file) =>
+        localFiles.get(canonical(file)) ??
+        ({ fileName: file, kind: ts.SyntaxKind.SourceFile } as ts.SourceFile),
+    )
+    const fileMap = new Map(allFiles.map((file) => [canonical(file.fileName), file]))
+    const symbols = new Map<string, NativeSymbol>()
+    const aliases = new Map<string, NativeSymbol>()
+    const locations = new Map<ts.Node, NativeSymbol | undefined>()
+    const add = (symbol: NativeSymbol | undefined) => {
+      if (symbol) symbols.set(symbolKey(symbol), symbol)
+      return symbol
+    }
+    const responses = await Promise.all(
+      requests.map((entries) => checker.getSymbolAtLocation(entries.map((entry) => entry.native))),
+    )
+    requests.forEach((entries, file) =>
+      entries.forEach((entry, index) => locations.set(entry.local, add(responses[file][index]))),
+    )
+
+    const moduleExports = new Map<string, readonly NativeSymbol[]>()
+    await Promise.all(
+      importSpecifiers.map(async (specifier) => {
+        const symbol = locations.get(specifier)
+        if (!symbol || moduleExports.has(symbolKey(symbol))) return
+        const entries = await checker.getExportsOfModule(symbol)
+        entries.forEach(add)
+        moduleExports.set(symbolKey(symbol), entries)
+      }),
+    )
+
+    const expressions = elements.map((element) => element.expression)
+    const remoteExpressions = expressions.map((node) => {
+      const file = canonical(node.getSourceFile().fileName)
+      const remote = nativeSpans
+        .get(file)
+        ?.get(nodeKey(node.getStart(), node.end, ts.SyntaxKind[node.kind]))
+      if (!remote)
+        throw new Error(`Unsupported native expression mapping: ${file}:${node.getStart()}`)
+      return remote
+    })
+    const nativeTypes = remoteExpressions.length
+      ? await checker.getTypeAtLocation(remoteExpressions)
+      : []
+    const types = new Map<ts.Node, NativeType>()
+    const typeSymbols = new Map<number, NativeSymbol | undefined>()
+    const properties = new Map<string, NativeSymbol | undefined>()
+    nativeTypes.forEach((type, index) => types.set(expressions[index], type))
+    const uniqueTypes = new Map(nativeTypes.map((type) => [type.id, type]))
+    await Promise.all(
+      [...uniqueTypes.values()].map(async (type) => {
+        typeSymbols.set(type.id, add(await type.getSymbol()))
+      }),
+    )
+    const selections = new Map<string, { type: NativeType; name: string }>()
+    nativeTypes.forEach((type, index) => {
+      const symbol = typeSymbols.get(type.id)
+      if (
+        !symbol?.declarations.some(
+          (declaration) =>
+            declaration.kind === SyntaxKind.SourceFile &&
+            !external.has(canonical(declaration.path)),
+        )
+      )
+        return
+      const selector = elements[index].argumentExpression
+      if (ts.isStringLiteralLike(selector))
+        selections.set(`${type.id}\0${selector.text}`, { type, name: selector.text })
+    })
+    await Promise.all(
+      [...selections].map(async ([key, { type, name }]) => {
+        properties.set(key, add(await checker.getPropertyOfType(type, name)))
+      }),
+    )
+
+    await Promise.all(
+      [...symbols.values()]
+        .filter((symbol) => symbol.flags & SymbolFlags.Alias)
+        .map(async (symbol) => {
+          const target = add(await checker.getAliasedSymbol(symbol))
+          if (target) aliases.set(symbolKey(symbol), target)
+        }),
+    )
+
+    const handleKey = (handle: NonNullable<NativeSymbol['valueDeclaration']>) =>
+      `${handle.path}\0${handle.index}\0${handle.kind}`
+    const resolvedDeclarations = new Map<string, ts.Declaration>()
+    const resolveValues = async (candidates: (NativeSymbol | undefined)[]) => {
+      const handles = new Map<string, NonNullable<NativeSymbol['valueDeclaration']>>()
+      for (const symbol of candidates) {
+        const handle = symbol?.valueDeclaration
+        if (
+          handle &&
+          nativeFiles.has(canonical(handle.path)) &&
+          (handle.kind === SyntaxKind.FunctionDeclaration ||
+            handle.kind === SyntaxKind.VariableDeclaration) &&
+          !resolvedDeclarations.has(handleKey(handle))
+        )
+          handles.set(handleKey(handle), handle)
+      }
+      await Promise.all(
+        [...handles.values()].map(async (handle) => {
+          const node = await handle.resolve()
+          if (!node) throw new Error(`Native declaration is unavailable: ${handle.path}`)
+          const file = canonical(handle.path)
+          const remoteFile = nativeFiles.get(file)!
+          const local = localSpans
+            .get(file)
+            ?.get(nodeKey(node.getStart(remoteFile), node.end, SyntaxKind[node.kind]))
+          if (!local)
+            throw new Error(
+              `Unsupported native declaration mapping: ${file}:${node.getStart(remoteFile)}`,
+            )
+          resolvedDeclarations.set(handleKey(handle), local as ts.Declaration)
+        }),
+      )
+    }
+    // Only the internal binding-loader adapter inspects value declarations.
+    // Other graph references need symbol identity, not materialized AST nodes.
+    const targetSymbols = importTargets.map((target) => locations.get(target))
+    await resolveValues(targetSymbols)
+    const primitives = targetSymbols.map((symbol) => {
+      const handle = symbol?.valueDeclaration
+      const target = handle && resolvedDeclarations.get(handleKey(handle))
+      if (
+        !target ||
+        !ts.isVariableDeclaration(target) ||
+        !target.initializer ||
+        !ts.isCallExpression(target.initializer)
+      )
+        return undefined
+      const primitive = locations.get(target.initializer.expression)
+      return primitive && primitive.flags & SymbolFlags.Alias
+        ? aliases.get(symbolKey(primitive))
+        : primitive
+    })
+    await resolveValues(primitives)
+    const declarations = (handle: NativeSymbol['valueDeclaration']): ts.Declaration | undefined => {
+      if (!handle) return undefined
+      const file = canonical(handle.path)
+      if (handle.kind === SyntaxKind.SourceFile)
+        return fileMap.get(file) as unknown as ts.Declaration
+      return resolvedDeclarations.get(handleKey(handle))
+    }
+    const views = new Map<string, SymbolView>()
+    const symbolView = (symbol: NativeSymbol | undefined): ts.Symbol | undefined => {
+      if (!symbol) return undefined
+      const key = symbolKey(symbol)
+      let view = views.get(key)
+      if (!view) {
+        view = {
+          flags: symbol.flags & SymbolFlags.Alias ? ts.SymbolFlags.Alias : ts.SymbolFlags.None,
+          get declarations() {
+            return symbol.declarations
+              .map(declarations)
+              .filter((entry): entry is ts.Declaration => entry !== undefined)
+          },
+          get valueDeclaration() {
+            const handle = symbol.valueDeclaration
+            const declaration = declarations(handle)
+            if (
+              handle &&
+              !declaration &&
+              nativeFiles.has(canonical(handle.path)) &&
+              (handle.kind === SyntaxKind.FunctionDeclaration ||
+                handle.kind === SyntaxKind.VariableDeclaration)
+            )
+              throw new Error(`Uncollected native value declaration: ${handle.path}`)
+            return declaration
+          },
+          getName: () => symbol.name,
+        }
+        views.set(key, view)
+      }
+      return view as ts.Symbol
+    }
+    const typeViews = new Map<number, TypeView>()
+    const typeView = (type: NativeType): ts.Type => {
+      let view = typeViews.get(type.id)
+      if (!view) {
+        view = { getSymbol: () => symbolView(typeSymbols.get(type.id)) }
+        typeViews.set(type.id, view)
+      }
+      return view as ts.Type
+    }
+    const viewSymbols = new Map<ts.Symbol, NativeSymbol>()
+    symbols.forEach((symbol) => viewSymbols.set(symbolView(symbol)!, symbol))
+    const viewTypes = new Map<ts.Type, NativeType>()
+    nativeTypes.forEach((type) => viewTypes.set(typeView(type), type))
+    const semantic = {
+      getSymbolAtLocation: (node: ts.Node) => symbolView(locations.get(node)),
+      getAliasedSymbol: (symbol: ts.Symbol) => {
+        const native = viewSymbols.get(symbol)
+        if (!native) throw new Error('Unrecognized native alias symbol')
+        return symbolView(aliases.get(symbolKey(native)))!
+      },
+      getExportsOfModule: (symbol: ts.Symbol) => {
+        const native = viewSymbols.get(symbol)
+        if (!native) throw new Error('Unrecognized native module symbol')
+        return (moduleExports.get(symbolKey(native)) ?? []).map((entry) => symbolView(entry)!)
+      },
+      getTypeAtLocation: (node: ts.Node) => {
+        const type = types.get(node)
+        if (!type)
+          throw new Error(
+            `Uncollected native type: ${node.getSourceFile().fileName}:${node.getStart()}`,
+          )
+        return typeView(type)
+      },
+      getPropertyOfType: (type: ts.Type, name: string) => {
+        const native = viewTypes.get(type)
+        if (!native) throw new Error('Unrecognized native namespace type')
+        return symbolView(properties.get(`${native.id}\0${name}`))
+      },
+    }
+    const program = {
+      getSourceFile: (file: string) => localFiles.get(canonical(file)),
+      getSourceFiles: () => allFiles,
+      isSourceFileFromExternalLibrary: (file: ts.SourceFile) =>
+        external.has(canonical(file.fileName)),
+      isSourceFileDefaultLibrary: (file: ts.SourceFile) => libraries.has(canonical(file.fileName)),
+      getTypeChecker: () => semantic,
+    } as unknown as ts.Program
+    return { program, problems, close }
+  } catch (error) {
+    await close().catch(() => {})
+    throw error
+  }
+}

@@ -14,7 +14,7 @@ The website workflow runs `website:build` and `website:check` with read-only con
 
 The isolated deploy job has only `pages: write` and `id-token: write`, targets the `github-pages` environment, and deploys the uploaded artifact without a checkout or candidate commands. Other branches may be checked manually but cannot deploy.
 
-Formatting covers Biome-managed files and the Rust crate. Read-only validation also checks Rust formatting, Cargo tests, the release prototype build, and differential source comparisons under the pinned toolchain. Keep native commands out of write-capable jobs.
+Formatting covers Biome-managed files. Read-only validation installs the pinned native TypeScript checker through Bun and runs differential source comparisons, types, the full test suite, and the demo. There is no authored Cargo crate or Rust build step. Keep native analysis commands out of write-capable jobs.
 
 ## Work Guidance
 

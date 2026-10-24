@@ -12,9 +12,9 @@ Document actual commands, defaults, streams, and exit codes. Keep unsupported ad
 
 Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
 
-Keep native structural parity separate from TypeScript diagnostics and runtime evidence. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. The default CLI remains TypeScript, and authored Rust stays measured with explicit unsupported analysis until an adapter exists.
+Keep native semantic conformance, lexical accounting, and runtime evidence distinct. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. The default CLI remains TypeScript, and authored Rust stays measured with explicit unsupported analysis until an adapter exists.
 
-Document `--engine rust` as strict compatibility mode through the shared Bun frontend. It runs the full TypeScript reference, blocks native unsupported analysis or mismatches, and may be slower. Preserve the distinction between per-input fact validation, presentation consistency, and universal behavioral equivalence; no default migration follows from structural benchmarks alone.
+Document `--engine rust` as independent pinned tsrs analysis through the Bun frontend. Reference comparisons run in development tests, never inside a native check. Preserve explicit TypeScript-version gaps, Bun asynchronous transport requirements, native platform support, and the distinction between analysis speed, completed verification, and gate acceptance. Never compare an incomplete run with a completed gate as an equivalent speedup.
 
 ## Work Guidance
 
