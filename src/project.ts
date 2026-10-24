@@ -1,8 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import ts from 'typescript'
-import { compileContracts } from './contracts.ts'
-import { analyzeSource } from './source.ts'
+import { createRequire } from 'node:module'
 import { inventory, fingerprint } from './inventory.ts'
 import { buildSnapshot } from './retention.ts'
 import { runEvidence } from './evidence.ts'
@@ -14,23 +12,39 @@ import { collectRustSource, type SourceEngine } from './collector.ts'
 export { CollectorError } from './collector.ts'
 export type { SourceEngine } from './collector.ts'
 
+const require = createRequire(import.meta.url)
+
 export function readConfig(
   root: string,
   file = resolve(root, 'bonsai.json'),
   input?: string,
 ): Config {
   const text = input ?? readFileSync(file, 'utf8')
-  const parsed = ts.parseConfigFileTextToJson(file, text)
-  if (parsed.error) {
-    const location =
-      parsed.error.file && parsed.error.start !== undefined
-        ? parsed.error.file.getLineAndCharacterOfPosition(parsed.error.start)
-        : undefined
-    throw new Error(
-      `Syntax error${location ? ` at line ${location.line + 1}, column ${location.character + 1}` : ''}: ${ts.flattenDiagnosticMessageText(parsed.error.messageText, ' ')}`,
-    )
+  let config: Config
+  try {
+    config = JSON.parse(text, (key, value) => {
+      // Preserve the reference parser's plain-object assignments and leading
+      // underscore handling for unusual keys, including escaped __proto__.
+      if (key.startsWith('__')) throw new Error('Reference configuration parser required')
+      return value
+    }) as Config
+    if (!config || typeof config !== 'object' || Array.isArray(config))
+      throw new Error('Reference configuration parser required')
+  } catch {
+    // JSONC and malformed inputs retain the exact established parser and errors.
+    const ts = require('typescript') as typeof import('typescript')
+    const parsed = ts.parseConfigFileTextToJson(file, text)
+    if (parsed.error) {
+      const location =
+        parsed.error.file && parsed.error.start !== undefined
+          ? parsed.error.file.getLineAndCharacterOfPosition(parsed.error.start)
+          : undefined
+      throw new Error(
+        `Syntax error${location ? ` at line ${location.line + 1}, column ${location.character + 1}` : ''}: ${ts.flattenDiagnosticMessageText(parsed.error.messageText, ' ')}`,
+      )
+    }
+    config = parsed.config as Config
   }
-  const config = parsed.config as Config
   if (
     !config ||
     typeof config !== 'object' ||
@@ -70,6 +84,7 @@ export async function snapshot(
     timer.start('fingerprint')
     const hash = fingerprint(root, files, config)
     timer.start('contracts')
+    const { compileContracts } = await import('./contracts.ts')
     const contracts = compileContracts(
       files
         .filter((file) => file.endsWith('.feature'))
@@ -91,7 +106,10 @@ export async function snapshot(
       source = collected.source
       analysis = collected.analysis
       if (collected.interrupted) timer.finish('interrupted')
-    } else source = analyzeSource(root, files, config.bindings, sourceTimer)
+    } else {
+      const { analyzeSource } = await import('./source.ts')
+      source = analyzeSource(root, files, config.bindings, sourceTimer)
+    }
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
     if (analysis) result.analysis = analysis

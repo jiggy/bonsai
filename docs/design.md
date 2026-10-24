@@ -100,6 +100,14 @@ Bonsai rules consume native semantic facades. Batched symbol and type queries
 avoid a request for each identifier. Owned and imported declarations are resolved
 back to source locations without granting unused exports ancestry.
 
+The native CLI parent defers compiler dependencies to its semantic worker.
+Standard JSON configuration objects use equivalent native parsing; JSONC,
+malformed input, and unusual property keys retain the reference parser and exact
+diagnostics. Contract compilation loads inside its measured phase. TypeScript
+check/explain preloads the reference analyzer during command setup to preserve
+the existing feedback boundary. These startup changes do not cache action results
+or alter sequential scenario execution.
+
 The adapter supplies the same explicit root files and preserves the reference's
 ambient type discovery. TypeScript 5.9 and tsrs's pinned TypeScript 7 compiler are
 not universally equivalent. Known default-library directive differences and local

@@ -283,6 +283,9 @@ diagnostics and symbol resolution independently; it does not run the TypeScript
 reference compiler. Both share Bonsai's lexical token metric, structural rules,
 CLI, and evidence worker. Differential comparisons run in tests and through
 `bun run native:compare`; `bun run native:bench` measures fresh complete commands.
+Standard JSON configs keep TypeScript out of the native CLI parent; its worker
+loads the lexical parser once. JSONC and malformed configs retain the original
+parser and diagnostics. Every contract case still executes in order.
 The pinned package supports Linux x64/arm64 and macOS arm64. Unsupported forms and
 known compiler gaps block acceptance. See the native documentation for platform,
 configuration, and TypeScript-version limits.

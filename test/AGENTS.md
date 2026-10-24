@@ -24,6 +24,8 @@ The native root regression measures the full committed inventory and verifies ev
 
 Native runtime guards trap JS compiler factories while permitting lexical parsing/scanning. Require all diagnostic categories. Known native default-library directive gaps must produce a specific incomplete result for owned and imported declarations, never a missing-diagnostic pass. Preserve full fact parity for supported valid syntax; malformed lexical ASTs may be provisional only with blocking diagnostics and no evidence.
 
+Lazy project startup regressions compare configuration values, object prototypes, validation, and exact syntax diagnostics with the reference parser. A runtime module-load guard must reject TypeScript in standard-config native CLI parents while allowing and observing its semantic-worker load. Prove the guard with TypeScript-engine and JSONC fallback controls; metadata-only configuration inspection remains compiler-free for standard JSON.
+
 ## Verification
 
 `bun run test` includes the executable product contracts; `bun run test:features` runs those alone.

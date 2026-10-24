@@ -234,3 +234,53 @@ Running the tool on the original root preserves its saved limit and records any
 completion difference. These small samples establish improvement on the measured
 workloads, not a guarantee for other projects or machines. Complete feature
 evidence does not erase ancestry or retained-size violations.
+
+## Remove repeated native frontend startup
+
+A subsequent user profile still exhausted the 15-second window: source analysis
+took 2.1 seconds and verification was interrupted after 12.9 seconds. The earlier
+four-second incomplete profiles had not executed verification. Those durations
+cannot establish a completed-check regression or improvement.
+
+The remaining repeated cost included loading the full JavaScript TypeScript
+package in each project-aware CLI parent, then loading it again in its native
+semantic worker. Bonsai's 23 self-host scenarios launch 24 real CLI commands;
+17 of those commands previously loaded TypeScript in the parent. Moving compiler
+dependencies behind the selected engine removes that unnecessary load. Standard
+JSON objects use equivalent native configuration parsing; JSONC, malformed input,
+and unusual property keys retain the exact reference conversion and diagnostics.
+The lexical parser still loads in each semantic worker. No handler results or
+evidence are cached, and every scenario still executes sequentially.
+
+Fresh-process comparisons on the same Linux x64/Bun 1.4.3 environment alternated
+the `f7ffa42` implementation and the updated implementation. Filesystem caches
+were not flushed. External wall-time medians:
+
+| Rust check | Samples per revision | Before | After | Reduction |
+| --- | ---: | ---: | ---: | ---: |
+| Identical checkout project, all 3 observations | 5 | 720 ms | 507 ms | 30% |
+| Full Bonsai inventory, all 95 observations | 3 | 15,020 ms | 10,120 ms | 33% |
+
+Checkout decisions, fingerprints, contracts, source facts, ancestry, and evidence
+matched after removing timings. Root measurements used each revision's full
+inventory: 81 files before and 82 after, including the new regression test.
+The root contracts and all 95 executed observation results matched. Both revisions
+used the same explicit 60-second comparison window and unchanged budget; their
+source facts naturally differ where implementation and test files changed.
+Complete root samples ranged from 13,636–16,282 ms before and 9,961–10,533 ms after.
+
+Median parent setup fell from 255 ms to 43 ms. Median root verification fell from
+13,006 ms to 8,411 ms; source analysis remained about 1.6–1.7 seconds. This change
+targets repeated startup, rather than claiming another native compiler speedup.
+
+Separately, the actual root under its saved 15-second policy completed every
+observation when the CLI and all descendants were restricted to one CPU. Feedback
+took 13,079 ms and reported command elapsed was 13,164 ms. The result still
+correctly rejected retained-size and ancestry violations. CPU affinity is a local
+stress check, not a guarantee for other hardware.
+
+Regressions compare configuration values, prototypes, and exact syntax errors
+with the reference parser. A runtime load guard forbids TypeScript in native CLI
+parents with standard configs, observes its load in semantic workers, and uses
+the TypeScript engine and JSONC fallback as controls. This detects duplicated
+startup even on machines fast enough to stay below the feedback ceiling.

@@ -8,6 +8,8 @@ Implement Bonsai’s CLI and contract-rooted budget gate.
 
 `inventory.ts` owns filesystem scope and content fingerprints without loading the TypeScript compiler. Verification workers use this lean boundary; `source.ts` reexports its existing inventory API for compatibility.
 
+Keep project orchestration independent of eager compiler and Gherkin imports. Standard JSON object configurations use the equivalent native JSON parser; JSONC, malformed input, non-object roots, and keys beginning with `__` retain the reference parser and its exact diagnostics. Load contract compilation inside its measured phase and fallback source measurement only after interrupted native collection. The CLI preloads the reference analyzer only for TypeScript check/explain, preserving its command-setup and feedback boundaries. A successful Rust parent using a standard configuration must not load TypeScript; its semantic worker still loads the lexical parser.
+
 `compiler.ts` owns bounded, process-local reuse of exact-content parsed documents through TypeScript's DocumentRegistry. Every request uses a fresh compiler host, program, filesystem resolution, and full diagnostics with unchanged options and ambient type discovery. Re-read all requested source/declaration text; package changes, newly created modules, root sets, and NodeNext parse context must remain visible. Keep only the preceding request's documents within the memory cap; do not persist analysis or evidence in a candidate-controlled cache.
 
 ## Local Contracts

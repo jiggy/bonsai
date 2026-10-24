@@ -3,7 +3,6 @@ import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
-import { measureSource } from './source.ts'
 import type { Snapshot, Source, Timing, TimingStage } from './model.ts'
 import type { Timer } from './timing.ts'
 
@@ -363,6 +362,7 @@ export async function collectRustSource(
   } catch (error) {
     timer?.finish('interrupted')
     if (!(error instanceof CollectorInterrupted)) throw error
+    const { measureSource } = await import('./source.ts')
     const source = measureSource(root, files)
     source.problems.push(`Rust checker interrupted: ${error.message}`)
     return {

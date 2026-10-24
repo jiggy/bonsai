@@ -590,6 +590,10 @@ async function main(): Promise<void> {
     return
   }
   const { readConfig, snapshot: collectSnapshot, CollectorError } = await import('./project.ts')
+  if (engine === 'typescript' && (command === 'check' || command === 'explain')) {
+    const { analyzeSource } = await import('./source.ts')
+    void analyzeSource
+  }
   const snapshot = async (...parameters: Parameters<typeof collectSnapshot>) => {
     try {
       return await collectSnapshot(...parameters)
