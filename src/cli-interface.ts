@@ -23,6 +23,12 @@ export const flags = {
     completion: 'file',
     scope: ['check', 'explain', 'config'],
   },
+  engine: {
+    type: 'string',
+    description: 'source engine: typescript, rust (default typescript)',
+    choices: ['typescript', 'rust'],
+    scope: ['check', 'explain'],
+  },
   timeout: {
     type: 'string',
     description: 'command deadline in seconds (default none)',
@@ -88,18 +94,18 @@ export const commands = {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
     description:
-      'Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json.',
+      'Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json. Experimental --engine rust checks native source facts against TypeScript before running handlers.',
     examples: [
       'bonsai check',
       'bonsai check --root examples/checkout --json',
-      'bonsai check --base origin/main --verbose',
+      'bonsai check --root examples/checkout --engine rust --verbose',
     ],
   },
   explain: {
     summary: 'Show why a file or component is retained',
     usage: 'bonsai explain <file-or-component> [flags]',
     description:
-      'Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin.',
+      'Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin. Experimental --engine rust checks native source facts against TypeScript.',
     examples: [
       'bonsai explain src/checkout.ts --root examples/checkout',
       "bonsai explain 'src/checkout.ts#placeOrder' --root examples/checkout --json",

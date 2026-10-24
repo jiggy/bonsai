@@ -87,24 +87,35 @@ force; passing the regression does not assert full root acceptance.
 ## Native collector prototype
 
 An experimental Rust/Oxc collector implements the source-fact boundary alongside
-the default TypeScript engine. It is a source-checkout development tool, not a CLI
-backend or published runtime dependency. Versioned JSONL requests carry the measured
-inventory and binding path; responses contain structural facts, explicit problems,
-and collection time. They declare TypeScript diagnostics as not run and provide no
-runtime evidence.
+the default TypeScript engine. `check --engine rust` and `explain --engine rust`
+use the existing Bun CLI and presentation in strict compatibility mode. The Rust
+binary is built separately from a source checkout. Versioned JSONL requests carry
+the measured inventory and binding path; responses contain structural facts,
+explicit problems, and collection time. The binary declares TypeScript diagnostics
+as not run and provides no runtime evidence.
+
+Compatibility mode runs the full TypeScript reference collector and its diagnostics
+on the same input. Only matching native source facts may continue to verification.
+Unsupported native analysis and mismatches keep the gate incomplete; TypeScript
+facts may supply provisional reporting but cannot authorize a fallback pass.
+Runtime worker failures use the CLI's existing error path. Engine selection applies
+to base and candidate analysis and remains explicit in recovery commands. Optional
+analysis metadata records the Rust engine, reference validation, and match status.
 
 Differential fixtures compare exact supported facts and derived policy results
 under the same assumed observations. Those observations test the evaluator and
 cannot establish acceptance. Separate benchmarks measure the full TypeScript
 collector, native structural collector, and TypeScript diagnostics alone, with
 fresh-process and persistent-process samples. Their responsibilities differ, so
-these timings do not establish an equivalent full-gate speedup.
+these timings do not establish an equivalent full-gate speedup. Strict compatibility
+mode deliberately runs both collectors and can be slower than the default.
 
 Authored Rust remains in the maintained inventory and receives explicit unsupported
 source-language diagnostics from the default collector. Generated build output is
 excluded. Adoption requires broader parity, preserved diagnostic and evidence
-guarantees, a Rust ancestry adapter, and measured improvement of complete checks
-under the saved policy. See [the prototype protocol, scope, and commands](native-prototype.md).
+guarantees without repeating the full reference collector, a Rust ancestry adapter,
+and measured improvement of complete checks under the saved policy. See
+[the prototype protocol, scope, and commands](native-prototype.md).
 
 ## Deliberate gaps
 

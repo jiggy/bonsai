@@ -1,4 +1,10 @@
 Feature: Admit only supported implementations of required behavior
+  Scenario: Selecting Rust needs a working collector before handlers can run
+    When I invoke "check" with {"engine": "rust", "missingNative": true}
+    Then response "exitCode" equals 1
+    And response "code" equals "RUST_COLLECTOR"
+    And response "handlerExecuted" equals false
+
   Scenario: Verify every example without multiplying the allowance
     When I invoke "check" with {"examples": 3}
     Then response "exitCode" equals 0

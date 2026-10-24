@@ -13,6 +13,10 @@ Feature: Discover and initialize Bonsai's development loop
     And response "name" equals "bonsai"
     And response "command" equals "check"
     And response "commands.check.usage" equals "bonsai check [flags]"
+    And response "flags.engine.choices[0]" equals "typescript"
+    And response "flags.engine.choices[1]" equals "rust"
+    And response "flags.engine.scope[0]" equals "check"
+    And response "flags.engine.scope[1]" equals "explain"
 
   Scenario Outline: Generate completions for a supported shell
     When I invoke "completion" with {"shell": "<shell>"}

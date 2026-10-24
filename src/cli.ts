@@ -438,6 +438,13 @@ async function main(): Promise<void> {
     }
     return
   }
+  const engine = text('engine') ?? 'typescript'
+  if (engine !== 'typescript' && engine !== 'rust')
+    throw new CliError(
+      `Unknown source engine '${engine}'`,
+      'USAGE',
+      'Use --engine typescript or --engine rust',
+    )
   const quiet = enabled('quiet') && !enabled('verbose')
   const human = format === 'human' || (format === 'auto' && Boolean(process.stdout.isTTY))
   let checkHeaderShown = false
@@ -582,7 +589,19 @@ async function main(): Promise<void> {
     )
     return
   }
-  const { readConfig, snapshot } = await import('./project.ts')
+  const { readConfig, snapshot: collectSnapshot, CollectorError } = await import('./project.ts')
+  const snapshot = async (...parameters: Parameters<typeof collectSnapshot>) => {
+    try {
+      return await collectSnapshot(...parameters)
+    } catch (error) {
+      if (error instanceof CollectorError) {
+        const problem = new CliError(error.message, error.code, error.run, error.exitCode)
+        problem.stack += `\nCaused by: ${error.stack ?? error.message}`
+        throw problem
+      }
+      throw error
+    }
+  }
   const baseValue = text('base') ?? process.env.BONSAI_BASE
   const policyValue = text('policy') ?? process.env.BONSAI_POLICY
   if (baseValue !== undefined && !baseValue.trim())
@@ -628,7 +647,11 @@ async function main(): Promise<void> {
       words[0] === 'explain' && words[1]?.startsWith('-') && words[1] !== '-'
         ? [words[0], `./${words[1]}`, ...words.slice(2)]
         : words
-    return ['bonsai', ...positional, ...context].map(shellWord).join(' ')
+    const selection =
+      text('engine') !== undefined && (words[0] === 'check' || words[0] === 'explain')
+        ? ['--engine', engine]
+        : []
+    return ['bonsai', ...positional, ...context, ...selection].map(shellWord).join(' ')
   }
   if (prompted)
     write(`Next ${symbol('→', '->')} ${invocation(['explain', operands[0]])}`, process.stderr)
@@ -744,12 +767,18 @@ async function main(): Promise<void> {
   if (temporary) {
     checkTimer?.start('base')
     if (checkTimer) baseTimer = new Timer()
-    base = await snapshot(temporary, config, false, undefined, baseTimer)
+    base = await snapshot(temporary, config, false, cancellation.signal, baseTimer, engine)
     if (base.contracts.problems.length)
       throw new CliError(
         `Can't compile base contracts: ${base.contracts.problems.join(', ')}`,
         'BASE_INCOMPLETE',
         'Fix the base contracts or select another --base revision',
+      )
+    if (engine === 'rust' && base.analysis?.status !== 'matched')
+      throw new CliError(
+        `Rust collector can't check base '${baseValue}': ${base.source.problems.filter((problem) => problem.startsWith('Rust collector')).join(', ')}`,
+        'BASE_INCOMPLETE',
+        'Use --engine typescript for this base, or select a base supported by the Rust collector',
       )
   }
   const inputQueries =
@@ -768,6 +797,7 @@ async function main(): Promise<void> {
     command === 'check',
     cancellation.signal,
     candidateTimer,
+    engine,
   )
   candidateTiming = candidate.timing
   if (stopping) return
@@ -816,7 +846,12 @@ async function main(): Promise<void> {
         `Showing ${shown.length} of ${components.length} components. Use --limit 0 to show all`,
       )
     await emit(
-      { fingerprint: candidate.fingerprint, components, problems: candidate.source.problems },
+      {
+        fingerprint: candidate.fingerprint,
+        components,
+        problems: candidate.source.problems,
+        ...(candidate.analysis ? { analysis: candidate.analysis } : {}),
+      },
       rows,
       lines.length ? lines : ['No targets provided'],
     )

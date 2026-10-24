@@ -4,7 +4,7 @@ Define Bonsai's externally observable behavior as executable Gherkin contracts.
 
 ## Ownership
 
-`check.feature` covers admission; `inspect.feature` covers read-only inspection; `discover.feature` covers initialization and CLI discovery. Root `bonsai.bindings.ts` connects these actions to `src/self-host.ts`, which invokes the real CLI against isolated projects.
+`check.feature` covers admission and missing native-collector failures; `inspect.feature` covers read-only inspection; `discover.feature` covers initialization and CLI discovery, including available source engines without requiring a Rust build. Root `bonsai.bindings.ts` connects these actions to `src/self-host.ts`, which invokes the real CLI against isolated projects.
 
 ## Local Contracts
 

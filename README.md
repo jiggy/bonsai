@@ -48,7 +48,8 @@ remain available. `--verbose` wins over `--quiet` and adds detailed results.
 Human check findings and explanations show up to 20 entries. Set `--limit N` to
 change this or `--limit 0` to show every entry. JSON and plain records stay complete.
 File targets accept project-relative paths (including `./`) and absolute paths.
-Recovery commands preserve the effective root, base, and policy options.
+Recovery commands preserve the effective root, base, policy, and explicit engine
+options.
 
 ### Start using Bonsai in a project
 
@@ -154,6 +155,8 @@ JSON gate reports retain `decision` and `snapshot`; explanation reports retain
 Check snapshots may add `source.bindingImports` and `evidence.bindingImport` for
 the validated internal loader boundary; existing fields remain available.
 Check reports also include additive `timing` and `snapshot.timing` measurements.
+Rust-mode snapshots add `analysis` metadata for the selected engine and its
+TypeScript reference comparison.
 
 ### Read a check result
 
@@ -264,8 +267,19 @@ self-updater are outside this CLI rewrite.
 The [Rust collector prototype](docs/native-prototype.md) is available from a source
 checkout. Build it with `bun run native:build`, verify structural parity with
 `bun run native:compare`, and measure cold and warm collection with
-`bun run native:bench`. It uses a pinned Rust toolchain and Oxc parser; it does not
-replace the TypeScript collector used by `bonsai check` or run TypeScript diagnostics.
+`bun run native:bench`. Try it through the existing CLI and presentation:
+
+```sh
+bun run ./src/cli.ts check --engine rust --verbose
+bun run ./src/cli.ts check --root examples/checkout --engine rust --verbose
+```
+
+`--engine typescript` remains the default for `check` and `explain`. Rust mode
+runs both the Rust collector and the full TypeScript reference, preserves compiler
+diagnostics, and permits verification only when their source facts match. Native
+unsupported forms and mismatches keep the gate incomplete. This compatibility mode
+can be slower; the structural benchmark alone does not justify migration. The
+compiled Rust binary is a collector, while Bun retains the shared CLI frontend.
 
 ## Bonsai's own executable contracts
 
@@ -460,8 +474,10 @@ Subprocess entry-point ancestry remains unfinished. The supported checkout examp
 is available through `bun run bonsai check --root examples/checkout`.
 
 The experimental native collector supplies a bounded subset of structural facts;
-Oxc parsing and symbol analysis do not replace the TypeScript checker. Its parity
-and timing reports are development evidence, not gate acceptance. See the
+Oxc parsing and symbol analysis do not replace the TypeScript checker. Opt-in
+`--engine rust` compares each result with the full reference before allowing
+verification. Its standalone parity and timing reports are development evidence,
+not gate acceptance or a universal equivalence guarantee. See the
 [prototype scope and adoption criteria](docs/native-prototype.md).
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.

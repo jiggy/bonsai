@@ -13,12 +13,14 @@ type ProjectInput = {
   unbound?: boolean
   ignoredCode?: boolean
   computedImport?: boolean
+  engine?: 'typescript' | 'rust'
+  missingNative?: boolean
 }
 
 const cli = fileURLToPath(new URL('./cli.ts', import.meta.url))
 const repository = fileURLToPath(new URL('../', import.meta.url))
 
-function invoke(args: string[]) {
+function invoke(args: string[], environment: NodeJS.ProcessEnv = {}) {
   const result = spawnSync(process.execPath, [cli, ...args, '--json'], {
     cwd: repository,
     encoding: 'utf8',
@@ -32,6 +34,7 @@ function invoke(args: string[]) {
       FORCE_COLOR: undefined,
       NO_COLOR: '1',
       CI: '1',
+      ...environment,
     },
   })
   if (result.error) throw result.error
@@ -110,7 +113,10 @@ function project(input: ProjectInput = {}) {
 export function checkProject(input: ProjectInput) {
   const { root, marker } = project(input)
   try {
-    const report = invoke(['check', '--root', root])
+    const report = invoke(
+      ['check', '--root', root, ...(input.engine ? ['--engine', input.engine] : [])],
+      input.missingNative ? { BONSAI_NATIVE_BINARY: join(root, 'missing-collector') } : {},
+    )
     return {
       ...report,
       handlerExecuted: existsSync(marker),

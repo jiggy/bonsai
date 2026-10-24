@@ -57,17 +57,18 @@ Check behavior, ancestry, and the retained-code budget
 USAGE
   bonsai check [flags]
 
-Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json.
+Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json. Experimental --engine rust checks native source facts against TypeScript before running handlers.
 
 EXAMPLES
   $ bonsai check
   $ bonsai check --root examples/checkout --json
-  $ bonsai check --base origin/main --verbose
+  $ bonsai check --root examples/checkout --engine rust --verbose
 
 OPTIONS
   -r, --root string         project directory (default current directory)
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
+      --engine string       source engine: typescript, rust (default typescript)
       --timeout string      command deadline in seconds (default none)
       --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors
@@ -108,7 +109,7 @@ Show why a file or component is retained
 USAGE
   bonsai explain <file-or-component> [flags]
 
-Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin.
+Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin. Experimental --engine rust checks native source facts against TypeScript.
 
 EXAMPLES
   $ bonsai explain src/checkout.ts --root examples/checkout
@@ -119,6 +120,7 @@ OPTIONS
   -r, --root string         project directory (default current directory)
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
+      --engine string       source engine: typescript, rust (default typescript)
       --timeout string      command deadline in seconds (default none)
       --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors

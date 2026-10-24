@@ -14,6 +14,8 @@ Keep command elapsed time, candidate phase durations, and policy feedback measur
 
 Keep native structural parity separate from TypeScript diagnostics and runtime evidence. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. The default CLI remains TypeScript, and authored Rust stays measured with explicit unsupported analysis until an adapter exists.
 
+Document `--engine rust` as strict compatibility mode through the shared Bun frontend. It runs the full TypeScript reference, blocks native unsupported analysis or mismatches, and may be slower. Preserve the distinction between per-input fact validation, presentation consistency, and universal behavioral equivalence; no default migration follows from structural benchmarks alone.
+
 ## Work Guidance
 
 Update CLI reference and migration notes with behavior changes.

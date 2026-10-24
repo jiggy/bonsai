@@ -77,6 +77,8 @@ test('generated Bash completions follow command context and flag scopes', () => 
     assert.ok(checkFlags.includes('-j'))
     assert.ok(!checkFlags.includes('--markdown'))
     assert.ok(checkFlags.includes('--limit'))
+    assert.ok(checkFlags.includes('--engine'))
+    assert.ok(!initFlags.includes('--engine'))
     assert.deepEqual(complete('check', '--li'), ['--limit'])
     assert.deepEqual(complete('help', '--mark'), ['--markdown'])
     assert.deepEqual(complete('explain', '--li'), ['--limit'])
@@ -106,6 +108,9 @@ test('generated Bash completions complete enum values and filesystem arguments',
   }
   try {
     assert.deepEqual(complete('check', '--output', 'js'), ['json'])
+    assert.deepEqual(complete('check', '--engine', 'ru'), ['rust'])
+    assert.deepEqual(complete('explain', '--engine=ty'), ['--engine=typescript'])
+    assert.deepEqual(complete('config', 'show', '--engine', 'ru'), [])
     assert.deepEqual(complete('check', '--output=js'), ['--output=json'])
     assert.deepEqual(complete('check', '--output', '=', 'js'), ['json'])
     assert.deepEqual(complete('check', '-ojs'), ['-ojson'])

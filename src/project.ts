@@ -8,6 +8,10 @@ import { runEvidence } from './evidence.ts'
 import { validatePolicy } from './policy.ts'
 import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
+import { collectRustSource, type SourceEngine } from './collector.ts'
+
+export { CollectorError } from './collector.ts'
+export type { SourceEngine } from './collector.ts'
 
 export function readConfig(
   root: string,
@@ -54,6 +58,7 @@ export async function snapshot(
   execute = true,
   signal?: AbortSignal,
   timer = new Timer(),
+  engine: SourceEngine = 'typescript',
 ): Promise<Snapshot> {
   const started = performance.now()
   try {
@@ -70,9 +75,24 @@ export async function snapshot(
         .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
     )
     timer.start('source')
-    const source = analyzeSource(root, files, config.bindings)
+    let source = analyzeSource(root, files, config.bindings)
+    let analysis: Snapshot['analysis']
+    if (engine === 'rust') {
+      const collected = await collectRustSource(
+        root,
+        files,
+        config.bindings,
+        source,
+        signal,
+        execute ? config.policy.maxFeedbackMs - (performance.now() - started) : undefined,
+      )
+      source = collected.source
+      analysis = collected.analysis
+      if (collected.interrupted) timer.finish('interrupted')
+    }
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
+    if (analysis) result.analysis = analysis
     let feedbackElapsed = execute ? performance.now() - started : undefined
     if (execute && !contracts.problems.length && !source.problems.length) {
       timer.start('verification')

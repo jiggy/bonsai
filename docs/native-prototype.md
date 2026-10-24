@@ -1,13 +1,16 @@
 # Rust collector prototype
 
 The Rust/Oxc prototype evaluates whether native source collection can reduce
-Bonsai's feedback time while preserving its facts. It is experimental and available
-from a source checkout. Normal `bonsai check` still uses TypeScript; there is no
-native backend flag, and the prototype is not included in the npm package.
+Bonsai's feedback time while preserving its facts. `check` and `explain` offer an
+experimental `--engine rust` compatibility mode through the existing Bun CLI.
+The default engine remains `typescript`. Build the Rust binary from a source
+checkout; the npm package does not bundle it.
 
-Oxc supplies parsing and lexical symbol analysis, not TypeScript compiler
-diagnostics. The prototype collects structural facts only. It neither executes
-handlers nor independently establishes a passing Bonsai gate.
+Oxc supplies parsing and lexical symbol analysis. Compatibility mode also runs the
+full TypeScript reference collector, including compiler diagnostics, and compares
+its facts with Rust's on the same input. Verification runs only after the facts
+match and all analysis succeeds. The Rust binary itself supplies neither compiler
+diagnostics nor runtime evidence.
 
 ## Build and evaluate
 
@@ -25,14 +28,68 @@ bun run native:bench --runs 5 --size 64 --output work/native-benchmark.json
 ```
 
 `native:build` produces a locked release build. `native:format:check` checks Rust
-formatting. Harnesses find the binary under `native/target/release/`, honor
-`CARGO_TARGET_DIR`, or use an explicit `BONSAI_NATIVE_BINARY` path. Build before
-comparing or benchmarking; the harness does not compile a missing binary.
+formatting. The default binary is under `native/target/release/`. The CLI resolves
+that default against the checker checkout, independently of the selected project
+and caller's working directory. `CARGO_TARGET_DIR` and an explicit
+`BONSAI_NATIVE_BINARY` path can select another build. Build before running Rust;
+the CLI and harnesses never compile or download a missing binary automatically.
 
 Both reports print JSON to stdout and can save the same report to the specified
 path. A parity mismatch fails the comparison command. The benchmark also verifies
 parity before recording timings. `work/` and generated `native/target/` are excluded
 from Bonsai's inventory.
+
+## Run the existing CLI with Rust
+
+Compare the same verbose check through both engines:
+
+```sh
+bun run ./src/cli.ts check --engine typescript --verbose
+bun run ./src/cli.ts check --engine rust --verbose
+```
+
+The root remains incomplete: authored Rust is measured and its ancestry is
+unsupported. Rust's bounded TypeScript collector may report additional unsupported
+forms in this codebase. Use the supported checkout example to compare a complete
+check, including real contract execution:
+
+```sh
+bun run ./src/cli.ts check --root examples/checkout --engine typescript --verbose
+bun run ./src/cli.ts check --root examples/checkout --engine rust --verbose
+bun run ./src/cli.ts explain src/checkout.ts --root examples/checkout --engine rust --json
+```
+
+Both engines use the same report and terminal presentation code: flags, verbosity,
+colors, wrapping, stream routing, plain columns, exit codes, and evidence execution
+keep their existing meanings. Recovery commands preserve an explicit engine choice,
+including when a check suggests `explain`. `explain` never runs handlers.
+
+Rust-mode JSON adds `analysis` metadata identifying `engine: "rust"`,
+`validation: "typescript-reference"`, and a status of `matched`, `unsupported`, or
+`mismatch`. A match establishes equality of the compared source facts for that
+input. It does not guarantee universal TypeScript compatibility or byte-identical
+reports: measured durations, explicit engine arguments, and unsupported findings
+can differ.
+
+Unsupported native analysis or mismatched facts produce an incomplete gate and
+skip verification. Provisional inventory and source facts remain available from
+the TypeScript reference; they cannot turn a failed Rust analysis into a pass.
+A missing, crashed, or malformed native worker produces a runtime error with exit
+1 and a repair instruction. Help and version work without a Rust build.
+
+Compatibility mode deliberately runs both collectors. Its source phase and full
+command timings include the reference comparison, and it can be slower than the
+default. This mode supports direct CLI and compatibility testing; migration still
+requires measured improvement of complete checks with equivalent responsibilities.
+
+A complete-CLI sample ran `check --root examples/checkout --verbose --json` three
+times per engine, alternating fresh processes without flushing the filesystem
+cache. Both engines passed with identical source facts. External wall-time medians
+were 1.46 seconds for TypeScript and 1.72 seconds for Rust compatibility mode;
+median source phases were 0.85 and 1.08 seconds, respectively. These small-workload
+samples show no full-command improvement and do not justify changing the default.
+The verbose command profile makes the same measurement boundaries available
+locally; the structural-only benchmark below measures a different workload.
 
 ## What parity establishes
 
@@ -104,7 +161,9 @@ is reported separately from engine samples.
 These workloads measure collection, not evidence execution or the full `check`
 command. Engine responsibilities differ; a native-to-TypeScript ratio is not an
 equivalent full-gate speedup. Diagnostics-only timings expose a separate remaining
-cost, but are not a replacement for measuring an integrated implementation.
+cost, but are not a replacement for measuring an integrated implementation. The
+strict `--engine rust` compatibility mode runs both collectors, so these native
+structural timings do not predict its command duration.
 
 ### Measured sample
 
@@ -147,7 +206,8 @@ claims root acceptance.
 
 Adopting a native core requires expanded parity on representative projects and
 unsupported cases, preserved TypeScript diagnostic and candidate-bound evidence
-guarantees, Rust ancestry support for Bonsai's own maintained source, and measured
-cold and warm improvement of complete checks under the saved feedback policy.
+guarantees without repeating the full reference collector, Rust ancestry support
+for Bonsai's own maintained source, and measured cold and warm improvement of
+complete checks under the saved feedback policy.
 CLI reports, failures, exit codes, and inventory scope must retain their current
 meaning throughout that transition.

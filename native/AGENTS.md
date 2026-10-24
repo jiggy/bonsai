@@ -4,11 +4,13 @@ Prototype a Rust TypeScript source collector and measure it against the existing
 
 ## Ownership
 
-One Cargo crate in `src/`, with Bun comparison and benchmark tools in `tools/`. The normal Bonsai CLI remains on the TypeScript engine.
+One Cargo crate in `src/`, with Bun comparison and benchmark tools in `tools/`. The CLI defaults to TypeScript and offers opt-in Rust compatibility mode through its existing Bun frontend.
 
 ## Local Contracts
 
 Use a mature TypeScript parser. Preserve exact component, relationship, token, binding, and source-location facts for supported syntax. Unsupported syntax or unresolved dependencies must remain explicit. Native structural collection does not supply TypeScript compiler diagnostics and cannot independently establish gate acceptance.
+
+CLI compatibility mode runs the full TypeScript reference and only permits verification after matching native facts. Unsupported or mismatched native analysis remains incomplete without a passing fallback. Keep this validation mode distinct from standalone structural benchmarks and from an eventual faster native default.
 
 Keep Rust source and this tooling in maintained inventory. Build output is generated material. Until Rust ancestry is supported, the default collector must report Rust source as unsupported rather than silently classifying it as data.
 
@@ -20,7 +22,7 @@ Keep the prototype bounded and its protocol versioned. Do not switch the default
 
 ## Verification
 
-Cargo tests and the native differential comparison command.
+Cargo tests, the native differential comparison command, and actual CLI engine comparison tests in the normal Bun suite.
 
 ## Child DOX Index
 

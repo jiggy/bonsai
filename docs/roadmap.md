@@ -16,11 +16,15 @@ verification. Use those measurements to target feedback-time reductions while
 preserving every required observation.
 
 The [Rust/Oxc source collector prototype](native-prototype.md) now has a versioned
-JSONL boundary, differential fixtures, and reproducible cold/warm benchmarks.
-It runs alongside the TypeScript default and omits TypeScript diagnostics and
-runtime evidence. Expand parity beyond the bounded fixtures, preserve checker
-diagnostics, and compare complete-check performance before adopting a native
-backend. Structural collection timings alone cannot justify that switch.
+JSONL boundary, differential fixtures, reproducible cold/warm benchmarks, and
+`--engine rust` compatibility mode in the existing `check` and `explain` CLI.
+This mode runs the full TypeScript reference and its diagnostics alongside Rust,
+blocks unsupported or mismatched analysis, and shares the established frontend.
+The native binary alone supplies neither compiler diagnostics nor runtime evidence.
+Expand parity beyond the bounded fixtures, preserve checker diagnostics without
+repeating the full reference collector, and compare complete-check performance
+before adopting a native default. Compatibility mode can be slower; structural
+collection timings alone cannot justify the switch.
 
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
 - Track side-effect imports and resource dependencies, with precise unresolved-edge diagnostics.

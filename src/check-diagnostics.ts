@@ -51,6 +51,36 @@ export function checkDiagnostics(
         : `Add a .feature file under a maintained path, write a runnable Scenario, and bind its action in ${bindings}`,
     })
   }
+  for (const [prefix, title, fix] of [
+    [
+      'Rust collector unsupported: ',
+      "Rust collector doesn't support this source",
+      `Use --engine typescript for this project, or extend the Rust collector's supported syntax and tracing. See ${docsUrl.replace('/cli.md', '/native-prototype.md')}`,
+    ],
+    [
+      'Rust collector mismatch: ',
+      'Rust and TypeScript disagree about this source',
+      'Use --engine typescript and report the mismatch at https://github.com/jiggy/bonsai/issues',
+    ],
+    [
+      'Rust collector interrupted: ',
+      'Rust source check stopped before completion',
+      'Use --verbose to inspect phase timings, then shorten source collection while preserving the required checks',
+    ],
+  ] as const) {
+    const messages = blockers.filter((message) => message.startsWith(prefix))
+    if (!messages.length) continue
+    messages.forEach((message) => handled.add(message))
+    diagnostics.push({
+      title,
+      detail: [
+        ...examples(messages.map((message) => message.slice(prefix.length))),
+        "Bonsai hasn't accepted Rust's source facts, so behavior checks can't run",
+        'Measurements and ancestry below use provisional TypeScript facts',
+      ],
+      fix,
+    })
+  }
   const dynamic = blockers.filter(
     (message) =>
       message.startsWith('Dynamic import requires an adapter:') ||
@@ -133,12 +163,14 @@ export function checkDiagnostics(
           : 'Fix the interrupted verification or its feedback deadline, then rerun the check to collect complete evidence'
         : message === 'Maintained files changed during verification'
           ? 'Keep maintained files unchanged during verification and rerun the check'
-          : /\.[cm]?ts:\d+:/.test(message)
-            ? 'Correct the TypeScript error at the reported source location and rerun the check'
-            : message.startsWith('Required evidence') ||
-                message.startsWith('Missing required check')
-              ? 'Rerun verification for this candidate and ensure every declared observation produces a result'
-              : 'Resolve the reported source construct using the supported TypeScript adapter, then rerun the check',
+          : message.startsWith('Unsupported source language:')
+            ? `Add source-language ancestry support before rerunning this check. These files stay measured. See ${docsUrl.replace('/cli.md', '/roadmap.md')}`
+            : /\.[cm]?ts:\d+:/.test(message)
+              ? 'Correct the TypeScript error at the reported source location and rerun the check'
+              : message.startsWith('Required evidence') ||
+                  message.startsWith('Missing required check')
+                ? 'Rerun verification for this candidate and ensure every declared observation produces a result'
+                : 'Resolve the reported source construct using the supported TypeScript adapter, then rerun the check',
     })
   }
   return diagnostics

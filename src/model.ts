@@ -78,6 +78,11 @@ export type Snapshot = {
   unrooted: string[]
   evidence?: Evidence
   timing?: CheckTiming
+  analysis?: {
+    engine: 'rust'
+    validation: 'typescript-reference'
+    status: 'matched' | 'unsupported' | 'mismatch'
+  }
 }
 export type Decision = {
   status: 'pass' | 'reject' | 'incomplete'
