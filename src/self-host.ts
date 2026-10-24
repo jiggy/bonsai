@@ -126,6 +126,9 @@ export function checkProject(input: ProjectInput) {
       verificationTiming: report.snapshot?.timing?.stages.find(
         (stage: { name: string }) => stage.name === 'verification',
       ),
+      sourceTiming: report.snapshot?.timing?.stages.find(
+        (stage: { name: string }) => stage.name === 'source',
+      ),
     }
   } finally {
     rmSync(root, { recursive: true, force: true })

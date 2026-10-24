@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import ts from 'typescript'
 import { compileContracts } from './contracts.ts'
-import { inventory, fingerprint, analyzeSource } from './source.ts'
+import { analyzeSource } from './source.ts'
+import { inventory, fingerprint } from './inventory.ts'
 import { buildSnapshot } from './retention.ts'
 import { runEvidence } from './evidence.ts'
 import { validatePolicy } from './policy.ts'
@@ -74,10 +75,12 @@ export async function snapshot(
         .filter((file) => file.endsWith('.feature'))
         .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
     )
-    timer.start('source')
-    let source = analyzeSource(root, files, config.bindings)
+    const sourceTimer = new Timer()
+    timer.start('source', sourceTimer)
+    let source = analyzeSource(root, files, config.bindings, sourceTimer)
     let analysis: Snapshot['analysis']
     if (engine === 'rust') {
+      sourceTimer.start('native')
       const collected = await collectRustSource(
         root,
         files,
@@ -88,6 +91,7 @@ export async function snapshot(
       )
       source = collected.source
       analysis = collected.analysis
+      sourceTimer.finish(collected.interrupted ? 'interrupted' : 'completed')
       if (collected.interrupted) timer.finish('interrupted')
     }
     timer.start('retention')

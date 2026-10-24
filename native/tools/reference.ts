@@ -4,6 +4,9 @@ import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { analyzeSource } from '../../src/source.ts'
+import { createCompilerSession } from '../../src/compiler.ts'
+
+const compiler = createCompilerSession()
 
 export type ReferenceRequest = {
   protocol: 1
@@ -19,18 +22,9 @@ export function collectReference(request: ReferenceRequest) {
   if (request.protocol !== 1) throw new Error('Unsupported reference protocol')
   if (request.mode === 'diagnostics') {
     const root = realpathSync(request.root)
-    // Match analyzeSource's compiler options, including its implicit library/type inputs.
-    const program = ts.createProgram(
+    // Match the collector's compiler options and process-local document reuse.
+    const program = compiler.program(
       request.files.filter((file) => /\.[cm]?ts$/.test(file)).map((file) => resolve(root, file)),
-      {
-        target: ts.ScriptTarget.ES2023,
-        module: ts.ModuleKind.NodeNext,
-        moduleResolution: ts.ModuleResolutionKind.NodeNext,
-        allowImportingTsExtensions: true,
-        noEmit: true,
-        strict: true,
-        skipLibCheck: true,
-      },
     )
     const problems = ts.getPreEmitDiagnostics(program).map((diagnostic) => {
       const location =

@@ -214,6 +214,11 @@ Stages report `completed`, `interrupted`, or `skipped`; skipped stages have
 evidence exists. Setup errors and `--timeout` errors carry available timing on
 stderr in JSON mode.
 
+Source analysis includes nested retained-size measurement, compiler setup, type
+checking, and dependency graph timings. Rust compatibility adds its comparison
+phase. See [performance research and measurements](docs/performance.md) for the
+current bottlenecks, optimizations, and Rust checker evaluation.
+
 Command elapsed time starts at the runtime clock origin and ends after report
 preparation. It includes startup, configuration, optional base work, candidate
 collection and verification, and policy evaluation. Final serialization, output

@@ -153,6 +153,10 @@ Three engines run on identical fixture inputs:
 Cold samples launch a fresh process; they do not flush the operating system's file
 cache. Warm samples reuse one process after an unrecorded warmup, with sequential
 requests that reread and analyze files each time. There is no source-result cache.
+The TypeScript full and diagnostics-only workers now share bounded, process-local
+parsed-document reuse while rebuilding resolution and diagnostics each request.
+The dated sample below predates that optimization; see the
+[complete-check measurements and native checker research](performance.md).
 `roundTripMs` includes serialization, protocol transport, file I/O and response
 parsing, plus process startup for cold runs. `workerMs` measures work inside the
 worker and excludes startup and request-line transport. Fixture parity preparation

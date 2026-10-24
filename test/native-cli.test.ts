@@ -138,10 +138,14 @@ function withoutHumanMeasurements(text: string) {
   let timing = false
   return stripVTControlCharacters(text)
     .split('\n')
+    .filter((line) => !line.includes('Rust compatibility comparison:'))
     .map((line) => {
       if (line === 'Timing') timing = true
       else if (timing && !line.trim()) timing = false
-      if (timing) line = line.replace(/\b\d+(?:\.\d+)?(?:ms|s)\b/, '<duration>')
+      if (timing)
+        line = line
+          .replace(/\b\d+(?:\.\d+)?(?:ms|s)\b/, '<duration>')
+          .replace(/├─(?= Dependency graph:)/, '└─')
       return line
         .replace(/\b\d+(?:\.\d+)?(?:ms|s)(?= elapsed\b)/g, '<duration>')
         .replace(/ --engine (?:typescript|rust)\b/g, '')
@@ -241,6 +245,10 @@ test('Rust checks keep human, plain, quiet and inspection output on the shared C
       const reference = cli(['check', '--root', project.root, '--engine', 'typescript', ...args])
       const rust = cli(['check', '--root', project.root, '--engine', 'rust', ...args])
       assert.equal(rust.status, reference.status)
+      if (args.includes('--verbose')) {
+        assert.match(rust.stderr, /Rust compatibility comparison:/)
+        assert.doesNotMatch(reference.stderr, /Rust compatibility comparison:/)
+      }
       assert.equal(
         withoutHumanMeasurements(rust.stdout),
         withoutHumanMeasurements(reference.stdout),

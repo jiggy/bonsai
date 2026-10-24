@@ -16,6 +16,8 @@ Keep Rust source and this tooling in maintained inventory. Build output is gener
 
 Compare both engines on identical inputs. Count process startup and any preparation in cold-run timings; label warm runs and diagnostics costs separately. Never present a structural-only comparison as an equivalent full-gate speedup.
 
+Full-reference and diagnostics-only workers share the production compiler-session rules: fresh programs and diagnostics each request, with bounded exact-content document reuse within a warm process. No diagnostic or source-result cache is persisted.
+
 ## Work Guidance
 
 Keep the prototype bounded and its protocol versioned. Do not switch the default engine before compatibility and performance are demonstrated.

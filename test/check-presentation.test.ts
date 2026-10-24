@@ -129,13 +129,13 @@ function characters(text: string) {
   return result
 }
 
-function expectColor(text: string, phrase: string, color: number) {
+function expectColor(text: string, phrase: string, color: number, offset = 0) {
   const visible = characters(text)
   const plain = visible.map((character) => character.value).join('')
   const start = plain.indexOf(phrase)
   assert.ok(start >= 0, `${JSON.stringify(phrase)} missing from ${plain}`)
   for (const character of visible
-    .slice(start, start + phrase.length)
+    .slice(start + offset, start + phrase.length)
     .filter((character) => character.value.trim())) {
     assert.equal(
       character.color,
@@ -326,6 +326,10 @@ test('timing values stay primary and interrupted stages use an explicit warning 
     assert.ok(elapsed, plain)
     expectColor(output, elapsed[0], 37)
     assert.match(plain, /Timing/)
+    const checking = plain.match(/Type checking: \d+(?:\.\d+)?(?:ms|s)/)
+    assert.ok(checking, plain)
+    expectColor(output, checking[0], 37, 'Type checking: '.length)
+    expectColor(output, '├─', 90)
     const interrupted = plain.match(/Verification[^\n]*interrupted/i)
     assert.ok(interrupted, plain)
     expectColor(output, interrupted[0], 33)

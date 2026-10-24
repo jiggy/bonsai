@@ -4,7 +4,7 @@ Explain Bonsai’s supported behavior and limits.
 
 ## Ownership
 
-Design baseline, roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
+Design baseline, roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), performance profiling and native checker research (`performance.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
 
 ## Local Contracts
 

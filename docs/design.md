@@ -30,7 +30,7 @@ One package, with six principal modules:
 | `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
 | `cli` | Collect facts, compare a base, explain components, and return actionable output. |
 
-`model.ts` defines their shared facts. `project.ts` joins collection, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. There is no database, daemon, LLM call, or external service.
+`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler.ts` reuses bounded parsed documents within a process while creating fresh programs, resolutions, and diagnostics for each analysis. There is no database, daemon, LLM call, or external service.
 
 ## Initial adapter choices
 
@@ -61,6 +61,11 @@ duration, and skipped work has a null duration. Timing facts remain available wh
 no complete verification evidence exists and cannot substitute for that evidence.
 The separate feedback measurement preserves its policy boundary before the final
 integrity check; collecting timings never changes a limit or gate decision.
+
+Source analysis nests retained-size measurement, compiler setup, type checking,
+and dependency graph collection. Rust compatibility records its additional
+comparison separately. These child phases remain available in parent reports,
+including partial failures.
 
 ## Self-verification
 

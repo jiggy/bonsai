@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Timing, TimingStage } from '../src/model.ts'
+import { Timer } from '../src/timing.ts'
 
 const executable = resolve('src/cli.ts')
 const environment = {
@@ -81,8 +82,51 @@ function measured(profile: Timing) {
       assert.ok(entry.elapsedMs! <= profile.elapsedMs + 1)
       assert.notEqual(entry.status, 'running', 'A finished command cannot leave a stage running')
     }
+    if (entry.stages) {
+      assert.notEqual(entry.elapsedMs, null)
+      measured({ elapsedMs: entry.elapsedMs!, stages: entry.stages })
+      const childrenMs = entry.stages.reduce((sum, child) => sum + (child.elapsedMs ?? 0), 0)
+      assert.ok(childrenMs <= entry.elapsedMs! + 1, 'Nested phases exceed their parent duration')
+    }
   }
 }
+
+function sourceStages(profile: Timing) {
+  const source = stage(profile, 'source')
+  assert.ok(source.stages, 'Source collection must expose its measured work')
+  assert.deepEqual(
+    source.stages.map((entry) => entry.name),
+    ['measurement', 'program', 'diagnostics', 'graph'],
+  )
+  assert.ok(source.stages.every((entry) => entry.status === 'completed'))
+}
+
+test('interrupted source timing keeps completed work and independent report snapshots', () => {
+  const parent = new Timer()
+  const child = new Timer()
+  parent.start('source', child)
+  child.start('program')
+  child.start('diagnostics')
+
+  const interrupted = parent.report(true)
+  const source = stage(interrupted, 'source')
+  assert.equal(source.status, 'interrupted')
+  assert.deepEqual(
+    source.stages?.map((entry) => [entry.name, entry.status]),
+    [
+      ['program', 'completed'],
+      ['diagnostics', 'interrupted'],
+    ],
+  )
+  parent.finish('interrupted')
+  const recorded = parent.report()
+  measured(recorded)
+  const savedStages = structuredClone(stage(recorded, 'source').stages)
+
+  source.stages!.splice(0)
+  stage(recorded, 'source').stages![0]!.status = 'skipped'
+  assert.deepEqual(stage(parent.report(), 'source').stages, savedStages)
+})
 
 test('check timing includes source collection and actual handler delay in separate measurements', () => {
   const { root, dispose } = fixture({ delayMs: 400 })
@@ -93,6 +137,11 @@ test('check timing includes source collection and actual handler delay in separa
     const report = JSON.parse(result.stdout)
     measured(report.timing)
     measured(report.snapshot.timing)
+    sourceStages(report.snapshot.timing)
+    sourceStages({
+      elapsedMs: stage(report.timing, 'candidate').elapsedMs!,
+      stages: stage(report.timing, 'candidate').stages!,
+    })
     assert.equal(report.snapshot.evidence.checks[0].status, 'passed')
     assert.equal(stage(report.snapshot.timing, 'verification').status, 'completed')
     assert.ok(stage(report.snapshot.timing, 'verification').elapsedMs! >= 350)
@@ -118,6 +167,7 @@ test('feedback timeout retains measured stages when no complete evidence exists'
     assert.match(report.snapshot.source.problems.join('\n'), /feedback deadline expired/)
     measured(report.timing)
     measured(report.snapshot.timing)
+    sourceStages(report.snapshot.timing)
     const verification = stage(report.snapshot.timing, 'verification')
     assert.equal(verification.status, 'interrupted')
     assert.ok(verification.elapsedMs! > 100)
@@ -158,6 +208,9 @@ test('base analysis is measured separately from the candidate feedback window', 
     assert.ok(
       base.stages?.some((entry) => entry.name === 'verification' && entry.status === 'skipped'),
     )
+    measured(report.timing)
+    sourceStages({ elapsedMs: base.elapsedMs!, stages: base.stages! })
+    sourceStages(report.snapshot.timing)
     assert.ok(report.timing.elapsedMs >= base.elapsedMs! + report.timing.feedback.elapsedMs)
     assert.equal(report.timing.feedback.limitMs, 15000)
   } finally {
@@ -176,9 +229,12 @@ test('unsupported source marks verification not run instead of assigning a measu
     assert.equal(stage(report.snapshot.timing, 'verification').elapsedMs, null)
     measured(report.timing)
     measured(report.snapshot.timing)
+    sourceStages(report.snapshot.timing)
     const human = run(root, ['--verbose', '--output', 'human'])
     assert.equal(human.status, 2, human.stderr)
     assert.match(human.stderr, /Timing/)
+    assert.match(human.stderr, /Compiler setup[^\n]*\d+(?:\.\d+)?(?:ms|s)/)
+    assert.match(human.stderr, /Type checking[^\n]*\d+(?:\.\d+)?(?:ms|s)/)
     assert.match(human.stderr, /Verification[^\n]*not run/i)
     assert.match(human.stderr, /[\d.]+\s*(?:ms|s) elapsed/)
   } finally {

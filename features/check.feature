@@ -26,6 +26,11 @@ Feature: Admit only supported implementations of required behavior
     And response "timing.feedback.limitMs" equals 15000
     And response "verificationTiming.name" equals "verification"
     And response "verificationTiming.status" equals "completed"
+    And response "sourceTiming.stages[0].name" equals "measurement"
+    And response "sourceTiming.stages[1].name" equals "program"
+    And response "sourceTiming.stages[2].name" equals "diagnostics"
+    And response "sourceTiming.stages[2].status" equals "completed"
+    And response "sourceTiming.stages[3].name" equals "graph"
 
   Scenario: Wrong behavior is rejected
     When I invoke "check" with {"broken": true}

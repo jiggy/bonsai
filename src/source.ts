@@ -1,38 +1,13 @@
 import ts from 'typescript'
-import { readFileSync, readdirSync, lstatSync, realpathSync } from 'node:fs'
+import { readFileSync, realpathSync } from 'node:fs'
 import { resolve, relative, sep } from 'node:path'
-import { createHash } from 'node:crypto'
-import type { Config, Source, Component } from './model.ts'
-import { excludedBy } from './exclusions.ts'
+import type { Source, Component } from './model.ts'
+import { createCompilerSession } from './compiler.ts'
+import type { Timer } from './timing.ts'
 
-export function inventory(root: string, paths: string[], exclude: string[] = []): string[] {
-  const found = new Set<string>()
-  const excluded = excludedBy(exclude)
-  const walk = (path: string): void => {
-    const absolute = resolve(root, path)
-    if (!absolute.startsWith(resolve(root) + sep))
-      throw new Error(`Maintained path escapes root: ${path}`)
-    const local = relative(root, absolute).split(sep).join('/')
-    if (excluded(local)) return
-    const stat = lstatSync(absolute)
-    if (stat.isDirectory() && excluded(local, true)) return
-    if (!realpathSync(absolute).startsWith(realpathSync(root) + sep))
-      throw new Error(`Maintained path escapes root: ${path}`)
-    if (stat.isSymbolicLink()) throw new Error(`Symlinks are unsupported: ${path}`)
-    if (stat.isDirectory()) {
-      for (const name of readdirSync(absolute).sort()) walk(relative(root, resolve(absolute, name)))
-    } else if (stat.isFile()) found.add(relative(root, absolute).split(sep).join('/'))
-  }
-  paths.forEach(walk)
-  return [...found].sort()
-}
+export { inventory, fingerprint } from './inventory.ts'
 
-export function fingerprint(root: string, files: string[], config: Config): string {
-  const hash = createHash('sha256').update('bonsai-snapshot-v1\0').update(JSON.stringify(config))
-  for (const file of files)
-    hash.update('\0' + file + '\0').update(readFileSync(resolve(root, file)))
-  return hash.digest('hex')
-}
+const compiler = createCompilerSession()
 
 /** Lexical tokens, with literal payload charged in four-byte blocks. Comments are charged too. */
 export function countTokens(text: string, typescript = false): number {
@@ -61,7 +36,13 @@ export function countTokens(text: string, typescript = false): number {
   return count
 }
 
-export function analyzeSource(root: string, files: string[], bindings: string): Source {
+export function analyzeSource(
+  root: string,
+  files: string[],
+  bindings: string,
+  timer?: Timer,
+): Source {
+  timer?.start('measurement')
   root = realpathSync(root)
   const source: Source = {
     files: [],
@@ -79,18 +60,9 @@ export function analyzeSource(root: string, files: string[], bindings: string): 
     if ((/\.[cm]?[jt]sx?$/.test(file) && !/\.[cm]?ts$/.test(file)) || file.endsWith('.rs'))
       source.problems.push(`Unsupported source language: ${file}`)
   }
-  const program = ts.createProgram(
-    scriptFiles.map((file) => resolve(root, file)),
-    {
-      target: ts.ScriptTarget.ES2023,
-      module: ts.ModuleKind.NodeNext,
-      moduleResolution: ts.ModuleResolutionKind.NodeNext,
-      allowImportingTsExtensions: true,
-      noEmit: true,
-      strict: true,
-      skipLibCheck: true,
-    },
-  )
+  timer?.start('program')
+  const program = compiler.program(scriptFiles.map((file) => resolve(root, file)))
+  timer?.start('diagnostics')
   source.problems.push(
     ...ts.getPreEmitDiagnostics(program).map((d) => {
       const location =
@@ -100,6 +72,7 @@ export function analyzeSource(root: string, files: string[], bindings: string): 
       return location + ts.flattenDiagnosticMessageText(d.messageText, '\n')
     }),
   )
+  timer?.start('graph')
   const checker = program.getTypeChecker()
   const nodes = new Map<ts.Node, Component>()
   const symbols = new Map<ts.Symbol, Component>()
@@ -349,5 +322,6 @@ export function analyzeSource(root: string, files: string[], bindings: string): 
     }
   }
   if (!source.registry) source.problems.push('No exported actions registry found')
+  timer?.finish()
   return source
 }

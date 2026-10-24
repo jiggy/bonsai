@@ -1,7 +1,7 @@
 import { realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { fingerprint, inventory } from './source.ts'
+import { fingerprint, inventory } from './inventory.ts'
 import type { Config } from './model.ts'
 
 /** Internal execution boundary: load only the measured registry of this project snapshot. */

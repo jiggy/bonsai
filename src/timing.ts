@@ -1,16 +1,21 @@
 import type { Timing, TimingStage } from './model.ts'
 
+const copyStage = (stage: TimingStage): TimingStage => ({
+  ...stage,
+  ...(stage.stages ? { stages: stage.stages.map(copyStage) } : {}),
+})
+
 /** Monotonic phase measurements stay available while work is running or interrupted. */
 export class Timer {
   private stages: TimingStage[] = []
-  private active?: { name: string; started: number }
+  private active?: { name: string; started: number; child?: Timer }
   private began = false
 
   constructor(private readonly started = performance.now()) {}
 
-  start(name: string): void {
+  start(name: string, child?: Timer): void {
     this.finish()
-    this.active = { name, started: this.began ? performance.now() : this.started }
+    this.active = { name, started: this.began ? performance.now() : this.started, child }
     this.began = true
   }
 
@@ -20,6 +25,9 @@ export class Timer {
       name: this.active.name,
       elapsedMs: performance.now() - this.active.started,
       status,
+      ...(this.active.child
+        ? { stages: this.active.child.report(status === 'interrupted').stages }
+        : {}),
     })
     this.active = undefined
   }
@@ -35,13 +43,16 @@ export class Timer {
     return {
       elapsedMs: now - this.started,
       stages: [
-        ...this.stages.map((stage) => ({ ...stage })),
+        ...this.stages.map(copyStage),
         ...(this.active
           ? [
               {
                 name: this.active.name,
                 elapsedMs: now - this.active.started,
                 status: interrupted ? ('interrupted' as const) : ('running' as const),
+                ...(this.active.child
+                  ? { stages: this.active.child.report(interrupted).stages }
+                  : {}),
               },
             ]
           : []),
