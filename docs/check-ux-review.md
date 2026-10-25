@@ -31,12 +31,13 @@ Scope: `bonsai check` in pass, rejected, incomplete, verbose, quiet, plain, and 
 
 Run the existing suite for machine contracts, deadlines, signals, and actual `.feature` behavior. `test/check-presentation.test.ts` verifies check-specific rendering; `test/cli-presentation.test.ts` retains shared presentation coverage. The example and distributed adoption skill retain their existing workflows. Third-party skill sources are unchanged.
 
-## Rust compatibility mode
+## Rust engine
 
 `check` and `explain` share their frontend when `--engine rust` is selected. The
-Rust collector's facts must match the full TypeScript reference before behavior
-checks can run. This checks the current input without claiming universal
-compatibility or a full-command performance improvement.
+Rust path collects diagnostics and symbols independently through pinned tsrs.
+The TypeScript reference runs separately in development comparisons, never as
+part of a production native check. Neither engine claims universal compiler
+compatibility.
 
 `test/native-cli.test.ts` checks actual Rust-backed pass/reject reports, JSON facts,
 plain columns, quiet and verbose output, and read-only explanations. Presentation
@@ -44,9 +45,14 @@ comparisons normalize only elapsed measurements, explicit engine selection, and
 the additive engine metadata. PTY checks inspect red, non-dim blocker text across
 narrow wrapping, monochrome output, and independently redirected stdout.
 
-Unsupported or mismatched facts remain explicit incomplete results with provisional
-TypeScript measurements. Missing, crashed, or malformed workers return runtime
+Unsupported facts remain explicit incomplete results. Interrupted native collection
+retains provisional inventory measurements. Missing, crashed, or malformed workers return runtime
 errors without raw worker output. Tests check base analysis, compiler diagnostics,
 subprocess cleanup on timeout and SIGINT, and a handler side-effect marker proving
 that failed native analysis cannot run candidate code. Recovery commands retain
-the selected engine; invalid binary overrides receive an unset-and-build repair.
+the selected engine; invalid binary overrides receive an unset-and-install repair.
+
+Fixed subprocess entry-point failures now group missing/unmaintained and unsupported
+targets with their launch locations and an explicit inventory/path repair. PTY
+tests preserve readable red blocker text through wrapping, cyan recovery commands,
+and complete uncolored JSON facts; inspection still starts no children.

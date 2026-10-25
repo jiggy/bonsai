@@ -155,6 +155,8 @@ JSON gate reports retain `decision` and `snapshot`; explanation reports retain
 Check snapshots may add `source.bindingImports` and `evidence.bindingImport` for
 the validated internal loader boundary; existing fields remain available.
 Check reports also include additive `timing` and `snapshot.timing` measurements.
+Static child launches add relationships with `kind: "entry-point"`, retaining
+the launch location in `sourceRef`.
 Rust-mode snapshots add `analysis` metadata for the selected engine and its
 native compiler identity and diagnostic status.
 
@@ -312,14 +314,18 @@ observation under the saved 15-second feedback policy. Bonsai's own feature
 bindings inherit the selected engine for nested CLI checks. A copied reference
 fixture runs the same full inventory with TypeScript and a test-only 60-second
 feedback window, preserving the retained-code budget and archive-loader coverage.
+CI saves the native regression's actual report as the `bonsai-self-check` artifact,
+including its decision, evidence, inventory, and phase timings. Inspect completion
+and observation counts alongside timings when comparing workflow runs.
 
 `bun run bonsai check --engine rust` inspects the committed root inventory and
 policy. Owned source, tests, contracts, documentation, and configuration remain
 measured; installed third-party CLI skills and the separate checkout example stay
 outside that scope. The root policy keeps its 20,000-token bootstrap, 30,000-token
-hard limit, and 15-second feedback ceiling. The current inventory exceeds that
-allowance, and subprocess entry points still need ancestry relationships. Complete
-feature evidence therefore still produces a genuine rejection, not a budget pass.
+hard limit, and 15-second feedback ceiling. Fixed entry-point relationships now
+connect its CLI and both workers. The current inventory still exceeds the allowance,
+and development tools and unsupported test connections retain ancestry findings.
+Complete feature evidence therefore still produces a genuine rejection.
 
 The unused Oxc prototype was deleted when tsrs replaced it. Its Cargo files and
 Rust sources were removed rather than excluded. Authored Rust in consuming
@@ -481,8 +487,8 @@ registry's inventory membership and the effective configuration/content fingerpr
 Its evidence includes a matching loading receipt; missing or mismatched receipts
 block acceptance. The recorded boundary grants no ancestry to unrelated handlers
 or exports. This adapter does not authorize arbitrary application runtime imports.
-Subprocess entry-point ancestry remains unfinished. The supported checkout example
-is available through `bun run bonsai check --root examples/checkout`.
+Fixed Bun/Node child entry points are supported as described below. The supported
+checkout example is available through `bun run bonsai check --root examples/checkout`.
 
 The experimental native backend uses the pinned tsrs TypeScript 7 checker while
 the default reference uses TypeScript 5.9. Shared lexical parsing and graph rules
@@ -491,6 +497,43 @@ ambient type discovery and blocks known semantic gaps, including disabling the
 default library through a source directive. This is not universal compiler
 compatibility. See [native scope and commands](docs/native-prototype.md) and
 [performance measurements](docs/performance.md).
+
+### Fixed child entry points
+
+A contracted handler can launch a maintained TypeScript entry point through named
+`node:child_process` imports. For example:
+
+```ts
+import { spawnSync } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
+
+const entry = fileURLToPath(new URL('./worker.ts', import.meta.url))
+export function runWorker() {
+  const result = spawnSync(process.execPath, [entry], { encoding: 'utf8' })
+  if (result.error) throw result.error
+  if (result.status !== 0) throw new Error(result.stderr)
+  return JSON.parse(result.stdout)
+}
+```
+
+Include `worker.ts` in maintained inventory. `spawn`, `spawnSync`, `execFile`, and
+`execFileSync` recognize this runtime/path form. `fork` also accepts a direct
+`new URL('./worker.ts', import.meta.url)` with an optional literal argument array.
+Pass an explicit argument array before `fork` options.
+Named aliases and `const { fork } = await import('node:child_process')` work too.
+Explicit options must be a literal object, with no shell or runtime override;
+`fork` permits an empty `execArgv`. These are static connections, not runtime coverage.
+
+The launch retains executable top-level statements and immediately effectful
+initializers, then follows their references. It does not retain every export.
+Unused functions and inert exports remain unrooted, and every file still consumes
+its full retained cost. Tests can inherit subjects through test helpers, but never
+root production code. `explain` shows these relationships without starting children.
+
+Computed paths, cwd-relative strings, mutable URL aliases, wrappers around launch
+APIs, and shell-selected commands receive no entry-point relationship. A recognized
+local target outside inventory or in an unsupported language blocks verification.
+General import side effects and class initialization need further adapters.
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 

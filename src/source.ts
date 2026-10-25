@@ -3,6 +3,7 @@ import { readFileSync, realpathSync } from 'node:fs'
 import { resolve, relative, sep } from 'node:path'
 import type { Source, Component } from './model.ts'
 import { createCompilerSession } from './compiler.ts'
+import { createSubprocessAdapter, executesAtEntry } from './subprocess.ts'
 import type { Timer } from './timing.ts'
 
 export { inventory, fingerprint } from './inventory.ts'
@@ -150,19 +151,29 @@ export function collectSourceGraph(
     }
   }
   const seen = new Set<string>()
-  const connect = (owner: Component, target: Component | undefined, node: ts.Node) => {
+  const connect = (
+    owner: Component,
+    target: Component | undefined,
+    node: ts.Node,
+    kind: 'reference' | 'entry-point' = 'reference',
+  ) => {
     if (!target || target.id === owner.id) return
-    const key = `${owner.id}\0${target.id}`
+    const key = `${owner.id}\0${target.id}\0${kind}`
     if (seen.has(key)) return
     seen.add(key)
     source.relationships.push({
       from: owner.id,
       to: target.id,
-      kind: 'reference',
+      kind,
       origin: 'static',
       sourceRef: reference(node),
     })
   }
+  const subprocess = createSubprocessAdapter(root, files, program)
+  const entries = new Map<string, Component[]>()
+  for (const [node, component] of nodes)
+    if (executesAtEntry(node))
+      entries.set(component.file, [...(entries.get(component.file) ?? []), component])
   // This adapter belongs to the checker, not to arbitrary application imports.
   // The target primitive validates the selected project's inventory and identity.
   // A fixture project is a separate execution boundary, never ancestry for every
@@ -219,6 +230,14 @@ export function collectSourceGraph(
   }
   for (const [node, owner] of nodes) {
     const visit = (child: ts.Node): void => {
+      if (ts.isCallExpression(child)) {
+        const launch = subprocess(child)
+        if (launch && 'problem' in launch)
+          source.problems.push(`${launch.problem} at ${owner.file}:${reference(child).line}`)
+        else if (launch)
+          for (const entry of entries.get(launch.file) ?? [])
+            connect(owner, entry, child, 'entry-point')
+      }
       if (ts.isCallExpression(child) && child.expression.kind === ts.SyntaxKind.ImportKeyword) {
         const specifier = child.arguments[0]
         if (!specifier || !ts.isStringLiteralLike(specifier)) {

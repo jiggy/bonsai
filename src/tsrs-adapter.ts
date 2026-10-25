@@ -264,10 +264,20 @@ export async function createTsrsProgram(
       const spans: Span = new Map()
       const queries: { local: ts.Node; native: NativeNode }[] = []
       const visit = (node: ts.Node): void => {
-        // The shared collector never visits these standalone declarations. Uses
-        // of their imported symbols are queried at each retained component.
-        if (node.parent === ast && (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)))
+        // Primitive adapters compare uses with the imported binding's identity;
+        // no external value declaration needs to be materialized for that check.
+        if (node.parent === ast && ts.isImportDeclaration(node)) {
+          if (
+            !ts.isStringLiteral(node.moduleSpecifier) ||
+            !['node:child_process', 'node:url'].includes(node.moduleSpecifier.text)
+          )
+            return
+          const bindings = node.importClause?.namedBindings
+          if (bindings && ts.isNamedImports(bindings))
+            for (const binding of bindings.elements) visit(binding.name)
           return
+        }
+        if (node.parent === ast && ts.isExportDeclaration(node)) return
         const key = nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind])
         spans.set(key, node)
         if (

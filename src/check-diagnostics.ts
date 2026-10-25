@@ -103,6 +103,22 @@ export function checkDiagnostics(
       fix: `Use a static import for a fixed target, or a literal import with a named export. Runtime-selected targets need tracing support. See ${docsUrl.replace('/cli.md', '/roadmap.md')}`,
     })
   }
+  const subprocess = blockers.filter(
+    (message) =>
+      message.startsWith('Subprocess entry point outside maintained inventory:') ||
+      message.startsWith('Unsupported subprocess entry point:'),
+  )
+  if (subprocess.length) {
+    subprocess.forEach((message) => handled.add(message))
+    diagnostics.push({
+      title: `Can't trace ${subprocess.length} local subprocess ${subprocess.length === 1 ? 'entry point' : 'entry points'}`,
+      detail: [
+        ...examples(subprocess),
+        "Bonsai needs the selected child's maintained TypeScript source before behavior checks can run",
+      ],
+      fix: 'Correct the module-relative entry path and include its TypeScript source in the reviewed maintained scope. Other source languages need tracing support',
+    })
+  }
   const unbound = blockers.filter((message) => message.startsWith('Unbound action: '))
   if (unbound.length) {
     unbound.forEach((message) => handled.add(message))

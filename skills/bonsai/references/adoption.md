@@ -8,6 +8,12 @@ Inspect the consuming project's language, module resolution, product entry point
 
 The current adapter follows TypeScript top-level symbols and literal named-handler registrations. For HTTP routing, queues, dependency injection, side-effect registrations, assets, or another language, identify the missing connection explicitly. An in-process pilot can cover a real supported behavior, provided its report states that limited scope.
 
+For a handler launching a Bun/Node child, read the installed README's fixed child
+entry-point syntax. Literal module-relative URLs and immutable path aliases can
+connect maintained TypeScript startup code without retaining unused exports.
+Computed paths, shells, and arbitrary wrappers still need tracing support. Do not
+add contracts merely to hide an unsupported connection.
+
 **Done:** list the supported maintained scope and every unsupported boundary. A limited pilot is described as a pilot; whole-project adoption requires the intended scope to be analyzable.
 
 ## 2. Establish a reproducible checker

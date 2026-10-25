@@ -39,6 +39,9 @@ TypeScript was selected because the repository had no existing language stack an
 A literal `export const actions = { 'external-action': namedHandler }` is both executable registration and static connection. Generic response observations are implemented by Bonsai. This avoids a handwritten feature manifest and makes every supported assertion visible to the collector.
 
 Production traversal precedes test association. Edges out of the action registry do not root every registered handler: only actions actually referenced by the contracts supply production roots. Lower-level test associations propagate into test support, without opening a second traversal into production.
+Subject discovery follows test-helper references to already rooted production,
+independently of ancestry granted to supporting tests. A shared assertion helper
+cannot pass its inherited ancestry back to unrelated callers.
 
 `pass`, `reject`, and `incomplete` remain distinct. Incomplete takes precedence when both missing analysis and measured violations exist; all violations remain in the report.
 
@@ -85,7 +88,22 @@ copies. Runtime validation checks inventory membership and the
 effective snapshot fingerprint before importing; acceptance requires the matching
 adapter, binding path, and fingerprint receipt. The source boundary retains its
 location without granting registry-wide handler ancestry. Other computed imports
-remain incomplete, and subprocess entry-point ancestry requires further adapters.
+remain incomplete.
+
+The fixed subprocess adapter resolves literal module-relative URLs and immutable
+`fileURLToPath` path aliases at named `node:child_process` calls. It authorizes the
+default Bun/Node runtime, never a shell or overridden executable. Launch locations
+supply static `entry-point` edges to executable top-level statements and immediately
+effectful initializers in the maintained child module. Inert exports stay unrooted.
+These relationships connect the self-host CLI, evidence worker, and native lexical
+worker without new authored manifests or runtime-evidence receipts. Computed or
+cwd-relative targets receive no relationship; recognized targets outside the measured
+TypeScript inventory block verification. General import side effects and class
+initialization remain separate adapter gaps.
+
+The full-root regressions require exact observation IDs, candidate fingerprints,
+binding receipts, and all three executable boundaries. CI archives the native
+regression report for evidence and timing comparisons without running another check.
 The root's saved 15-second feedback ceiling and retained-code limits remain in
 force; passing the regression does not assert full root acceptance.
 

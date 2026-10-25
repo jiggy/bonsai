@@ -20,22 +20,31 @@ function fixture(
     unused?: number
     budget?: number
     feedbackMs?: number
+    missingEntry?: boolean
   } = {},
 ) {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-check-presentation-'))
   writeFileSync(join(root, 'package.json'), '{"type":"module"}')
   writeFileSync(
     join(root, 'handler.ts'),
-    [
-      'export function sample(input: { quantity: number }) {',
-      `  return { status: ${options.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
-      '}',
-      ...Array.from(
-        { length: options.unused ?? 0 },
-        (_, index) =>
-          `export function unused${String(index).padStart(2, '0')}() { return ${index} }`,
-      ),
-    ].join('\n'),
+    options.missingEntry
+      ? [
+          "import { spawnSync } from 'node:child_process'",
+          "import { fileURLToPath } from 'node:url'",
+          'export function sample() {',
+          "  return spawnSync(process.execPath, [fileURLToPath(new URL('./missing-child.ts', import.meta.url))])",
+          '}',
+        ].join('\n')
+      : [
+          'export function sample(input: { quantity: number }) {',
+          `  return { status: ${options.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
+          '}',
+          ...Array.from(
+            { length: options.unused ?? 0 },
+            (_, index) =>
+              `export function unused${String(index).padStart(2, '0')}() { return ${index} }`,
+          ),
+        ].join('\n'),
   )
   writeFileSync(
     join(root, 'bindings.ts'),
@@ -168,6 +177,33 @@ test('incomplete terminal checks give blockers a red alert state instead of dimm
       withoutElapsed(stripVTControlCharacters(output)),
       withoutElapsed(monochrome.stdout + monochrome.stderr),
     )
+  } finally {
+    dispose()
+  }
+})
+
+test('missing subprocess entries explain the launch path and repair with readable blocker colors', {
+  skip: !hasPty,
+}, () => {
+  const { root, dispose } = fixture({ missingEntry: true })
+  try {
+    const result = run(root, [], { COLUMNS: '40' }, true)
+    assert.equal(result.status, 2, result.stdout + result.stderr)
+    const output = result.stdout + result.stderr
+    const plain = stripVTControlCharacters(output)
+    expectColor(output, "Can't trace 1 local", 31)
+    expectColor(output, 'entry', 31)
+    expectColor(output, 'point', 31)
+    assert.match(plain, /missing-child.ts/)
+    assert.match(plain, /handler.ts:4/)
+    assert.match(plain, /Fix: Correct the module-relative/)
+    assert.match(plain, /maintained\s+scope/)
+    expectColor(output, `bonsai check --root ${root}`, 36)
+    const machine = run(root, ['--json'])
+    assert.equal(machine.status, 2, machine.stderr)
+    const report = JSON.parse(machine.stdout)
+    assert.equal(report.snapshot.evidence, undefined)
+    assert.match(report.snapshot.source.problems[0], /Subprocess entry point.*missing-child.ts/)
   } finally {
     dispose()
   }

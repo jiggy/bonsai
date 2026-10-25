@@ -6,8 +6,11 @@ Bonsai's own `.feature` contracts execute through the real CLI against the
 complete committed inventory. The native backend uses tsrs for TypeScript
 semantics without a reference compiler pass; development tests compare it with
 TypeScript separately. Its unused Oxc predecessor was deleted. Full self-budget
-acceptance still requires executable entry-point relationships and retained-code
-reduction; complete feature evidence is separate from a budget pass.
+acceptance still requires retained-code reduction and remaining development/test
+associations; complete feature evidence is separate from a budget pass. Fixed
+Bun/Node entry points connect the CLI and its workers, preserving unused exports
+and test/production boundaries. Test-helper chains inherit existing production
+subjects without letting shared support justify unrelated code.
 
 Profiles expose command, source, and verification durations, including interrupted
 work. Native benchmarks use fresh processes and retain evidence completion state.
@@ -16,7 +19,7 @@ known TypeScript 5/7 gaps remain explicit blockers. See [native scope](native-pr
 and [performance evidence](performance.md).
 
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
-- Track side-effect imports and resource dependencies, with precise unresolved-edge diagnostics.
+- Extend the fixed subprocess adapter only from real launch patterns; computed targets, general import side effects, class initialization, and resource dependencies still need precise tracing and diagnostics.
 - Extend explanation output to show actual contract-to-component paths and verification subjects.
 - Version and validate serialized snapshot/evidence schemas; bind evidence to checker, toolchain, lockfile, and execution profile identities.
 - Calibrate inventory and size pressure on real repositories before treating the coefficients as defaults.

@@ -8,7 +8,7 @@ export type Component = Reference & {
 export type Relationship = {
   from: string
   to: string
-  kind: 'reference'
+  kind: 'reference' | 'entry-point'
   origin: 'static'
   sourceRef: Reference
 }

@@ -1,4 +1,38 @@
 Feature: Admit only supported implementations of required behavior
+  Scenario: A contracted subprocess justifies its executable entry point
+    When I invoke "check" with {"subprocess": "live"}
+    Then response "exitCode" equals 0
+    And response "snapshot.evidence.complete" equals true
+    And response "childExecuted" equals true
+    And response "childMeasured" equals true
+    And response "childHasAncestry" equals true
+
+  Scenario: Launching a child does not justify its unused exports
+    When I invoke "check" with {"subprocess": "unused"}
+    Then response "exitCode" equals 1
+    And response "decision.status" equals "reject"
+    And response "snapshot.unrooted[0]" equals "order-worker.ts#unused"
+    And response "childExecuted" equals true
+    And response "childMeasured" equals true
+    And response "childHasAncestry" equals true
+
+  Scenario: An uncontracted subprocess does not justify its child
+    When I invoke "check" with {"subprocess": "uncontracted"}
+    Then response "exitCode" equals 1
+    And response "decision.status" equals "reject"
+    And response "handlerExecuted" equals true
+    And response "childExecuted" equals false
+    And response "childMeasured" equals true
+    And response "childHasAncestry" equals false
+
+  Scenario: A missing local subprocess entry point blocks verification
+    When I invoke "check" with {"subprocess": "missing"}
+    Then response "exitCode" equals 2
+    And response "decision.status" equals "incomplete"
+    And response "handlerExecuted" equals false
+    And response "childExecuted" equals false
+    And response "verificationTiming.status" equals "skipped"
+
   Scenario: Selecting Rust needs a working collector before handlers can run
     When I invoke "check" with {"engine": "rust", "missingNative": true}
     Then response "exitCode" equals 1

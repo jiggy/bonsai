@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { compileContracts } from '../src/contracts.ts'
 import { readConfig } from '../src/project.ts'
 import { inventory } from '../src/source.ts'
-import type { Config, Decision, Snapshot } from '../src/model.ts'
+import type { CheckTiming, Config, Decision, Snapshot } from '../src/model.ts'
 
 const repository = fileURLToPath(new URL('../', import.meta.url))
 
@@ -63,15 +63,84 @@ function check(root: string, config?: Config, engine: 'typescript' | 'rust' = 't
   )
   assert.equal(result.error, undefined, String(result.error))
   assert.equal(result.signal, null, result.stderr)
-  const report = JSON.parse(result.stdout) as { snapshot: Snapshot; decision: Decision }
+  const report = JSON.parse(result.stdout) as {
+    snapshot: Snapshot
+    decision: Decision
+    timing: CheckTiming
+  }
   return { ...result, ...report }
 }
 
-function recognizedBindings(candidate: Snapshot, bindings: string) {
+function fulfilled(
+  report: ReturnType<typeof check>,
+  config: Config,
+  files: string[],
+  required: ReturnType<typeof contracts>,
+) {
+  const candidate = report.snapshot
+  assert.equal(report.status, 1, report.stderr)
+  assert.equal(report.decision.status, 'reject')
+  assert.deepEqual(
+    candidate.source.files.map((file) => file.file),
+    files,
+  )
+  assert.deepEqual(candidate.source.problems, [], report.stderr)
+  assert.deepEqual(
+    candidate.unrooted.filter((id) => id.startsWith('src/')),
+    [],
+    'Every implementation component needs contract ancestry',
+  )
+  assert.deepEqual(candidate.contracts, required)
   assert.equal(candidate.source.bindingImports?.length, 1)
   assert.equal(candidate.source.bindingImports[0]!.from, 'src/evidence.ts#collectEvidence')
   assert.equal(candidate.source.bindingImports[0]!.file, 'src/evidence.ts')
-  assert.equal(candidate.source.bindingImports[0]!.bindings, bindings)
+  assert.equal(candidate.source.bindingImports[0]!.bindings, config.bindings)
+  for (const [from, file] of [
+    ['src/self-host.ts#invoke', 'src/cli.ts'],
+    ['src/evidence.ts#forkEvidence', 'src/worker.ts'],
+    ['src/native-session.ts#spawnNativeWorker', 'src/tsrs-worker.ts'],
+  ] as const) {
+    const entry = candidate.source.components
+      .filter((component) => component.file === file && component.name.startsWith('<top-level:'))
+      .at(-1)
+    assert.ok(entry, `Missing executable entry point: ${file}`)
+    assert.ok(
+      candidate.source.relationships.some(
+        (edge) =>
+          edge.from === from &&
+          edge.to === entry.id &&
+          edge.kind === 'entry-point' &&
+          edge.origin === 'static' &&
+          edge.sourceRef.file === from.split('#')[0],
+      ),
+      `Missing subprocess ancestry: ${from} → ${entry.id}`,
+    )
+    assert.ok(candidate.ancestry[entry.id]?.length, `Unrooted executable entry point: ${entry.id}`)
+  }
+  const evidence = candidate.evidence
+  assert.ok(evidence, report.stderr)
+  assert.equal(evidence.complete, true)
+  assert.equal(evidence.fingerprint, candidate.fingerprint)
+  assert.deepEqual(evidence.bindingImport, {
+    adapter: 'project-bindings-v1',
+    file: config.bindings,
+    fingerprint: candidate.fingerprint,
+  })
+  assert.deepEqual(
+    evidence.checks.map((check) => check.id).sort(),
+    required.checks.map((check) => check.id).sort(),
+    'Every declared observation must have exactly one execution result',
+  )
+  assert.deepEqual(
+    evidence.checks.filter((check) => check.status !== 'passed'),
+    [],
+  )
+  assert.equal(candidate.timing?.feedback?.limitMs, config.policy.maxFeedbackMs)
+  assert.ok(evidence.elapsedMs <= config.policy.maxFeedbackMs)
+  assert.ok(
+    report.decision.requiredReduction > 0,
+    'Passing behavior must not erase the retained-size overage',
+  )
 }
 
 test('the native root gate verifies its full committed inventory within the saved feedback policy', {
@@ -84,31 +153,19 @@ test('the native root gate verifies its full committed inventory within the save
     'The obsolete collector must be removed, not excluded',
   )
   const report = check(repository, undefined, 'rust')
-  assert.equal(report.status, 1, report.stderr)
-  assert.equal(report.decision.status, 'reject')
-  assert.deepEqual(
-    report.snapshot.source.files.map((file) => file.file),
-    files,
-  )
-  assert.deepEqual(report.snapshot.source.problems, [], report.stderr)
-  recognizedBindings(report.snapshot, config.bindings)
-  assert.deepEqual(report.snapshot.contracts, contracts())
+  const reportPath = process.env.BONSAI_SELF_CHECK_REPORT
+  if (reportPath)
+    writeFileSync(
+      reportPath,
+      JSON.stringify(
+        { decision: report.decision, snapshot: report.snapshot, timing: report.timing },
+        null,
+        2,
+      ) + '\n',
+    )
+  fulfilled(report, config, files, contracts())
   assert.equal(report.snapshot.analysis?.backend, 'tsrs')
   assert.equal(report.snapshot.analysis?.status, 'complete')
-  const evidence = report.snapshot.evidence
-  assert.ok(evidence, report.stderr)
-  assert.equal(evidence.complete, true)
-  assert.deepEqual(
-    evidence.checks.filter((check) => check.status !== 'passed'),
-    [],
-  )
-  assert.equal(evidence.checks.length, contracts().checks.length)
-  assert.equal(report.snapshot.timing?.feedback?.limitMs, config.policy.maxFeedbackMs)
-  assert.ok(evidence.elapsedMs <= config.policy.maxFeedbackMs)
-  assert.ok(
-    report.decision.requiredReduction > 0,
-    'Passing behavior must not erase the retained-size overage',
-  )
 })
 
 test('the reference TypeScript implementation fulfills every feature through the real CLI', {
@@ -135,35 +192,7 @@ test('the reference TypeScript implementation fulfills every feature through the
     // Only the fixture's execution window changes; budget rules stay committed values.
     const executionConfig = { ...scoped, policy: { ...scoped.policy, maxFeedbackMs: 60000 } }
     const report = check(root, executionConfig)
-    assert.deepEqual(report.snapshot.source.problems, [], report.stderr)
-    recognizedBindings(report.snapshot, config.bindings)
-    assert.deepEqual(report.snapshot.contracts, required)
-    assert.deepEqual(
-      report.snapshot.source.files.map((file) => file.file),
-      files,
-      'The reference fixture must analyze the complete committed scope',
-    )
-    const evidence = report.snapshot.evidence
-    assert.ok(evidence, report.stderr)
-    assert.equal(evidence.complete, true)
-    assert.equal(evidence.fingerprint, report.snapshot.fingerprint)
-    assert.deepEqual(evidence.bindingImport, {
-      adapter: 'project-bindings-v1',
-      file: config.bindings,
-      fingerprint: report.snapshot.fingerprint,
-    })
-    assert.deepEqual(
-      evidence.checks.map((check) => check.id).sort(),
-      required.checks.map((check) => check.id).sort(),
-      'Every declared observation must have exactly one execution result',
-    )
-    assert.deepEqual(
-      evidence.checks.filter((check) => check.status !== 'passed'),
-      [],
-    )
-    assert.equal(report.status, 1, report.stderr)
-    assert.equal(report.decision.status, 'reject')
-    assert.ok(report.decision.requiredReduction > 0)
+    fulfilled(report, executionConfig, files, required)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

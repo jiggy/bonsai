@@ -5,8 +5,11 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
   const ancestry: Record<string, string[]> = Object.create(null)
   const components = new Map(source.components.map((c) => [c.id, c]))
   const outgoing = new Map<string, string[]>()
-  for (const edge of source.relationships)
-    outgoing.set(edge.from, [...(outgoing.get(edge.from) ?? []), edge.to])
+  for (const edge of source.relationships) {
+    const targets = outgoing.get(edge.from)
+    if (targets) targets.push(edge.to)
+    else outgoing.set(edge.from, [edge.to])
+  }
   const attach = (id: string, contract: string, allowProduction: boolean): void => {
     const queue = [id]
     while (queue.length) {
@@ -25,11 +28,19 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
     if (handler) attach(handler, check.id, true)
     if (source.registry) attach(source.registry, check.id, false)
   }
-  // Admit a test only for its already retained production subjects. Its other subjects stay unrooted.
+  // Discover subjects through test helpers, independently of ancestry granted
+  // to supporting tests. Shared assertions cannot justify unrelated callers.
   for (const component of source.components.filter((c) => c.kind === 'test')) {
-    for (const subject of outgoing.get(component.id) ?? []) {
-      if (components.get(subject)?.kind !== 'production') continue
-      for (const contract of ancestry[subject] ?? []) attach(component.id, contract, false)
+    const queue = [component.id]
+    const visited = new Set<string>()
+    while (queue.length) {
+      const subject = queue.pop()!
+      if (visited.has(subject)) continue
+      visited.add(subject)
+      const kind = components.get(subject)?.kind
+      if (kind === 'production') {
+        for (const contract of ancestry[subject] ?? []) attach(component.id, contract, false)
+      } else if (kind === 'test') queue.push(...(outgoing.get(subject) ?? []))
     }
   }
   return {

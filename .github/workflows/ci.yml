@@ -106,7 +106,17 @@ jobs:
       - run: bun run check
       - run: bun run native:compare
       - name: Verify unit, CLI, and executable feature contracts
+        env:
+          BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
         run: bun run test
+      - name: Save full-root self-check evidence and timings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonsai-self-check
+          path: ${{ runner.temp }}/bonsai-self-check.json
+          if-no-files-found: ignore
+          retention-days: 14
       - run: bun run demo
 
   report-formatting-check:

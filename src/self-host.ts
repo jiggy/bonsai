@@ -15,6 +15,7 @@ type ProjectInput = {
   computedImport?: boolean
   engine?: 'typescript' | 'rust'
   missingNative?: boolean
+  subprocess?: 'live' | 'unused' | 'uncontracted' | 'missing'
 }
 
 const cli = fileURLToPath(new URL('./cli.ts', import.meta.url))
@@ -53,20 +54,52 @@ function invoke(args: string[], environment: NodeJS.ProcessEnv = {}) {
 function project(input: ProjectInput = {}) {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-self-host-'))
   const marker = join(root, 'handler-executed')
+  const childMarker = join(root, 'child-executed')
+  const usesChild = input.subprocess && input.subprocess !== 'uncontracted'
+  if (input.subprocess) writeFileSync(join(root, 'package.json'), '{"type":"module"}\n')
   writeFileSync(
     join(root, 'orders.ts'),
     [
       "import { writeFileSync } from 'node:fs'",
+      ...(input.subprocess
+        ? [
+            "import { spawnSync } from 'node:child_process'",
+            "import { fileURLToPath } from 'node:url'",
+            "const entry = fileURLToPath(new URL('./order-worker.ts', import.meta.url))",
+            'function backgroundOrder(input: { quantity: number }) {',
+            "  const child = spawnSync(process.execPath, [entry, JSON.stringify(input)], { encoding: 'utf8' })",
+            '  if (child.error) throw child.error',
+            "  if (child.status !== 0) throw new Error(child.stderr || 'Order worker stopped')",
+            '  return JSON.parse(child.stdout)',
+            '}',
+          ]
+        : []),
       `export ${input.computedImport ? 'async ' : ''}function placeOrder(input: { quantity: number }) {`,
       ...(input.computedImport
         ? ["  const modulePath = './orders.ts'; await import(modulePath)"]
         : []),
       `  writeFileSync(${JSON.stringify(marker)}, 'executed')`,
-      `  return { status: ${input.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
+      usesChild
+        ? '  return backgroundOrder(input)'
+        : `  return { status: ${input.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
       '}',
       ...(input.unrooted ? ['export function unused() { return 42 }'] : []),
     ].join('\n'),
   )
+  if (input.subprocess && input.subprocess !== 'missing') {
+    writeFileSync(
+      join(root, 'order-worker.ts'),
+      [
+        "import { writeFileSync } from 'node:fs'",
+        'function evaluateOrder(input: { quantity: number }) {',
+        `  writeFileSync(${JSON.stringify(childMarker)}, 'executed')`,
+        "  return { status: input.quantity > 0 ? 'accepted' : 'rejected' }",
+        '}',
+        'console.log(JSON.stringify(evaluateOrder(JSON.parse(process.argv[2]!))))',
+        ...(input.subprocess === 'unused' ? ['export function unused() { return 42 }'] : []),
+      ].join('\n'),
+    )
+  }
   writeFileSync(
     join(root, 'bindings.ts'),
     input.unbound
@@ -102,6 +135,8 @@ function project(input: ProjectInput = {}) {
         'orders.feature',
         'bonsai.json',
         ...(input.ignoredCode ? ['ignored.ts'] : []),
+        ...(input.subprocess ? ['package.json'] : []),
+        ...(input.subprocess && input.subprocess !== 'missing' ? ['order-worker.ts'] : []),
       ],
       exclude: input.ignoredCode ? ['ignored.ts'] : [],
       bindings: 'bindings.ts',
@@ -114,11 +149,11 @@ function project(input: ProjectInput = {}) {
       },
     }),
   )
-  return { root, marker }
+  return { root, marker, childMarker }
 }
 
 export function checkProject(input: ProjectInput) {
-  const { root, marker } = project(input)
+  const { root, marker, childMarker } = project(input)
   try {
     const report = invoke(
       ['check', '--root', root, ...(input.engine ? ['--engine', input.engine] : [])],
@@ -127,6 +162,13 @@ export function checkProject(input: ProjectInput) {
     return {
       ...report,
       handlerExecuted: existsSync(marker),
+      ...(input.subprocess && {
+        childExecuted: existsSync(childMarker),
+        childMeasured: report.snapshot?.source.files.some(
+          (file: { file: string }) => file.file === 'order-worker.ts',
+        ),
+        childHasAncestry: !!report.snapshot?.ancestry['order-worker.ts#evaluateOrder']?.length,
+      }),
       timingMeasured: [report.timing?.elapsedMs, report.snapshot?.timing?.elapsedMs].every(
         (elapsed) => Number.isFinite(elapsed) && elapsed > 0,
       ),

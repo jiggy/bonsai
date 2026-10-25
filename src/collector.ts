@@ -103,7 +103,7 @@ function validSource(value: unknown): value is Source {
         knownKeys(edge, ['from', 'to', 'kind', 'origin', 'sourceRef']) &&
         typeof edge.from === 'string' &&
         typeof edge.to === 'string' &&
-        edge.kind === 'reference' &&
+        (edge.kind === 'reference' || edge.kind === 'entry-point') &&
         edge.origin === 'static' &&
         reference(edge.sourceRef) &&
         knownKeys(edge.sourceRef as Record<string, unknown>, ['file', 'line']),

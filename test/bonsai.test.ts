@@ -145,6 +145,56 @@ test('quantity', () => { assert.ok(validQuantity(1)); other(); });`,
   }
 })
 
+test('test helper chains inherit production subjects without laundering shared support ancestry', async () => {
+  const { root, dispose } = fixture()
+  try {
+    writeFileSync(join(root, 'src/other.ts'), 'export function other() { return true }')
+    writeFileSync(
+      join(root, 'src/helpers.test.ts'),
+      `import { validQuantity } from './checkout.ts'
+import { other } from './other.ts'
+export function common() { return true }
+export function rootHelper() { return validQuantity(1) && common() }
+export function cycleA(): boolean { return cycleB() }
+export function cycleB(): boolean { return cycleA() || rootHelper() }
+export function deadHelper() { return other() && common() }
+export function deadCycleA(): boolean { return deadCycleB() }
+export function deadCycleB(): boolean { return deadCycleA() || other() }
+`,
+    )
+    writeFileSync(
+      join(root, 'src/cases.test.ts'),
+      `import { test } from 'node:test'
+import { cycleA, deadHelper, deadCycleA, common } from './helpers.test.ts'
+export function liveCase() { cycleA() }
+export function deadCase() { deadHelper(); deadCycleA(); common() }
+test('live', liveCase)
+test('dead', deadCase)
+`,
+    )
+    const result = await snapshot(root, readConfig(root), false)
+    assert.deepEqual(result.source.problems, [])
+    const expected = result.ancestry['src/checkout.ts#validQuantity']
+    for (const id of [
+      'src/cases.test.ts#liveCase',
+      ...['common', 'rootHelper', 'cycleA', 'cycleB'].map((name) => `src/helpers.test.ts#${name}`),
+    ])
+      assert.deepEqual(result.ancestry[id], expected, id)
+    for (const id of [
+      'src/other.ts#other',
+      'src/cases.test.ts#deadCase',
+      ...['deadHelper', 'deadCycleA', 'deadCycleB'].map((name) => `src/helpers.test.ts#${name}`),
+    ])
+      assert.ok(result.unrooted.includes(id), id)
+    assert.equal(
+      evaluate(undefined, result, readConfig(root).policy).retained,
+      result.source.files.reduce((total, file) => total + file.tokens, 0),
+    )
+  } finally {
+    dispose()
+  }
+})
+
 test('uncontracted action registrations do not justify their production handlers', async () => {
   const { root, dispose } = fixture()
   try {
