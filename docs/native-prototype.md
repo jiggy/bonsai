@@ -65,6 +65,31 @@ routing, plain columns, exit codes, and recovery commands retain their existing
 meanings. `explain` never runs application handlers. Native analysis applies to
 both base and candidate when `--base` is selected.
 
+During verification, nested native CLI commands may reuse a lexical worker within
+the owning invocation. A private local broker starts that worker only for the first
+nested request, then closes it when verification finishes. Each request still
+re-reads source and declarations and starts a fresh SDK, native compiler process,
+and program. Application module caches stay within their own verification run;
+the analysis worker caches no handler responses, evidence, or semantic snapshots.
+Scenarios and handler calls retain their execution order.
+
+Reuse requires the same installed checker, binary selection, and compiler runtime
+environment, including preload options. Concurrent callers
+that encounter a busy worker use a fresh native worker; failed matching sessions
+remain errors. Every response carries a request identity and must pass the same
+strict collector validation before reuse is acknowledged. Cancellation, incomplete
+frames, and unaccepted responses retire the worker. Transport and cleanup retain
+the existing deadline and timing boundaries. This changes no public flags or JSON
+fields and does not start a persistent daemon.
+
+The SDK closes its input stream before its process exits. Bonsai retains that
+process handle and waits for actual closure before returning source facts;
+cancellation can still kill and reap it during shutdown. Shared transport bounds
+request frames at 4 MiB, output frames at 64 MiB, and diagnostics at 64 KiB per
+request. Normal scope cleanup removes the private socket directory. Force-killing
+an owner before its lazy worker starts can leave an inert directory; the operating
+system closes its listener.
+
 Only successful analysis can continue to required verification. Compiler errors,
 unsupported source, incomplete semantic queries, and interrupted work cannot
 produce a passing fallback. A missing, crashed, or malformed worker is a runtime

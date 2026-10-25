@@ -83,6 +83,39 @@ export async function runEvidence(
   signal?: AbortSignal,
   engine: 'typescript' | 'rust' = 'typescript',
 ): Promise<Evidence> {
+  if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
+  if (signal?.aborted) throw new Error('Verification interrupted')
+  if (engine !== 'rust')
+    return forkEvidence(root, config, contracts, fingerprint, timeoutMs, signal, engine)
+  const began = performance.now()
+  const { openNativeSession } = await import('./native-session.ts')
+  const session = await openNativeSession()
+  try {
+    return await forkEvidence(
+      root,
+      config,
+      contracts,
+      fingerprint,
+      timeoutMs - (performance.now() - began),
+      signal,
+      engine,
+      session.value,
+    )
+  } finally {
+    await session.close()
+  }
+}
+
+async function forkEvidence(
+  root: string,
+  config: Config,
+  contracts: Contracts,
+  fingerprint: string,
+  timeoutMs: number,
+  signal: AbortSignal | undefined,
+  engine: 'typescript' | 'rust',
+  session?: string,
+): Promise<Evidence> {
   const { fork } = await import('node:child_process')
   return new Promise((resolveResult, reject) => {
     if (timeoutMs <= 0) {
@@ -91,7 +124,10 @@ export async function runEvidence(
     }
     const { NODE_TEST_CONTEXT: _testContext, ...workerEnv } = process.env
     const child = fork(new URL('./worker.ts', import.meta.url), [], {
-      env: workerEnv,
+      env: {
+        ...workerEnv,
+        ...(session !== undefined && { BONSAI_NATIVE_SESSION: session }),
+      },
       execArgv: [],
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     })

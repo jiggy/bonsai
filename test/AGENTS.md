@@ -26,6 +26,10 @@ Native runtime guards trap JS compiler factories while permitting lexical parsin
 
 Lazy project startup regressions compare configuration values, object prototypes, validation, and exact syntax diagnostics with the reference parser. A runtime module-load guard must reject TypeScript in standard-config native CLI parents while allowing and observing its semantic-worker load. Prove the guard with TypeScript-engine and JSONC fallback controls; metadata-only configuration inspection remains compiler-free for standard JSON.
 
+Native session regressions prove lexical-worker reuse without sharing action results or application modules. Compare warm source facts against fresh reference analyses through edits to owned source, external declarations, import targets, and maintained roots. Exercise actual repeated stateful actions, separate owner scopes, caller-relative binary overrides, and changed runtime options; context changes must retain the fresh-worker behavior.
+
+Use asynchronous child invocations while a test owns the broker, so its event loop can serve requests. Protocol regressions cover busy-worker fallback through the real CLI, per-request diagnostic bounds, malformed identities and facts, worker death before acknowledgment, cancellation, and owner death after warm startup. A delayed native proxy must prove successful requests wait for process exit and cancellation still reaps it after the SDK clears its process field. Keep application call counts and process identities observable without changing compiler module contents.
+
 ## Verification
 
 `bun run test` includes the executable product contracts; `bun run test:features` runs those alone.

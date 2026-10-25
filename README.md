@@ -99,7 +99,7 @@ configuration. Existing bindings and contracts are preserved.
 policy overrides are unset. An empty environment override is an input error.
 `config show --json` includes each value's origin. Project configuration stays in
 `bonsai.json` and accepts JSON comments. There are no user/system configuration
-files, persistent CLI state, telemetry, network calls, or automatic updates.
+files, persistent CLI state, telemetry, external network calls, or automatic updates.
 
 With `--base`, the base revision supplies the effective policy and maintained
 inventory unless `--policy` is explicit. Environment policy overrides have the
@@ -286,6 +286,10 @@ CLI, and evidence worker. Differential comparisons run in tests and through
 Standard JSON configs keep TypeScript out of the native CLI parent; its worker
 loads the lexical parser once. JSONC and malformed configs retain the original
 parser and diagnostics. Every contract case still executes in order.
+During verification, nested Rust CLI checks can share a lexical worker scoped to
+that invocation. It starts only when needed; every request still creates a fresh
+compiler process and program, and application handlers run in fresh verification
+processes. The worker closes when the owning verification finishes.
 The pinned package supports Linux x64/arm64 and macOS arm64. Unsupported forms and
 known compiler gaps block acceptance. See the native documentation for platform,
 configuration, and TypeScript-version limits.

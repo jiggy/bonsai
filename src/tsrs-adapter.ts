@@ -103,20 +103,32 @@ export async function createTsrsProgram(
   // answers initialization therefore needs to be stopped and reaped first.
   const client = (
     api as unknown as {
-      client: { connecting?: Promise<void>; process?: ChildProcess }
+      client: { connect(): Promise<void>; connecting?: Promise<void>; process?: ChildProcess }
     }
   ).client
+  let nativeProcess: ChildProcess | undefined
+  let nativeClosed: Promise<void> | undefined
+  const retainServer = () => {
+    const child = nativeProcess ?? client.process
+    if (child && !nativeProcess) {
+      nativeProcess = child
+      nativeClosed =
+        child.exitCode !== null || child.signalCode !== null
+          ? Promise.resolve()
+          : new Promise<void>((done) => child.once('close', () => done()))
+    }
+    return child
+  }
   let stopping: Promise<void> | undefined
   let closing: Promise<void> | undefined
   const stopServer = () =>
     (stopping ??= (async () => {
       await client.connecting?.catch(() => {})
-      const child = client.process
+      const child = retainServer()
       if (child && child.exitCode === null && child.signalCode === null) {
-        const closed = new Promise<void>((done) => child.once('close', () => done()))
         child.kill('SIGKILL')
-        await closed
       }
+      await nativeClosed
     })())
   const abort = () => {
     void stopServer().catch(() => {})
@@ -126,15 +138,33 @@ export async function createTsrsProgram(
     (closing ??= (async () => {
       try {
         await stopping
+        retainServer()
         await api.close()
       } finally {
-        signal?.removeEventListener('abort', abort)
+        try {
+          // The SDK ends stdin and clears client.process without awaiting exit.
+          await nativeClosed
+        } finally {
+          signal?.removeEventListener('abort', abort)
+        }
       }
+      if (
+        !signal?.aborted &&
+        nativeProcess &&
+        (nativeProcess.exitCode !== 0 || nativeProcess.signalCode !== null)
+      )
+        throw new Error(
+          `Rust compiler exited ${nativeProcess.signalCode ? `after ${nativeProcess.signalCode}` : `with status ${nativeProcess.exitCode}`} during shutdown`,
+        )
     })())
   try {
     if (signal?.aborted) throw new Error('Rust analysis interrupted')
     const scriptFiles = files.filter((file) => /\.[cm]?ts$/.test(file))
     const names = scriptFiles.map((file) => resolve(root, file))
+    // Retain the close event before initialization can fail or hang.
+    await client.connect()
+    retainServer()
+    if (signal?.aborted) throw new Error('Rust analysis interrupted')
     const nativeProgram = await api.createProgram(
       names,
       options as unknown as NativeCompilerOptions,

@@ -1,10 +1,10 @@
-import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import type { Snapshot, Source, Timing, TimingStage } from './model.ts'
 import type { Timer } from './timing.ts'
+import { requestNativeSession, SessionInterrupted, spawnNativeWorker } from './native-session.ts'
 
 export type SourceEngine = 'typescript' | 'rust'
 type Collection = {
@@ -24,7 +24,6 @@ type NativeResponse = {
 }
 
 const checkout = fileURLToPath(new URL('../', import.meta.url))
-const worker = fileURLToPath(new URL('./tsrs-worker.ts', import.meta.url))
 const require = createRequire(import.meta.url)
 const version: string = require('../package.json').dependencies.tsrs
 const categories = ['config', 'options', 'syntactic', 'bind', 'global', 'semantic']
@@ -222,27 +221,33 @@ async function nativeSource(
   signal?: AbortSignal,
   timeoutMs?: number,
 ): Promise<NativeResponse> {
+  const began = performance.now()
   if (signal?.aborted) throw new CollectorInterrupted('Command interrupted')
   if (timeoutMs !== undefined && timeoutMs <= 0)
     throw new CollectorInterrupted('Feedback deadline expired before Rust analysis')
   const binary = process.env.BONSAI_NATIVE_BINARY
   if (binary !== undefined && (!binary.trim() || !existsSync(resolve(binary))))
     throw new CollectorError(`Rust checker executable is unavailable: ${binary || '(empty path)'}`)
-  return new Promise((resolveResult, reject) => {
-    const {
-      TSRS_BINARY: _tsrsOverride,
-      NODE_TEST_CONTEXT: _testContext,
-      ...environment
-    } = process.env
-    const child = spawn(process.execPath, [worker], {
-      cwd: checkout,
-      env: {
-        ...environment,
-        ...(binary !== undefined && { BONSAI_NATIVE_BINARY: resolve(binary) }),
-      },
-      detached: process.platform !== 'win32',
-      stdio: ['pipe', 'pipe', 'pipe'],
+  const request = JSON.stringify({ protocol: 2, root, files, bindings, cwd: process.cwd() })
+  try {
+    const shared = await requestNativeSession(request, signal, timeoutMs, (output) => {
+      response(output, files, bindings)
     })
+    if (shared !== undefined) return response(shared, files, bindings)
+  } catch (error) {
+    if (error instanceof CollectorError) throw error
+    if (error instanceof SessionInterrupted) throw new CollectorInterrupted(error.message)
+    throw workerError('Rust checker session failed', String(error))
+  }
+  // A busy shared worker leaves concurrent callers on the original fresh path.
+  if (timeoutMs !== undefined) {
+    timeoutMs -= performance.now() - began
+    if (timeoutMs <= 0)
+      throw new CollectorInterrupted('Feedback deadline expired during Rust analysis')
+  }
+  if (signal?.aborted) throw new CollectorInterrupted('Command interrupted')
+  return new Promise((resolveResult, reject) => {
+    const child = spawnNativeWorker()
     let failure: Error | undefined
     let closed = false
     let settled = false
@@ -327,9 +332,7 @@ async function nativeSource(
     child.stdin?.once('error', (error) =>
       fail(workerError('Cannot send input to the Rust checker worker', error.stack)),
     )
-    child.stdin?.end(
-      JSON.stringify({ protocol: 2, root, files, bindings, cwd: process.cwd() }) + '\n',
-    )
+    child.stdin?.end(request + '\n')
     if (signal?.aborted) abort()
   })
 }

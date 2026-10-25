@@ -30,7 +30,7 @@ One package, with six principal modules:
 | `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
 | `cli` | Collect facts, compare a base, explain components, and return actionable output. |
 
-`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler.ts` reuses bounded parsed documents within a process while creating fresh programs, resolutions, and diagnostics for each analysis. There is no database, daemon, LLM call, or external service.
+`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler.ts` reuses bounded parsed documents within a process while creating fresh programs, resolutions, and diagnostics for each analysis. There is no database, persistent daemon, LLM call, or external service.
 
 ## Initial adapter choices
 
@@ -107,6 +107,26 @@ diagnostics. Contract compilation loads inside its measured phase. TypeScript
 check/explain preloads the reference analyzer during command setup to preserve
 the existing feedback boundary. These startup changes do not cache action results
 or alter sequential scenario execution.
+
+Native verification opens a private local broker scoped to that invocation.
+Matching nested CLI processes reuse a Bun lexical worker, which starts lazily.
+Each request creates and closes its own SDK and native compiler process, using
+fresh programs, file reads, diagnostics, and source maps. Application modules and
+runtime evidence remain isolated in fresh verification processes. The broker
+does not cache source facts or action responses. Simple projects without nested
+native requests never start another semantic worker.
+
+Worker reuse requires the same installed checker, selected binary, and compiler
+environment, including runtime preload options. Private CLI settings and cosmetic
+output controls do not change the compiler context. Lazy startup uses the captured
+environment rather than later mutations in the owning process.
+An explicitly busy worker permits concurrent callers to use their ordinary fresh
+native path; broken matching sessions fail explicitly. Request identities and
+collector validation acknowledgments prevent stale or malformed output from
+becoming another request's facts. Cancellation retires the active worker and its
+compiler; owning verification closes the broker and sockets before completing.
+The existing command and feedback deadlines include this work. The session is
+private execution context, not a user configuration or a persistent cache.
 
 The adapter supplies the same explicit root files and preserves the reference's
 ambient type discovery. TypeScript 5.9 and tsrs's pinned TypeScript 7 compiler are

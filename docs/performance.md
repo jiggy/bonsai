@@ -284,3 +284,50 @@ with the reference parser. A runtime load guard forbids TypeScript in native CLI
 parents with standard configs, observes its load in semantic workers, and uses
 the TypeScript engine and JSONC fallback as controls. This detects duplicated
 startup even on machines fast enough to stay below the feedback ceiling.
+
+## Reuse lexical startup during verification
+
+On 2026-10-25, a further comparison against `29a2413` measured invocation-scoped
+worker reuse. The same Linux x64/Bun 1.4.3 environment alternated fresh CLI
+processes without flushing filesystem caches. Every required observation executed,
+and all native compiler processes had closed before source facts were returned.
+
+| Rust check | Samples per revision | Before | After |
+| --- | ---: | ---: | ---: |
+| Identical checkout project, all 3 observations | 5 | 511 ms | 494 ms |
+| Full Bonsai inventory, all 95 observations | 3 | 9,107 ms | 5,408 ms |
+
+The complete-root median improved by 41%. Root verification fell from 7,408 ms to
+3,463 ms; source analysis was 1,529 ms before and 1,831 ms after. Each revision
+measured its complete inventory: 82 files before and 85 after, including the new
+implementation and tests. The root contracts and all 95 executed observation
+results matched, with the same explicit 60-second comparison window and unchanged
+budget. Root samples ranged from 8,945–9,125 ms before and 5,024–5,414 ms after.
+Both revisions correctly rejected their real budget and ancestry violations.
+
+The unchanged checkout input retained matching source facts, decisions, ancestry,
+contracts, and evidence. Its small timing difference is within these samples'
+variation; it remains roughly a half-second check. A lean local broker adds no
+semantic worker until a nested native CLI requests one.
+
+The shared Bun worker keeps lexical modules initialized. Every request still
+re-reads files and declarations, creates a fresh SDK and native compiler process,
+collects diagnostics, and waits for that process to close. Application module
+caches remain isolated between verification runs; every action invocation executes.
+The analysis worker caches no handler results, semantic snapshots, or evidence. The broker
+exists only for the owning verification. Different runtime contexts and busy
+workers retain the ordinary fresh native path.
+
+A separate actual-root run restricted the CLI and all descendants to one CPU.
+All 95 observations passed within the saved policy: 6,759 ms of feedback against
+15,000 ms, with 6,819 ms reported command elapsed. This is a local stress check,
+not a hardware-independent deadline guarantee. No committed limits or exclusions
+changed.
+
+Regressions observe one lexical-module load across repeated checks while requiring
+six actual stateful handler calls and fresh application modules. Fresh reference
+comparisons cover source, declarations, import targets, and maintained-root edits.
+Protocol tests cover busy fallback through real verification, per-request diagnostic
+bounds, request identity, strict response validation, context changes, cancellation,
+and warm-owner death. A delayed shutdown proxy proves that success awaits native
+process exit and that cancellation still reaps it after the SDK clears its handle.
