@@ -5,16 +5,17 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { runCli } from './cli.ts'
 
 const repository = fileURLToPath(new URL('..', import.meta.url))
 
 function fixture(shell: string) {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-completion-'))
   const script = join(root, `bonsai.${shell}`)
-  const generated = spawnSync(process.execPath, ['src/cli.ts', 'completion', shell], {
+  const generated = runCli(['completion', shell], {
     cwd: repository,
-    encoding: 'utf8',
     env: { ...process.env, BONSAI_ROOT: '/missing-completion-project' },
+    timeout: 0,
   })
   assert.equal(generated.status, 0, generated.stderr)
   assert.equal(generated.stderr, '')

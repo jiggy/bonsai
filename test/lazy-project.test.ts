@@ -6,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import ts from 'typescript'
 import { readConfig } from '../src/project.ts'
+import { runCli } from './cli.ts'
 
 const configFile = resolve('work/config-parity/bonsai.json')
 const policy = {
@@ -157,10 +158,9 @@ if (worker) {
     NO_COLOR: '1',
   }
   const run = (args: string[]) =>
-    spawnSync(process.execPath, [resolve('src/cli.ts'), ...args, '--json', '--debug'], {
+    runCli([...args, '--json', '--debug'], {
       cwd: resolve('.'),
       env: environment,
-      encoding: 'utf8',
       timeout: 20000,
     })
   const invoke = (args: string[]) => {

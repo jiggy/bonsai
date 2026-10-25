@@ -3,19 +3,11 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { join } from 'node:path'
+import { cliEnvironment, executable } from './cli.ts'
 
-const executable = resolve('src/cli.ts')
 const payload = 'x'.repeat(2 * 1024 * 1024)
-const environment = {
-  ...process.env,
-  BONSAI_ROOT: undefined,
-  BONSAI_BASE: undefined,
-  BONSAI_POLICY: undefined,
-  FORCE_COLOR: undefined,
-  NO_COLOR: '1',
-  CI: '1',
-}
+const environment = cliEnvironment()
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "bonsai output's root #"))

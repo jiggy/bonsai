@@ -6,6 +6,8 @@ Verify acceptance rules and observable CLI behavior.
 
 Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which checks the full maintained root and exercises every root `.feature` observation through an isolated TypeScript implementation's real CLI.
 
+`cli.ts` supplies fixed-entry CLI launches and environment defaults. `runCli` returns raw results; an explicit `env` replaces defaults. `project.ts` writes provided fixture sources and policy. `terminal.ts` supplies PTY probing, quoting, and ANSI state. Keep specialized async, copied-checker, and PTY lifecycle handling local.
+
 ## Local Contracts
 
 Assert outputs, streams, exit codes, and candidate behavior. Check presentation regressions use real PTYs and inspect ANSI foreground/dim state on meaningful text, including wrapped continuations and independently redirected streams. Use isolated fixtures and remove them in cleanup. CLI tests must exercise the executable rather than duplicate its parser.

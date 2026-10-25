@@ -1,6 +1,5 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { analyzeSource, inventory } from '../src/source.ts'
@@ -9,9 +8,9 @@ import { compileContracts } from '../src/contracts.ts'
 import { buildSnapshot } from '../src/retention.ts'
 import type { Config, Source } from '../src/model.ts'
 import { canonicalSource } from '../native/tools/client.ts'
+import { runCli } from './cli.ts'
 
 const repository = resolve('.')
-const executable = resolve('src/cli.ts')
 const behavior = `Feature: Child process
 Scenario: Report the child result
  When I invoke "sample" with {}
@@ -112,10 +111,8 @@ test('the actual CLI verifies a child process with both engines while explain ne
     for (const engine of ['typescript', 'rust']) {
       for (const command of ['explain', 'check']) {
         rmSync(resolve(project.root, 'executed'), { force: true })
-        const result = spawnSync(
-          process.execPath,
+        const result = runCli(
           [
-            executable,
             command,
             ...(command === 'explain' ? ['child.ts#answer'] : []),
             '--root',
@@ -126,7 +123,6 @@ test('the actual CLI verifies a child process with both engines while explain ne
           ],
           {
             cwd: repository,
-            encoding: 'utf8',
             timeout: 15000,
             env: {
               ...process.env,

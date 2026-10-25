@@ -13,26 +13,10 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, join } from 'node:path'
+import { cliEnvironment, executable, runCli as run } from './cli.ts'
 
-const executable = resolve('src/cli.ts')
-const environment = {
-  ...process.env,
-  BONSAI_ROOT: undefined,
-  BONSAI_BASE: undefined,
-  BONSAI_POLICY: undefined,
-  FORCE_COLOR: undefined,
-  NO_COLOR: '1',
-  CI: '1',
-}
-
-function run(args: string[]) {
-  return spawnSync(process.execPath, [executable, ...args], {
-    encoding: 'utf8',
-    timeout: 15000,
-    env: environment,
-  })
-}
+const environment = cliEnvironment()
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "bonsai init's root #"))

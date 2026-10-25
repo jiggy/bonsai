@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { cliEnvironment, runCli } from './cli.ts'
 
 function fixture(dynamic: boolean) {
   mkdirSync(resolve('work'), { recursive: true })
@@ -53,23 +53,15 @@ function fixture(dynamic: boolean) {
 }
 
 function run(root: string, output: string, verbose = false) {
-  return spawnSync(
-    process.execPath,
-    ['src/cli.ts', 'check', '--root', root, '--output', output, ...(verbose ? ['--verbose'] : [])],
-    {
-      encoding: 'utf8',
-      timeout: 20000,
-      env: {
-        ...process.env,
-        BONSAI_ROOT: undefined,
-        BONSAI_BASE: undefined,
-        BONSAI_POLICY: undefined,
-        NO_COLOR: '1',
-        TERM: 'dumb',
-        COLUMNS: '120',
-      },
-    },
-  )
+  return runCli(['check', '--root', root, '--output', output, ...(verbose ? ['--verbose'] : [])], {
+    timeout: 20000,
+    env: cliEnvironment({
+      FORCE_COLOR: process.env.FORCE_COLOR,
+      CI: process.env.CI,
+      TERM: 'dumb',
+      COLUMNS: '120',
+    }),
+  })
 }
 
 test('an empty registry leads with one actionable blocker instead of pruning consequences', () => {

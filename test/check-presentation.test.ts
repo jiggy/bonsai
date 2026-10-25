@@ -1,15 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { readFileSync, rmSync } from 'node:fs'
+import { join } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 import { displayWidth } from '../src/cli-interface.ts'
+import { cliEnvironment, executable, runCli } from './cli.ts'
+import { createProject } from './project.ts'
+import { characters, hasPty, quote } from './terminal.ts'
 
-const executable = resolve('src/cli.ts')
-const hasPty = process.platform === 'linux' && spawnSync('script', ['--version']).status === 0
-const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
 const withoutElapsed = (text: string) =>
   text.replace(/\b\d+(?:\.\d+)?\s*(?:ms|s)(?= elapsed\b)/g, '<duration>')
 
@@ -23,56 +22,41 @@ function fixture(
     missingEntry?: boolean
   } = {},
 ) {
-  const root = mkdtempSync(join(tmpdir(), 'bonsai-check-presentation-'))
-  writeFileSync(join(root, 'package.json'), '{"type":"module"}')
-  writeFileSync(
-    join(root, 'handler.ts'),
-    options.missingEntry
-      ? [
-          "import { spawnSync } from 'node:child_process'",
-          "import { fileURLToPath } from 'node:url'",
-          'export function sample() {',
-          "  return spawnSync(process.execPath, [fileURLToPath(new URL('./missing-child.ts', import.meta.url))])",
-          '}',
-        ].join('\n')
-      : [
-          'export function sample(input: { quantity: number }) {',
-          `  return { status: ${options.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
-          '}',
-          ...Array.from(
-            { length: options.unused ?? 0 },
-            (_, index) =>
-              `export function unused${String(index).padStart(2, '0')}() { return ${index} }`,
-          ),
-        ].join('\n'),
+  return createProject(
+    {
+      'package.json': '{"type":"module"}',
+      'handler.ts': options.missingEntry
+        ? [
+            "import { spawnSync } from 'node:child_process'",
+            "import { fileURLToPath } from 'node:url'",
+            'export function sample() {',
+            "  return spawnSync(process.execPath, [fileURLToPath(new URL('./missing-child.ts', import.meta.url))])",
+            '}',
+          ].join('\n')
+        : [
+            'export function sample(input: { quantity: number }) {',
+            `  return { status: ${options.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
+            '}',
+            ...Array.from(
+              { length: options.unused ?? 0 },
+              (_, index) =>
+                `export function unused${String(index).padStart(2, '0')}() { return ${index} }`,
+            ),
+          ].join('\n'),
+      'bindings.ts': options.draft
+        ? 'export const actions = {}\n'
+        : "import { sample } from './handler.ts'\nexport const actions = { 'sample': sample }\n",
+      'sample.feature': options.draft
+        ? '# Feature: Replace the commented starter\n'
+        : 'Feature: Sample\nScenario Outline: Submit\n When I invoke "sample" with {"quantity": <quantity>}\n Then response "status" equals "<status>"\n Examples:\n | quantity | status |\n | 1 | accepted |\n | 0 | rejected |\n',
+    },
+    {
+      bootstrap: options.budget ?? 10000,
+      hardLimit: options.budget ?? 10000,
+      maxFeedbackMs: options.feedbackMs ?? 15000,
+    },
+    'bonsai-check-presentation-',
   )
-  writeFileSync(
-    join(root, 'bindings.ts'),
-    options.draft
-      ? 'export const actions = {}\n'
-      : "import { sample } from './handler.ts'\nexport const actions = { 'sample': sample }\n",
-  )
-  writeFileSync(
-    join(root, 'sample.feature'),
-    options.draft
-      ? '# Feature: Replace the commented starter\n'
-      : 'Feature: Sample\nScenario Outline: Submit\n When I invoke "sample" with {"quantity": <quantity>}\n Then response "status" equals "<status>"\n Examples:\n | quantity | status |\n | 1 | accepted |\n | 0 | rejected |\n',
-  )
-  writeFileSync(
-    join(root, 'bonsai.json'),
-    JSON.stringify({
-      maintained: ['handler.ts', 'bindings.ts', 'sample.feature', 'bonsai.json', 'package.json'],
-      bindings: 'bindings.ts',
-      policy: {
-        bootstrap: options.budget ?? 10000,
-        bootstrapSurface: 1,
-        perDoubling: 0,
-        hardLimit: options.budget ?? 10000,
-        maxFeedbackMs: options.feedbackMs ?? 15000,
-      },
-    }),
-  )
-  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) }
 }
 
 function run(
@@ -83,59 +67,30 @@ function run(
   redirect = '',
 ) {
   const command = [process.execPath, executable, 'check', '--root', root, ...args]
-  const result = spawnSync(
-    tty ? 'script' : process.execPath,
-    tty ? ['-qefc', command.map(quote).join(' ') + redirect, '/dev/null'] : command.slice(1),
-    {
-      encoding: 'utf8',
-      input: '',
-      timeout: 20000,
-      env: {
-        ...process.env,
-        BONSAI_ROOT: undefined,
-        BONSAI_BASE: undefined,
-        BONSAI_POLICY: undefined,
-        BONSAI_NO_COLOR: '',
-        NO_COLOR: '',
-        FORCE_COLOR: '',
-        CI: '1',
-        COLUMNS: '80',
-        TERM: 'xterm-256color',
-        LANG: 'C.UTF-8',
-        LC_ALL: 'C.UTF-8',
-        ...env,
-      },
-    },
-  )
+  const options = {
+    encoding: 'utf8' as const,
+    input: '',
+    timeout: 20000,
+    env: cliEnvironment({
+      BONSAI_NO_COLOR: '',
+      NO_COLOR: '',
+      FORCE_COLOR: '',
+      COLUMNS: '80',
+      TERM: 'xterm-256color',
+      LANG: 'C.UTF-8',
+      LC_ALL: 'C.UTF-8',
+      ...env,
+    }),
+  }
+  const result = tty
+    ? spawnSync('script', ['-qefc', command.map(quote).join(' ') + redirect, '/dev/null'], options)
+    : runCli(['check', '--root', root, ...args], options)
   assert.equal(result.error, undefined, String(result.error) + result.stdout + result.stderr)
   return {
     ...result,
     stdout: result.stdout.replaceAll('\r\n', '\n'),
     stderr: result.stderr.replaceAll('\r\n', '\n'),
   }
-}
-
-/** Inspect terminal-visible characters, so a reset or dim attribute cannot hide a colored alert. */
-function characters(text: string) {
-  const result: { value: string; color: number | undefined; dim: boolean }[] = []
-  let color: number | undefined
-  let dim = false
-  let cursor = 0
-  for (const match of text.matchAll(/\x1b\[([\d;]*)m/g)) {
-    for (const value of text.slice(cursor, match.index)) result.push({ value, color, dim })
-    for (const code of (match[1] || '0').split(';').map(Number)) {
-      if (code === 0) {
-        color = undefined
-        dim = false
-      } else if (code === 2) dim = true
-      else if (code === 22) dim = false
-      else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) color = code
-      else if (code === 39) color = undefined
-    }
-    cursor = match.index + match[0].length
-  }
-  for (const value of text.slice(cursor)) result.push({ value, color, dim })
-  return result
 }
 
 function expectColor(text: string, phrase: string, color: number, offset = 0) {

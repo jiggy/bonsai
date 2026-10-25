@@ -20,8 +20,8 @@ import { evaluate } from '../src/policy.ts'
 import { snapshot } from '../src/project.ts'
 import { analyzeSource } from '../src/source.ts'
 import type { Config } from '../src/model.ts'
+import { cliEnvironment, runCli } from './cli.ts'
 
-const executable = resolve('src/cli.ts')
 const feature = `Feature: Native semantics
 Scenario: Handle
  When I invoke "handle" with {}
@@ -74,26 +74,16 @@ function cli(
   env: NodeJS.ProcessEnv = {},
 ) {
   writeFileSync(join(project.root, 'bonsai.json'), JSON.stringify(project.config))
-  const result = spawnSync(
-    process.execPath,
-    [executable, 'check', '--root', project.root, '--engine', engine, '--json'],
-    {
-      cwd: project.root,
-      env: {
-        ...process.env,
-        BONSAI_ROOT: undefined,
-        BONSAI_BASE: undefined,
-        BONSAI_POLICY: undefined,
-        BONSAI_NATIVE_BINARY: undefined,
-        CI: '1',
-        NO_COLOR: '1',
-        ...env,
-      },
-      encoding: 'utf8',
-      timeout: 30000,
-      maxBuffer: 32 * 1024 * 1024,
-    },
-  )
+  const result = runCli(['check', '--root', project.root, '--engine', engine, '--json'], {
+    cwd: project.root,
+    env: cliEnvironment({
+      BONSAI_NATIVE_BINARY: undefined,
+      FORCE_COLOR: process.env.FORCE_COLOR,
+      ...env,
+    }),
+    timeout: 30000,
+    maxBuffer: 32 * 1024 * 1024,
+  })
   assert.equal(result.error, undefined, String(result.error))
   return { ...result, report: result.stdout ? JSON.parse(result.stdout) : undefined }
 }

@@ -1,64 +1,36 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync, spawn, spawnSync } from 'node:child_process'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { execFileSync, spawn } from 'node:child_process'
 import type { Timing, TimingStage } from '../src/model.ts'
 import { Timer } from '../src/timing.ts'
+import { cliEnvironment, executable, runCli } from './cli.ts'
+import { createProject } from './project.ts'
 
-const executable = resolve('src/cli.ts')
-const environment = {
-  ...process.env,
-  BONSAI_ROOT: undefined,
-  BONSAI_BASE: undefined,
-  BONSAI_POLICY: undefined,
-  FORCE_COLOR: undefined,
-  NO_COLOR: '1',
-  CI: '1',
-}
+const environment = cliEnvironment()
 
 function fixture(options: { delayMs?: number; feedbackMs?: number; dynamic?: boolean } = {}) {
-  const root = mkdtempSync(join(tmpdir(), 'bonsai-timing-'))
-  writeFileSync(join(root, 'package.json'), '{"type":"module"}')
-  writeFileSync(
-    join(root, 'handler.ts'),
-    `export async function sample() {
+  return createProject(
+    {
+      'package.json': '{"type":"module"}',
+      'handler.ts': `export async function sample() {
   ${options.dynamic ? "const modulePath = './handler.ts'; await import(modulePath)" : ''}
   await new Promise<void>((done) => setTimeout(done, ${options.delayMs ?? 0}))
   return { status: 'ok' }
 }
 `,
+      'bindings.ts':
+        "import { sample } from './handler.ts'\nexport const actions = { 'sample': sample }\n",
+      'sample.feature':
+        'Feature: Timing\nScenario: Sample\n When I invoke "sample" with {}\n Then response "status" equals "ok"\n',
+    },
+    { maxFeedbackMs: options.feedbackMs ?? 15000 },
+    'bonsai-timing-',
   )
-  writeFileSync(
-    join(root, 'bindings.ts'),
-    "import { sample } from './handler.ts'\nexport const actions = { 'sample': sample }\n",
-  )
-  writeFileSync(
-    join(root, 'sample.feature'),
-    'Feature: Timing\nScenario: Sample\n When I invoke "sample" with {}\n Then response "status" equals "ok"\n',
-  )
-  writeFileSync(
-    join(root, 'bonsai.json'),
-    JSON.stringify({
-      maintained: ['handler.ts', 'bindings.ts', 'sample.feature', 'bonsai.json', 'package.json'],
-      bindings: 'bindings.ts',
-      policy: {
-        bootstrap: 10000,
-        bootstrapSurface: 1,
-        perDoubling: 0,
-        hardLimit: 10000,
-        maxFeedbackMs: options.feedbackMs ?? 15000,
-      },
-    }),
-  )
-  return { root, dispose: () => rmSync(root, { recursive: true, force: true }) }
 }
 
 function run(root: string, args: string[] = []) {
   const started = performance.now()
-  const result = spawnSync(process.execPath, [executable, 'check', '--root', root, ...args], {
-    encoding: 'utf8',
+  const result = runCli(['check', '--root', root, ...args], {
     timeout: 20000,
     env: environment,
   })

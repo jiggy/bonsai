@@ -13,31 +13,19 @@ import {
 } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { version } from '../src/cli-interface.ts'
+import { cliEnvironment, executable, runCli } from './cli.ts'
 
 const example = resolve('examples/checkout')
-function cli(args: string[], env: NodeJS.ProcessEnv = {}, input?: string) {
-  return spawnSync(process.execPath, ['src/cli.ts', ...args], {
-    encoding: 'utf8',
-    timeout: 15000,
+function run(args: string[], env: NodeJS.ProcessEnv = {}, input?: string) {
+  return runCli(args, {
     input,
-    env: {
-      ...process.env,
-      BONSAI_ROOT: '',
-      BONSAI_BASE: '',
-      BONSAI_POLICY: '',
+    env: cliEnvironment({
       NO_COLOR: '',
       FORCE_COLOR: '',
+      CI: process.env.CI,
       ...env,
-    },
+    }),
   })
-}
-// Unset overrides rather than allowing a developer's environment to choose a project.
-function run(args: string[], env: NodeJS.ProcessEnv = {}, input?: string) {
-  return cli(
-    args,
-    { BONSAI_ROOT: undefined, BONSAI_BASE: undefined, BONSAI_POLICY: undefined, ...env },
-    input,
-  )
 }
 function fixture() {
   mkdirSync('work', { recursive: true })
@@ -278,7 +266,7 @@ test('signals stop verification workers and remove temporary base archives', asy
       assert.equal(spawnSync('git', gitArgs).status, 0)
     const child = spawn(
       process.execPath,
-      ['src/cli.ts', 'check', '--root', root, '--base', 'HEAD', '--json'],
+      [executable, 'check', '--root', root, '--base', 'HEAD', '--json'],
       {
         env: {
           ...process.env,

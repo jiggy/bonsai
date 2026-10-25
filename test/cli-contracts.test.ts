@@ -12,27 +12,13 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { cliEnvironment, executable, runCli } from './cli.ts'
 
-const executable = resolve('src/cli.ts')
 const example = resolve('examples/checkout')
-const environment = {
-  ...process.env,
-  BONSAI_ROOT: undefined,
-  BONSAI_BASE: undefined,
-  BONSAI_POLICY: undefined,
-  FORCE_COLOR: undefined,
-  NO_COLOR: '1',
-  CI: '1',
-  COLUMNS: '200',
-}
+const environment = cliEnvironment({ COLUMNS: '200' })
 
 function run(args: string[], input?: string, overrides: NodeJS.ProcessEnv = {}) {
-  return spawnSync(process.execPath, [executable, ...args], {
-    encoding: 'utf8',
-    timeout: 15000,
-    env: { ...environment, ...overrides },
-    input,
-  })
+  return runCli(args, { env: { ...environment, ...overrides }, input })
 }
 
 function runRecovery(invocation: string) {

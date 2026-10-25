@@ -10,14 +10,15 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { stripVTControlCharacters } from 'node:util'
 import { analyzeSource } from '../src/source.ts'
+import { cliEnvironment, executable, runCli } from './cli.ts'
+import { createProject } from './project.ts'
+import { characters, hasPty, quote } from './terminal.ts'
 
 const repository = resolve('.')
-const executable = resolve('src/cli.ts')
 const require = createRequire(import.meta.url)
 let native: string | undefined
 try {
@@ -28,58 +29,38 @@ try {
   // Unsupported platforms can still exercise enum/help and mocked runtime failures.
 }
 const hasNative = native !== undefined && existsSync(native)
-const hasPty = process.platform === 'linux' && spawnSync('script', ['--version']).status === 0
 const canRunMocks = process.platform !== 'win32'
-const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
 
 function fixture(
   options: { broken?: boolean; unused?: boolean; budget?: number; handler?: string } = {},
 ) {
-  const root = mkdtempSync(join(tmpdir(), 'bonsai-native-cli-'))
-  const files = ['handler.ts', 'bindings.ts', 'sample.feature', 'bonsai.json', 'package.json']
-  writeFileSync(join(root, 'package.json'), '{"type":"module"}')
-  writeFileSync(
-    join(root, 'handler.ts'),
-    options.handler ??
-      [
-        'export function sample(input: { quantity: number }) {',
-        ` return { status: ${options.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
-        '}',
-        ...(options.unused ? ['export function unused() { return 42 }'] : []),
-        '',
-      ].join('\n'),
+  return createProject(
+    {
+      'package.json': '{"type":"module"}',
+      'handler.ts':
+        options.handler ??
+        [
+          'export function sample(input: { quantity: number }) {',
+          ` return { status: ${options.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
+          '}',
+          ...(options.unused ? ['export function unused() { return 42 }'] : []),
+          '',
+        ].join('\n'),
+      'bindings.ts':
+        "import { sample } from './handler.ts'\nexport const actions = { sample: sample }\n",
+      'sample.feature':
+        'Feature: Sample\nScenario Outline: Submit\n When I invoke "sample" with {"quantity": <quantity>}\n Then response "status" equals "<status>"\n Examples:\n | quantity | status |\n | 1 | accepted |\n | 0 | rejected |\n',
+    },
+    {
+      bootstrap: options.budget ?? 10000,
+      hardLimit: options.budget ?? 10000,
+    },
+    'bonsai-native-cli-',
   )
-  writeFileSync(
-    join(root, 'bindings.ts'),
-    "import { sample } from './handler.ts'\nexport const actions = { sample: sample }\n",
-  )
-  writeFileSync(
-    join(root, 'sample.feature'),
-    'Feature: Sample\nScenario Outline: Submit\n When I invoke "sample" with {"quantity": <quantity>}\n Then response "status" equals "<status>"\n Examples:\n | quantity | status |\n | 1 | accepted |\n | 0 | rejected |\n',
-  )
-  writeFileSync(
-    join(root, 'bonsai.json'),
-    JSON.stringify({
-      maintained: files,
-      bindings: 'bindings.ts',
-      policy: {
-        bootstrap: options.budget ?? 10000,
-        bootstrapSurface: 1,
-        perDoubling: 0,
-        hardLimit: options.budget ?? 10000,
-        maxFeedbackMs: 15000,
-      },
-    }),
-  )
-  return { root, files, dispose: () => rmSync(root, { recursive: true, force: true }) }
 }
 
 function environment(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
-  return {
-    ...process.env,
-    BONSAI_ROOT: undefined,
-    BONSAI_BASE: undefined,
-    BONSAI_POLICY: undefined,
+  return cliEnvironment({
     BONSAI_NATIVE_BINARY: native,
     TSRS_BINARY: undefined,
     BONSAI_NO_COLOR: '',
@@ -88,10 +69,9 @@ function environment(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
     TERM: 'xterm-256color',
     LANG: 'C.UTF-8',
     LC_ALL: 'C.UTF-8',
-    CI: '1',
     COLUMNS: '80',
     ...extra,
-  }
+  })
 }
 
 function cli(
@@ -105,20 +85,24 @@ function cli(
   } = {},
 ) {
   const command = [process.execPath, options.executable ?? executable, ...args]
-  const result = spawnSync(
-    options.tty ? 'script' : command[0]!,
-    options.tty
-      ? ['-qefc', command.map(quote).join(' ') + (options.redirect ?? ''), '/dev/null']
-      : command.slice(1),
-    {
-      cwd: options.cwd ?? repository,
-      env: environment(options.env),
-      input: '',
-      encoding: 'utf8',
-      timeout: 25000,
-      maxBuffer: 16 * 1024 * 1024,
-    },
-  )
+  const settings = {
+    cwd: options.cwd ?? repository,
+    env: environment(options.env),
+    input: '',
+    encoding: 'utf8' as const,
+    timeout: 25000,
+    maxBuffer: 16 * 1024 * 1024,
+  }
+  const result =
+    options.tty || options.executable
+      ? spawnSync(
+          options.tty ? 'script' : command[0]!,
+          options.tty
+            ? ['-qefc', command.map(quote).join(' ') + (options.redirect ?? ''), '/dev/null']
+            : command.slice(1),
+          settings,
+        )
+      : runCli(args, settings)
   assert.equal(result.error, undefined, String(result.error) + result.stdout + result.stderr)
   assert.equal(result.signal, null, result.stderr)
   return {
@@ -171,24 +155,7 @@ function mock(root: string, source: string) {
 }
 
 function expectReadableRed(text: string, phrase: string, after?: string) {
-  const visible: { value: string; color?: number; dim: boolean }[] = []
-  let color: number | undefined
-  let dim = false
-  let cursor = 0
-  for (const match of text.matchAll(/\x1b\[([\d;]*)m/g)) {
-    for (const value of text.slice(cursor, match.index)) visible.push({ value, color, dim })
-    for (const code of (match[1] || '0').split(';').map(Number)) {
-      if (code === 0) {
-        color = undefined
-        dim = false
-      } else if (code === 2) dim = true
-      else if (code === 22) dim = false
-      else if ((code >= 30 && code <= 37) || (code >= 90 && code <= 97)) color = code
-      else if (code === 39) color = undefined
-    }
-    cursor = match.index + match[0].length
-  }
-  for (const value of text.slice(cursor)) visible.push({ value, color, dim })
+  const visible = characters(text)
   const plain = visible.map((character) => character.value).join('')
   const anchor = after ? plain.indexOf(after) : 0
   assert.ok(anchor >= 0, `${after} missing from ${plain}`)

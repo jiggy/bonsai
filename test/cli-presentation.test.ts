@@ -12,38 +12,31 @@ import {
   renderHuman,
   wrap,
 } from '../src/cli-interface.ts'
+import { cliEnvironment, executable, runCli } from './cli.ts'
+import { hasPty, quote } from './terminal.ts'
 
-const executable = resolve('src/cli.ts')
 const example = resolve('examples/checkout')
-const hasPty = process.platform === 'linux' && spawnSync('script', ['--version']).status === 0
-const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
 
 function run(args: string[], env: NodeJS.ProcessEnv = {}, tty = false) {
   const command = [process.execPath, executable, ...args]
-  const result = spawnSync(
-    tty ? 'script' : process.execPath,
-    tty ? ['-qefc', command.map(quote).join(' '), '/dev/null'] : [executable, ...args],
-    {
-      encoding: 'utf8',
-      timeout: 15000,
-      input: '',
-      env: {
-        ...process.env,
-        BONSAI_ROOT: undefined,
-        BONSAI_BASE: undefined,
-        BONSAI_POLICY: undefined,
-        BONSAI_NO_COLOR: '',
-        NO_COLOR: '',
-        FORCE_COLOR: '',
-        CI: '1',
-        COLUMNS: '80',
-        TERM: 'xterm-256color',
-        LANG: 'C.UTF-8',
-        LC_ALL: 'C.UTF-8',
-        ...env,
-      },
-    },
-  )
+  const options = {
+    encoding: 'utf8' as const,
+    timeout: 15000,
+    input: '',
+    env: cliEnvironment({
+      BONSAI_NO_COLOR: '',
+      NO_COLOR: '',
+      FORCE_COLOR: '',
+      COLUMNS: '80',
+      TERM: 'xterm-256color',
+      LANG: 'C.UTF-8',
+      LC_ALL: 'C.UTF-8',
+      ...env,
+    }),
+  }
+  const result = tty
+    ? spawnSync('script', ['-qefc', command.map(quote).join(' '), '/dev/null'], options)
+    : runCli(args, options)
   return {
     ...result,
     stdout: result.stdout.replaceAll('\r\n', '\n'),
