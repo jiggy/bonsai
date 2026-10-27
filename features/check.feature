@@ -132,3 +132,14 @@ Feature: Admit only supported implementations of required behavior
     And response "handlerExecuted" equals false
     And response "timingMeasured" equals true
     And response "verificationTiming.status" equals "skipped"
+
+  Scenario: Independent scenarios keep fresh state and ordered steps
+    When I invoke "verify-isolated-scenarios" with {"workers": 2}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+    And response "snapshot.verification.profile" equals "isolated-scenarios-v1"
+    And response "snapshot.verification.workers" equals 2
+    And response "snapshot.evidence.profile" equals "isolated-scenarios-v1"
+    And response "snapshot.evidence.complete" equals true
+    And response "snapshot.evidence.checks.length" equals 4
+    And response "observations" equals ["passed", "passed", "passed", "passed"]

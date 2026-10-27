@@ -746,6 +746,12 @@ async function main(): Promise<void> {
         `root\t${root}`,
         `policy\t${configFile}`,
         `bindings\t${config.bindings}`,
+        ...(config.verification
+          ? [
+              `verification.profile\t${config.verification.profile}`,
+              `verification.workers\t${config.verification.workers}`,
+            ]
+          : []),
         ...config.maintained.map((path) => `maintained\t${path}`),
         ...(config.exclude ?? []).map((pattern) => `exclude\t${pattern}`),
         ...Object.entries(result.origin).map(([key, value]) => `origin.${key}\t${value}`),
@@ -758,6 +764,11 @@ async function main(): Promise<void> {
         `Maintained: ${config.maintained.join(', ')}`,
         `Exclusions: ${config.exclude?.length ?? 0} saved patterns (use --json to inspect)`,
         `Bindings: ${config.bindings}`,
+        ...(config.verification
+          ? [
+              `Verification: isolated scenarios (${config.verification.workers} ${config.verification.workers === 1 ? 'worker' : 'workers'})`,
+            ]
+          : []),
         ...Object.entries(config.policy).map(([key, value]) => `${key}: ${value}`),
       ],
     )

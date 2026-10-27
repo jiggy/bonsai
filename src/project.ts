@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import { inventory, fingerprint } from './inventory.ts'
 import { buildSnapshot } from './retention.ts'
 import { runEvidence } from './evidence.ts'
-import { validatePolicy } from './policy.ts'
+import { validatePolicy, validateVerification } from './policy.ts'
 import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
 import { collectRustSource } from './collector.ts'
@@ -63,6 +63,7 @@ export function readConfig(
   )
     throw new Error('Configuration exclude must be an array of non-empty ignore patterns')
   validatePolicy(config.policy)
+  validateVerification(config.verification)
   return config
 }
 
@@ -102,6 +103,7 @@ export async function snapshot(
     if (collected.interrupted) timer.finish('interrupted')
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
+    if (config.verification) result.verification = { ...config.verification }
     result.analysis = collected.analysis
     let feedbackElapsed = execute ? performance.now() - started : undefined
     if (execute && !contracts.problems.length && !source.problems.length) {

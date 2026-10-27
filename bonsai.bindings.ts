@@ -5,6 +5,7 @@ import {
   initializeProject,
   showHelp,
   generateCompletion,
+  verifyIsolatedScenarios,
 } from './src/self-host.ts'
 
 export const actions = {
@@ -14,4 +15,5 @@ export const actions = {
   init: initializeProject,
   help: showHelp,
   completion: generateCompletion,
+  'verify-isolated-scenarios': verifyIsolatedScenarios,
 }

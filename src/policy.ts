@@ -1,4 +1,21 @@
-import type { Policy, Snapshot, Decision } from './model.ts'
+import type { Policy, Snapshot, Decision, Verification } from './model.ts'
+
+export function validateVerification(verification: Verification | undefined): void {
+  if (verification === undefined) return
+  if (
+    !verification ||
+    typeof verification !== 'object' ||
+    Array.isArray(verification) ||
+    verification.profile !== 'isolated-scenarios-v1' ||
+    !Number.isInteger(verification.workers) ||
+    verification.workers < 1 ||
+    verification.workers > 8 ||
+    Object.keys(verification).some((key) => key !== 'profile' && key !== 'workers')
+  )
+    throw new Error(
+      'Configuration verification requires profile "isolated-scenarios-v1" and workers from 1 to 8',
+    )
+}
 
 export function validatePolicy(policy: Policy): void {
   for (const key of [
@@ -47,12 +64,17 @@ export function evaluate(
     if (!Object.hasOwn(candidate.source.actions, check.action))
       missing(`Unbound action: ${check.action}`)
   }
+  try {
+    validateVerification(candidate.verification)
+  } catch {
+    missing('Verification configuration is invalid')
+  }
   const evidence = candidate.evidence
   if (
     !evidence ||
     !evidence.complete ||
     evidence.fingerprint !== candidate.fingerprint ||
-    evidence.profile !== 'in-process-v1'
+    evidence.profile !== (candidate.verification?.profile ?? 'in-process-v1')
   ) {
     missing('Required evidence is missing, incomplete, or belongs to another candidate')
   } else {

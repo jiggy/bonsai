@@ -139,6 +139,38 @@ Expired commands cannot report success. Signals stop active
 verification workers and remove temporary base archives. Candidate handlers still
 run with the caller's privileges, as described under Limits.
 
+### Run independent scenarios concurrently
+
+By default, verification runs scenarios sequentially in one fresh subprocess,
+sharing loaded application modules for that run. Keep this default when scenarios
+depend on earlier scenarios' state.
+
+For independent scenarios, add `verification` to the existing `bonsai.json`:
+
+```json
+{
+  "verification": {
+    "profile": "isolated-scenarios-v1",
+    "workers": 2
+  }
+}
+```
+
+`workers` must be an integer from 1 to 8. Each scenario runs in a fresh subprocess
+with fresh application modules; its steps execute in order. Up to `workers`
+scenarios can run concurrently. Processes still share external resources such as
+files, databases, and services: ensure scenarios cannot interfere through them.
+This profile changes scenario state semantics even with one worker.
+
+The command stays `bonsai check --verbose`. Inspect the effective setting with
+`bonsai config show --json`. Every observation remains required, and all workers
+share the existing feedback deadline, including startup and cleanup. Each execution
+lane can reuse lexical initialization for nested checks; every analysis still
+creates a fresh native compiler process and program. The effective configuration,
+including this profile and worker count, enters the content fingerprint; evidence
+must match the selected execution profile. Base/trusted policy selection applies
+to this setting too.
+
 ### Exit codes
 
 | Code | Meaning |
@@ -301,9 +333,10 @@ tests do not replace native product coverage.
 `bun run native:bench` measures repeated fresh native commands and their evidence,
 without an engine speedup ratio. Standard JSON configs keep TypeScript out of the
 CLI parent; JSONC and malformed configs retain the established parser diagnostics.
-Nested checks may share a lexical worker within one verification invocation, while
-every request creates a fresh native compiler process and program. Application
-handlers keep their execution order and fresh verification-process boundary.
+Nested checks may share lexical initialization within one verification invocation,
+while every request creates a fresh native compiler process and program. The default
+verification profile preserves scenario order and its fresh process boundary;
+the optional isolated profile uses a fresh application process for each scenario.
 
 ## Bonsai's own executable contracts
 

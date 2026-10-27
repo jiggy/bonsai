@@ -14,6 +14,8 @@ Document fixed subprocess entry-point syntax separately from runtime coverage. C
 
 Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
 
+Document isolated scenario verification as an explicit execution profile with bounded workers, fresh application processes, sequential steps, and one overall deadline. Omitted settings preserve shared-state sequential execution. Process separation does not isolate external resources; independently audited scenarios must own their shared-resource setup. Compare profiles on identical inventories and obligations, distinguishing intentional profile/fingerprint differences from changed outcomes.
+
 Keep native semantic conformance, lexical accounting, and runtime evidence distinct. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. Rust is the sole production engine, and authored Rust stays measured with explicit unsupported analysis until an adapter exists.
 
 Document native analysis as the default and `--engine rust` as a compatibility spelling. `--engine typescript` is unsupported. Keep development compiler oracles outside published runtime sources. Reference comparisons run in development tests, never inside a native check. Preserve explicit TypeScript-version gaps, Bun asynchronous transport requirements, native platform support, and the distinction between analysis speed, completed verification, and gate acceptance. Never compare an incomplete run with a completed gate as an equivalent speedup.

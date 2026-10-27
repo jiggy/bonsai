@@ -198,8 +198,10 @@ export async function requestNativeSession(
 }
 
 /** One verification owns a lean broker; the semantic process starts only when needed. */
-export async function openNativeSession(): Promise<{ value: string; close(): Promise<void> }> {
-  const borrowed = inherited()
+export async function openNativeSession(
+  options: { inherit?: boolean } = {},
+): Promise<{ value: string; close(): Promise<void> }> {
+  const borrowed = options.inherit === false ? undefined : inherited()
   if (borrowed) return { value: JSON.stringify(borrowed), close: async () => {} }
   const environment = { ...process.env }
 

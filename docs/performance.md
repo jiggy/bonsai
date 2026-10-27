@@ -34,8 +34,9 @@ observations present in that revision under its 15-second policy.
 The query-pruning pass below profiles that work and removes unused symbol requests.
 The following verification pass removes redundant contract-compiler initialization.
 Further verification work should target measured startup or transport costs while
-preserving every handler call, sequential scenario semantics, and fresh compiler
-programs. Result caching or parallel verification would change the workload.
+preserving every handler call and fresh compiler programs. Sequential scenario
+semantics remain the default. The explicit isolated profile below changes
+cross-scenario state semantics and is measured separately; it is not result caching.
 
 ## Prune unused semantic requests
 
@@ -145,12 +146,70 @@ However, fresh program creation still dominated: the observed startup savings
 were small and noisy, around 10 ms per analysis. Production retains its existing
 fresh-process lifecycle; this pass removes redundant dependency initialization.
 
+## Execute independent scenarios concurrently
+
+The optional `verification: { profile: "isolated-scenarios-v1", workers: 2 }`
+configuration runs independent scenarios concurrently. The default remains one
+fresh execution process with shared application modules and sequential scenarios.
+The isolated profile creates a fresh application process per scenario, preserves
+step order within it, and restores original observation order in the report.
+Projects must ensure that scenarios do not interfere through external resources.
+
+Each scheduling lane owns a separate native broker, avoiding busy-worker fallback
+between lanes while amortizing lexical initialization. Every native request still
+creates a fresh compiler program. Every scenario still invokes its handlers;
+there is no application, source-fact, or evidence cache. The scheduler validates
+every shard's exact check IDs, complete report, fingerprint, and binding receipt
+before producing evidence for the requested profile. One shared deadline includes
+queueing, startup, execution, and broker cleanup. Infrastructure failures stop
+queued scenarios and cancel peers; ordinary Unix descendants receive bounded
+graceful shutdown followed by forced process-group cleanup.
+
+On 2026-10-27, fresh Bun 1.4.3 processes compared profiles on one updated working
+tree on Linux x64 with an Intel Xeon Platinum 8573C and five available CPUs.
+The initial sequence alternated sequential and two-worker checks; follow-up
+four-worker samples included a two-worker control. Filesystem caches were not
+flushed. Every sample measured the same 98 maintained files, 28 scenarios, and
+124 observations under the unchanged saved 15-second feedback policy. Medians:
+
+| Execution profile | Samples | Verification | Complete command wall time |
+| --- | ---: | ---: | ---: |
+| Sequential default | 3 | 6,064 ms | 9,467 ms |
+| Isolated, two workers | 4 | 4,472 ms | 7,195 ms |
+| Isolated, four workers | 3 | 3,051 ms | 5,424 ms |
+
+All observations passed. Complete source facts, contracts, ancestry, check results,
+and policy decisions matched; profile metadata and configuration fingerprints
+intentionally differed. Every run correctly rejected the same real retained-size
+and ancestry violations. These profiles therefore establish equivalent outcomes
+for this audited independent suite, not interchangeable state semantics for other
+projects. The new isolation feature adds eight observations, so the earlier
+116-observation benchmark is not an equal-workload control.
+
+Four workers reduced median verification by about 50% and command wall time by
+43% in these samples. Sequential wall times ranged from 8.02–11.39 seconds;
+four-worker times ranged from 5.30–7.99 seconds. A single isolated-worker control
+took 9.38 seconds in verification: fresh per-scenario processes have a cost, and
+parallel execution need not benefit every project or CPU allocation. These small
+samples are workload-specific measurements, not a general speedup guarantee.
+
+Bonsai's root explicitly selects four workers after auditing its actions: mutable
+actions own separate temporary projects; discovery commands only read metadata.
+The benchmark preceded final documentation, root opt-in edits, and the incoming
+native-installation recovery change. No feedback
+limit, size coefficient, maintained scope, or required observation was relaxed.
+
+A subsequent actual-root stress check restricted the CLI and all descendants to
+one CPU. All 124 observations passed with four workers in 11,019 ms of feedback
+against the saved 15,000 ms ceiling. This verifies that local constrained workload,
+not a hardware-independent deadline guarantee.
+
+## Historical compiler profile
+
 The measurements below describe earlier revisions, including the removed public
 TypeScript engine and comparison-only 60-second fixture windows. Their historical
 numbers remain evidence for those workloads; current commands use one native
 engine and the saved project deadline.
-
-## Historical compiler profile
 
 A local pre-optimization source profile measured 6,587 ms for 79 maintained files,
 414 components, and 838 relationships. TypeScript reported 1,447 ms for program

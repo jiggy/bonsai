@@ -109,6 +109,8 @@ function fulfilled(
   }
   const evidence = candidate.evidence
   assert.ok(evidence, report.stderr)
+  assert.deepEqual(candidate.verification, config.verification)
+  assert.equal(evidence.profile, config.verification?.profile ?? 'in-process-v1')
   assert.equal(evidence.complete, true)
   assert.equal(evidence.fingerprint, candidate.fingerprint)
   assert.deepEqual(evidence.bindingImport, {

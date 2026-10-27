@@ -50,6 +50,24 @@ configuration, including boundaries around nested Bonsai projects. Inventory use
 those saved rules from the effective policy source. Candidate ignore-file edits
 or new nested project markers cannot silently narrow a trusted base inventory.
 
+## Verification execution profiles
+
+With `config.verification` omitted, `in-process-v1` runs all scenarios in order in
+one fresh application subprocess, retaining module state within that run.
+The explicit `verification: { profile: "isolated-scenarios-v1", workers: 2 }`
+configuration declares independent scenarios. Workers must be an integer from 1
+to 8. Each scenario gets a fresh application subprocess and module cache; its
+steps remain sequential. Scenarios may overlap across workers, and external
+resources remain shared. Selecting this profile changes cross-scenario state
+semantics even with one worker.
+
+Both profiles require every observation and retain deterministic result ordering.
+All workers use one feedback deadline, including startup and cleanup; an
+interrupted or incomplete worker cannot produce accepted evidence. Expected
+execution metadata comes from the effective configuration, including a selected
+base or trusted policy. That configuration enters the content fingerprint, and
+the evaluator requires evidence with the matching execution profile.
+
 ## Timing boundaries
 
 The command profile measures elapsed wall time from the runtime clock origin through
@@ -72,7 +90,9 @@ including partial failures.
 ## Self-verification
 
 Root `.feature` files specify observable Bonsai behavior; executable bindings run
-the real CLI against isolated projects. The native root check measures the complete
+the real CLI against isolated projects. The root opts into four isolated scenario
+workers after auditing those actions for independence; other projects keep the
+sequential default. The native root check measures the complete
 committed inventory and requires every observation under the saved feedback
 policy. Nested check/explain commands use the same sole native engine. A copied
 archive fixture checks the same full inventory under the saved 15-second window.
@@ -121,10 +141,12 @@ The native CLI parent defers compiler dependencies to its semantic worker.
 Standard JSON configuration objects use equivalent native parsing; JSONC,
 malformed input, and unusual property keys retain the reference parser and exact
 diagnostics. Contract compilation loads inside its measured phase. These startup
-changes do not cache action results or alter sequential scenario execution.
+changes do not cache action results or alter the default sequential execution.
 
 Native verification opens a private local broker scoped to that invocation.
-Matching nested CLI processes reuse a Bun lexical worker, which starts lazily.
+The isolated profile owns a broker per execution lane, avoiding contention between
+its concurrent scenarios. Matching nested CLI processes reuse that lane's Bun
+lexical worker, which starts lazily.
 Each request creates and closes its own SDK and native compiler process, using
 fresh programs, file reads, diagnostics, and source maps. Application modules and
 runtime evidence remain isolated in fresh verification processes. The broker

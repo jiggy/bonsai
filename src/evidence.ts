@@ -1,5 +1,6 @@
 import { deepStrictEqual } from 'node:assert'
 import { projectBindingTarget } from './binding-target.ts'
+import { validateVerification } from './policy.ts'
 import type { Config, Contracts, Evidence } from './model.ts'
 
 function observe(response: unknown, selector: string): unknown {
@@ -82,8 +83,11 @@ export async function runEvidence(
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<Evidence> {
+  validateVerification(config.verification)
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
+  if (config.verification)
+    return isolatedEvidence(root, config, contracts, fingerprint, timeoutMs, signal)
   const began = performance.now()
   const { openNativeSession } = await import('./native-session.ts')
   const session = await openNativeSession()
@@ -102,6 +106,145 @@ export async function runEvidence(
   }
 }
 
+/** Each scenario gets fresh application modules; each lane keeps only lexical startup warm. */
+async function isolatedEvidence(
+  root: string,
+  config: Config,
+  contracts: Contracts,
+  fingerprint: string,
+  timeoutMs: number,
+  signal?: AbortSignal,
+): Promise<Evidence> {
+  const began = performance.now()
+  const cancellation = new AbortController()
+  let failure: unknown
+  const fail = (error: unknown) => {
+    failure ??= error
+    cancellation.abort()
+  }
+  const abort = () => fail(new Error('Verification interrupted'))
+  signal?.addEventListener('abort', abort, { once: true })
+  const deadline = setTimeout(
+    () => fail(new Error('Verification feedback deadline expired')),
+    timeoutMs,
+  )
+  const remaining = () => {
+    if (cancellation.signal.aborted) throw failure
+    const value = timeoutMs - (performance.now() - began)
+    if (value <= 0) throw new Error('Verification feedback deadline expired')
+    return value
+  }
+  const shards = contracts.cases.length
+    ? contracts.cases.map((scenario) => {
+        const ids = new Set(
+          scenario.steps.flatMap((step) => (step.kind === 'observation' ? [step.check.id] : [])),
+        )
+        return {
+          ...contracts,
+          cases: [scenario],
+          checks: contracts.checks.filter((check) => ids.has(check.id)),
+        }
+      })
+    : [contracts]
+  const results: Evidence[] = []
+  let next = 0
+  try {
+    if (signal?.aborted) abort()
+    const { openNativeSession } = await import('./native-session.ts')
+    const lanes = Array.from(
+      { length: Math.min(config.verification!.workers, shards.length) },
+      async () => {
+        let session: Awaited<ReturnType<typeof openNativeSession>> | undefined
+        try {
+          remaining()
+          session = await openNativeSession({ inherit: false })
+          while (next < shards.length) {
+            remaining()
+            const index = next++
+            const shard = shards[index]!
+            const evidence = await forkEvidence(
+              root,
+              config,
+              shard,
+              fingerprint,
+              remaining(),
+              cancellation.signal,
+              session.value,
+              true,
+            )
+            validateScenarioEvidence(evidence, shard, config, fingerprint)
+            results[index] = evidence
+          }
+        } catch (error) {
+          fail(error)
+        } finally {
+          try {
+            await session?.close()
+          } catch (error) {
+            fail(error)
+          }
+        }
+      },
+    )
+    await Promise.all(lanes)
+    remaining()
+    const reported = results.flatMap((result) => result.checks)
+    const checks = new Map(reported.map((check) => [check.id, check] as const))
+    if (
+      reported.length !== contracts.checks.length ||
+      checks.size !== contracts.checks.length ||
+      contracts.checks.some((check) => !checks.has(check.id))
+    )
+      throw new Error('Isolated verification did not report every required check exactly once')
+    remaining()
+    return {
+      fingerprint,
+      profile: 'isolated-scenarios-v1',
+      complete: true,
+      elapsedMs: performance.now() - began,
+      bindingImport: results[0]!.bindingImport,
+      checks: contracts.checks.map((check) => checks.get(check.id)!),
+    }
+  } finally {
+    clearTimeout(deadline)
+    signal?.removeEventListener('abort', abort)
+  }
+}
+
+function validateScenarioEvidence(
+  evidence: Evidence,
+  contracts: Contracts,
+  config: Config,
+  fingerprint: string,
+): void {
+  if (
+    evidence.complete !== true ||
+    evidence.profile !== 'in-process-v1' ||
+    evidence.fingerprint !== fingerprint ||
+    evidence.bindingImport?.adapter !== 'project-bindings-v1' ||
+    evidence.bindingImport.file !== config.bindings ||
+    evidence.bindingImport.fingerprint !== fingerprint ||
+    !Number.isFinite(evidence.elapsedMs) ||
+    evidence.elapsedMs < 0 ||
+    !Array.isArray(evidence.checks)
+  )
+    throw new Error('Invalid isolated scenario evidence or binding import receipt')
+  const expected = new Set(contracts.checks.map((check) => check.id))
+  const seen = new Set<string>()
+  for (const check of evidence.checks) {
+    if (
+      !check ||
+      !expected.has(check.id) ||
+      seen.has(check.id) ||
+      (check.status !== 'passed' && check.status !== 'failed') ||
+      (check.error !== undefined && typeof check.error !== 'string')
+    )
+      throw new Error('Invalid or duplicate isolated scenario check')
+    seen.add(check.id)
+  }
+  if (seen.size !== expected.size) throw new Error('Missing isolated scenario checks')
+}
+
 async function forkEvidence(
   root: string,
   config: Config,
@@ -110,6 +253,7 @@ async function forkEvidence(
   timeoutMs: number,
   signal: AbortSignal | undefined,
   session?: string,
+  isolated = false,
 ): Promise<Evidence> {
   const { fork } = await import('node:child_process')
   return new Promise((resolveResult, reject) => {
@@ -124,24 +268,42 @@ async function forkEvidence(
         ...(session !== undefined && { BONSAI_NATIVE_SESSION: session }),
       },
       execArgv: [],
+      detached: isolated && process.platform !== 'win32',
       stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
     })
-    const stopWorker = () => child.kill('SIGKILL')
+    const closed = new Promise<void>((done) => child.once('close', () => done()))
+    const signalWorker = (signal: 'SIGTERM' | 'SIGKILL') => {
+      if (isolated && child.pid && process.platform !== 'win32') {
+        try {
+          process.kill(-child.pid, signal)
+        } catch {
+          /* The scenario process group has already exited. */
+        }
+      }
+      child.kill(signal)
+    }
+    const stopWorker = () => signalWorker('SIGKILL')
     process.once('exit', stopWorker)
     let settled = false
     const finish = (error?: Error, evidence?: Evidence) => {
       if (settled) return
       settled = true
       clearTimeout(timer)
-      process.removeListener('exit', stopWorker)
       signal?.removeEventListener('abort', abort)
-      const done = () => {
+      const done = async () => {
+        // Give nested CLIs a bounded opportunity to reap their detached native
+        // workers before forcibly stopping the scenario's ordinary descendants.
+        if (error && isolated) {
+          signalWorker('SIGTERM')
+          await new Promise<void>((done) => setTimeout(done, 250))
+        }
+        stopWorker()
+        await closed
+        process.removeListener('exit', stopWorker)
         if (error) reject(error)
         else resolveResult(evidence!)
       }
-      if (child.exitCode !== null || child.signalCode !== null) done()
-      else child.once('close', done)
-      child.kill('SIGKILL')
+      void done()
     }
     const timer = setTimeout(
       () => finish(new Error('Verification feedback deadline expired')),

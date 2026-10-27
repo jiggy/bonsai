@@ -222,3 +222,45 @@ export function showHelp(input: { command?: string }) {
 export function generateCompletion(input: { shell: string }) {
   return invoke(['completion', input.shell])
 }
+
+export function verifyIsolatedScenarios(input: { workers: number }) {
+  const { root } = project()
+  try {
+    writeFileSync(
+      join(root, 'orders.ts'),
+      ['let count = 0', 'export function advance() { return { count: ++count } }', ''].join('\n'),
+    )
+    writeFileSync(
+      join(root, 'bindings.ts'),
+      "import { advance } from './orders.ts'\nexport const actions = { 'advance': advance }\n",
+    )
+    writeFileSync(
+      join(root, 'orders.feature'),
+      [
+        'Feature: Independent counters',
+        '  Scenario Outline: Keep steps ordered within a fresh scenario',
+        '    When I invoke "advance" with {}',
+        '    Then response "count" equals 1',
+        '    When I invoke "advance" with {}',
+        '    Then response "count" equals 2',
+        '    Examples:',
+        '      | scenario |',
+        '      | first |',
+        '      | second |',
+        '',
+      ].join('\n'),
+    )
+    const config = JSON.parse(readFileSync(join(root, 'bonsai.json'), 'utf8'))
+    config.verification = { profile: 'isolated-scenarios-v1', workers: input.workers }
+    writeFileSync(join(root, 'bonsai.json'), JSON.stringify(config))
+    const report = invoke(['check', '--root', root])
+    return {
+      ...report,
+      observations: report.snapshot?.evidence?.checks.map(
+        (check: { status: string }) => check.status,
+      ),
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+}

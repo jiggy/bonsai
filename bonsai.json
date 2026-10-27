@@ -35,6 +35,10 @@
     ".agents/skills"
   ],
   "bindings": "bonsai.bindings.ts",
+  "verification": {
+    "profile": "isolated-scenarios-v1",
+    "workers": 4
+  },
   "policy": {
     "bootstrap": 20000,
     "bootstrapSurface": 20,

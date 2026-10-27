@@ -16,6 +16,8 @@ Assert actual CLI reports, exit codes, and filesystem outcomes. Keep every requi
 
 Cover both successful behavior and blocking outcomes. Native checking is the default; the removed TypeScript engine choice is not an executable obligation. Keep unsupported self-analysis visible rather than manufacturing a passing gate.
 
+The isolated verification contract invokes the real CLI with explicit `isolated-scenarios-v1` settings. Require fresh state between scenarios, ordered actions within a scenario, and every observation; this profile never changes the sequential default.
+
 ## Verification
 
 `bun run test:features` verifies that the committed contracts execute and their assertions pass.
