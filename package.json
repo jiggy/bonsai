@@ -17,6 +17,8 @@
     "format": "biome format --write .",
     "format:check": "biome format .",
     "test:features": "bun test --timeout 60000 test/self-host.test.ts",
+    "test:specs": "bun test/specs.ts",
+    "test:spec-sensitivity": "bun test --isolate --timeout 60000 test/spec-sensitivity.test.ts",
     "test:package": "BONSAI_PACKAGE_SMOKE=1 bun test --timeout 180000 test/package-install.test.ts",
     "website:build": "bun website/build.mjs",
     "website:check": "bun website/check.mjs",

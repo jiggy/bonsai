@@ -214,7 +214,11 @@ test('the binding adapter follows unchanged implementations into archives and re
   try {
     cpSync(resolve('src'), join(root, 'src'), { recursive: true })
     cpSync(resolve('package.json'), join(root, 'package.json'))
-    cpSync(resolve('bonsai.bindings.ts'), join(root, 'bonsai.bindings.ts'))
+    // Keep loader recognition independent of the development fixture layout.
+    writeFileSync(
+      join(root, 'bonsai.bindings.ts'),
+      "import { evaluate } from './src/policy.ts'\nexport const actions = { evaluate: evaluate }\n",
+    )
     const files = inventory(root, ['src', 'package.json', 'bonsai.bindings.ts'])
     const source = analyzeSource(root, files, 'bonsai.bindings.ts')
     assert.deepEqual(source.problems, [])

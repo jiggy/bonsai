@@ -23,6 +23,9 @@ Feature: Discover and initialize Bonsai's development loop
     When I invoke "completion" with {"shell": "<shell>"}
     Then response "exitCode" equals 0
     And response "shell" equals "<shell>"
+    And response "scriptPresent" equals true
+    And response "checkCommandPresent" equals true
+    And response "serialOptionPresent" equals true
     Examples:
       | shell      |
       | bash       |
@@ -34,3 +37,9 @@ Feature: Discover and initialize Bonsai's development loop
     When I invoke "completion" with {"shell": "unsupported"}
     Then response "exitCode" equals 2
     And response "code" equals "USAGE"
+
+  Scenario: Discover the installed version without a project or compiler
+    When I invoke "version" with {}
+    Then response "exitCode" equals 0
+    And response "name" equals "bonsai"
+    And response "version" equals "0.0.0-alpha.1"

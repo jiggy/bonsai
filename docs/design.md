@@ -17,6 +17,21 @@ Code is a maintained liability. Product behavior, implementation ancestry, and v
 9. Trust acceptance rules independently of the candidate, and evaluate the combined merge candidate before merging.
 10. Product judgment still decides whether a new external promise is warranted. No deterministic counter can settle that question.
 
+## Development contract
+
+[The BDD workflow](bdd.md) governs development of Bonsai and the workflow taught
+to consuming agents. Reviewed executable product promises determine the surface
+used by the global allowance; raw test or scenario counts do not. New behavior
+starts with a meaningful failing acceptance example. Specifications added for
+existing behavior use a green control and a controlled rule violation to prove
+their sensitivity. Supporting tests add evidence without granting product scope.
+
+Use stable public command identities, retain every required observation, and keep
+specification arrangements separate from the published runtime. Changes to
+contracts must follow the authorized product scope rather than provide room for
+an implementation that already exists. Complete behavior evidence, structural
+ancestry, retained size, and trusted admission remain separate claims.
+
 ## Internal boundaries
 
 One package, with six principal modules:
@@ -30,7 +45,7 @@ One package, with six principal modules:
 | `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
 | `cli` | Collect facts, compare a base, explain components, and return actionable output. |
 
-`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler-options.ts` defines the native and development oracle's shared options. `test/compiler.ts` and `test/reference.ts` keep the JavaScript compiler oracle outside the production package. There is no database, persistent daemon, LLM call, or external service.
+`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler-options.ts` defines the native and development oracle's shared options. `features/support/` owns development acceptance arrangements and actual CLI launches; `test/compiler.ts` and `test/reference.ts` own the separate JavaScript compiler oracle. Neither belongs to the published runtime. There is no database, persistent daemon, LLM call, or external service.
 
 ## Initial adapter choices
 

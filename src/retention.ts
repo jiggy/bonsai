@@ -3,6 +3,7 @@ import type { Contracts, Source, Snapshot } from './model.ts'
 /** Production ancestry is established before tests are admitted. Tests cannot root production. */
 export function buildSnapshot(fingerprint: string, contracts: Contracts, source: Source): Snapshot {
   const ancestry: Record<string, string[]> = Object.create(null)
+  const membership: Record<string, Set<string>> = Object.create(null)
   const components = new Map(source.components.map((c) => [c.id, c]))
   const outgoing = new Map<string, string[]>()
   for (const edge of source.relationships) {
@@ -17,7 +18,9 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
       const target = components.get(next)
       if (!target || (!allowProduction && target.kind === 'production')) continue
       const existing = (ancestry[next] ??= [])
-      if (existing.includes(contract)) continue
+      const seen = (membership[next] ??= new Set<string>())
+      if (seen.has(contract)) continue
+      seen.add(contract)
       existing.push(contract)
       // The registry contains other actions too; only contracted actions establish roots.
       if (next !== source.registry) queue.push(...(outgoing.get(next) ?? []))

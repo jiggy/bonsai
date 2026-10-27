@@ -1,8 +1,7 @@
-import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { availableParallelism, tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { invoke } from './cli.ts'
 
 type ProjectInput = {
   examples?: number
@@ -18,32 +17,6 @@ type ProjectInput = {
   subprocess?: 'live' | 'unused' | 'uncontracted' | 'missing'
 }
 
-const cli = fileURLToPath(new URL('./cli.ts', import.meta.url))
-const repository = fileURLToPath(new URL('../', import.meta.url))
-
-function invoke(args: string[], environment: NodeJS.ProcessEnv = {}) {
-  const result = spawnSync(process.execPath, [cli, ...args, '--json'], {
-    cwd: repository,
-    encoding: 'utf8',
-    timeout: 30000,
-    maxBuffer: 4 * 1024 * 1024,
-    env: {
-      ...process.env,
-      BONSAI_ROOT: undefined,
-      BONSAI_BASE: undefined,
-      BONSAI_POLICY: undefined,
-      FORCE_COLOR: undefined,
-      NO_COLOR: '1',
-      CI: '1',
-      ...environment,
-    },
-  })
-  if (result.error) throw result.error
-  if (result.status === null) throw new Error(`Bonsai stopped before reporting: ${result.signal}`)
-  const report = JSON.parse(result.stdout || result.stderr)
-  return { exitCode: result.status, ...report }
-}
-
 function project(input: ProjectInput = {}) {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-self-host-'))
   const marker = join(root, 'handler-executed')
@@ -53,7 +26,7 @@ function project(input: ProjectInput = {}) {
   writeFileSync(
     join(root, 'orders.ts'),
     [
-      "import { writeFileSync } from 'node:fs'",
+      "import { appendFileSync } from 'node:fs'",
       ...(input.subprocess
         ? [
             "import { spawnSync } from 'node:child_process'",
@@ -71,7 +44,7 @@ function project(input: ProjectInput = {}) {
       ...(input.computedImport
         ? ["  const modulePath = './orders.ts'; await import(modulePath)"]
         : []),
-      `  writeFileSync(${JSON.stringify(marker)}, 'executed')`,
+      `  appendFileSync(${JSON.stringify(marker)}, JSON.stringify(input) + '\\n')`,
       usesChild
         ? '  return backgroundOrder(input)'
         : `  return { status: ${input.broken ? "'accepted'" : "input.quantity > 0 ? 'accepted' : 'rejected'"} }`,
@@ -145,7 +118,7 @@ function project(input: ProjectInput = {}) {
   return { root, marker, childMarker }
 }
 
-export function checkProject(input: ProjectInput) {
+export function checkBasicProject(input: ProjectInput) {
   const { root, marker, childMarker } = project(input)
   try {
     const report = invoke(
@@ -155,6 +128,9 @@ export function checkProject(input: ProjectInput) {
     return {
       ...report,
       handlerExecuted: existsSync(marker),
+      invocationCount: existsSync(marker)
+        ? readFileSync(marker, 'utf8').trim().split('\n').length
+        : 0,
       ...(input.subprocess && {
         childExecuted: existsSync(childMarker),
         childMeasured: report.snapshot?.source.files.some(
@@ -220,7 +196,24 @@ export function showHelp(input: { command?: string }) {
 }
 
 export function generateCompletion(input: { shell: string }) {
-  return invoke(['completion', input.shell])
+  const report = invoke(['completion', input.shell])
+  return {
+    ...report,
+    scriptPresent: typeof report.script === 'string' && report.script.trim().length > 0,
+    checkCommandPresent: typeof report.script === 'string' && report.script.includes('check'),
+    serialOptionPresent:
+      typeof report.script === 'string' &&
+      (input.shell === 'fish'
+        ? /-l serial(?:\s|$)/m.test(report.script)
+        : report.script.includes('--serial')),
+  }
+}
+
+export function showVersion() {
+  return invoke(['version'], {
+    BONSAI_ROOT: '/missing-bonsai-project',
+    BONSAI_NATIVE_BINARY: '/missing-bonsai-checker',
+  })
 }
 
 export function verifyIsolatedScenarios(input: { serial?: boolean }) {

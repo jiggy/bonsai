@@ -14,6 +14,8 @@ Keep the complete skill directory together and match CLI invocations and guarant
 
 Keep example commands usable from a separate checker checkout.
 
+Teach behavior-first development and the actual allowance input: reviewed executable action–observation surface, with every example required. Supporting test counts and fixture aliases cannot earn allowance. Keep new-behavior red/green evidence distinct from rejection probes for already implemented behavior, and never weaken contracts or policy to claim acceptance.
+
 ## Verification
 
 Check documented commands against `bun run bonsai --help`

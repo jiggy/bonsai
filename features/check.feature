@@ -65,12 +65,14 @@ Feature: Admit only supported implementations of required behavior
     And response "decision.surface" equals 1
     And response "snapshot.evidence.checks.length" equals 3
     And response "handlerExecuted" equals true
+    And response "invocationCount" equals 3
 
   Scenario: Additional examples still share the same external surface
     When I invoke "check" with {"examples": 5}
     Then response "decision.surface" equals 1
     And response "snapshot.evidence.checks.length" equals 5
     And response "decision.status" equals "pass"
+    And response "invocationCount" equals 5
 
   Scenario: Measure the command and candidate verification
     When I invoke "check" with {"examples": 1}
@@ -134,7 +136,7 @@ Feature: Admit only supported implementations of required behavior
     And response "verificationTiming.status" equals "skipped"
 
   Scenario: Independent scenarios keep fresh state and ordered steps
-    When I invoke "verify-isolated-scenarios" with {}
+    When I invoke "check" with {"fixture": "scenario-state"}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
     And response "snapshot.verification.profile" equals "isolated-scenarios-v1"
@@ -145,7 +147,7 @@ Feature: Admit only supported implementations of required behavior
     And response "observations" equals ["passed", "passed", "passed", "passed"]
 
   Scenario: Serial verification preserves state between ordered scenarios
-    When I invoke "verify-isolated-scenarios" with {"serial": true}
+    When I invoke "check" with {"fixture": "scenario-state", "serial": true}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
     And response "snapshot.verification.profile" equals "in-process-v1"

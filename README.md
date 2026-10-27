@@ -342,6 +342,28 @@ admission, rejection, incomplete verification, read-only inspection, initializat
 help, and shell completion. The bindings create isolated fixture projects, invoke
 the real executable, and return its reports and filesystem outcomes for assertion.
 
+This repository follows [the BDD workflow](docs/bdd.md): define the product
+promise and executable examples first, demonstrate the relevant failure, implement
+the smallest passing change, and refactor. Existing behavior gaining a contract
+uses a passing control and a controlled rule violation to establish sensitivity.
+Development arrangements live in `features/support/`, outside the published
+runtime. Helpers arrange, execute, and observe; expected product outcomes belong
+in `.feature` files.
+
+Those reviewed product contracts determine the action–observation surface used by
+the global code allowance. More test functions, scenarios, example rows, or files
+earn no extra allowance. Every observation remains required, and all maintained
+code and support remain charged. Unit and technical regression tests add
+confidence without granting product scope. New promises or fixture aliases must
+never be invented merely to accommodate an existing implementation.
+
+For a focused red/green loop, list the authored cases or select a scenario:
+
+```sh
+bun run test:specs -- --list
+bun run test:specs -- --scenario 'part of a scenario name'
+```
+
 ```sh
 bun run test:features
 ```

@@ -31,17 +31,21 @@ Record retained size, ceiling, required reduction, contract surface, violations,
 
 **Done:** the starting result and every reported blocker are accounted for. If execution is unavailable, record the concrete missing prerequisite and continue work that does not depend on its result.
 
-## 3. Implement and prune
+## 3. Specify, implement, and prune
 
-Express requested external behavior in the project's executable contracts and connect it to actual application handlers. Preserve all existing obligations unless the task authorizes a product-scope change. Extend an existing action or observation where it already represents the behavior.
+Start from the requested product promise and concrete positive, negative, and boundary examples. Put expected outcomes in the project's executable contracts and connect them to actual application handlers. Preserve all existing obligations unless the task authorizes a product-scope change. Extend an existing action or observation where it already represents the behavior; fixture names and helper aliases are not new product capabilities.
+
+For new or changed behavior, write or reuse the acceptance example before implementation. Run it and identify a failure caused by the missing or incorrect product behavior; a broken fixture, missing binding, or unavailable checker does not establish that red step. Implement the smallest passing change, then refactor under the same observations. Use the project's focused acceptance runner when available, followed by the complete Bonsai gate.
+
+When specifying behavior that already works, establish a green control and use an isolated, reversible product fault or rejection probe to show that the intended observation detects the violation. Restore and rerun the control. Report this as retrospective coverage rather than claiming a spec-first failure. Keep fixtures responsible for arrangement, execution, and observation; they must not calculate the product's expected verdict or manufacture passed checks.
 
 Retain code through contract ancestry. Before adding an abstraction, inspect the existing dependency path for a smaller extension. For an unnecessary layer, rewire its callers, preserve meaningful assertions, and remove the obsolete code and exclusive support together.
 
-Surface is the deduplicated external action–observation set. Extra examples strengthen verification without earning allowance. Shared code consumes its full cost once; adding callers or unit tests does not justify otherwise unrooted production code.
+The reviewed executable product surface is the deduplicated external action–observation set supplying one global allowance. Test-function counts, scenario counts, file splits, and extra examples earn no additional allowance; every observation remains required. Shared code consumes its full cost once. Unit, protocol, compiler, and performance tests add confidence but grant no product scope, and cannot justify otherwise unrooted production code. Ancestry is a structural connection, not proof of behavioral completeness.
 
 Keep the governing inventory and policy intact while implementing ordinary features or compaction. Treat a requested rule change as an explicit policy change, with its effect reported separately. Never manufacture external promises or remove required assertions to obtain a pass.
 
-**Done:** the candidate implements the requested behavior and every added retained component has an identifiable contract connection.
+**Done:** the candidate implements the requested behavior, the relevant red/green or control/probe evidence is recorded, and every added retained component has an identifiable contract connection. Review changes to product surface separately from measured implementation savings.
 
 ## 4. Resolve the verdict
 

@@ -8,6 +8,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -69,7 +70,11 @@ function fulfilled(
   required: ReturnType<typeof contracts>,
 ) {
   const candidate = report.snapshot
-  assert.equal(report.status, 1, report.stderr)
+  assert.equal(
+    report.status,
+    1,
+    JSON.stringify({ problems: candidate.source.problems, timing: candidate.timing }, null, 2),
+  )
   assert.equal(report.decision.status, 'reject')
   assert.deepEqual(
     candidate.source.files.map((file) => file.file),
@@ -87,7 +92,8 @@ function fulfilled(
   assert.equal(candidate.source.bindingImports[0]!.file, 'src/evidence.ts')
   assert.equal(candidate.source.bindingImports[0]!.bindings, config.bindings)
   for (const [from, file] of [
-    ['src/self-host.ts#invoke', 'src/cli.ts'],
+    ['features/support/cli.ts#runCli', 'src/cli.ts'],
+    ['features/support/cli.ts#startCli', 'src/cli.ts'],
     ['src/evidence.ts#forkEvidence', 'src/worker.ts'],
     ['src/native-session.ts#spawnNativeWorker', 'src/tsrs-worker.ts'],
   ] as const) {
@@ -185,6 +191,7 @@ test('the native checker fulfills every feature from a complete archived project
     }
     const scoped = { ...config, maintained: files }
     writeFileSync(resolve(root, 'bonsai.json'), JSON.stringify(scoped))
+    symlinkSync(resolve(repository, 'node_modules'), resolve(root, 'node_modules'), 'dir')
     const report = check(root)
     fulfilled(report, scoped, files, required)
   } finally {

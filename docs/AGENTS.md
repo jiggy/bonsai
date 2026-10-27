@@ -4,11 +4,13 @@ Explain Bonsai’s supported behavior and limits.
 
 ## Ownership
 
-Design baseline, roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), performance profiling and native checker research (`performance.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
+Design baseline, BDD workflow (`bdd.md`), roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), performance profiling and native checker research (`performance.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
 
 ## Local Contracts
 
 Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and development oracle comparisons from native full-root admission checks under the saved deadline.
+
+Keep the BDD guide authoritative for the behavior-first workflow and the relationship between executable product surface and one global allowance. Counts of tests, cases, assertions, or files are not allowance inputs. Distinguish meaningful red/green evidence for new behavior from retrospective green controls and controlled faults for existing rules; neither structural ancestry nor selected fault checks prove complete behavioral coverage.
 
 Document fixed subprocess entry-point syntax separately from runtime coverage. Child launches root executable startup, not entire modules or exports. Keep unsupported launch forms, import side effects, and class initialization explicit. Test-helper subject discovery uses established production ancestry; supporting helper ancestry cannot justify unrelated callers.
 

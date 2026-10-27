@@ -12,7 +12,18 @@ Preserve these invariants:
 
 Use Bun by default for dependency installation and package scripts. Install with `bun install --frozen-lockfile`; keep `bun.lock` current and do not generate npm lockfiles. Bun also runs the CLI, tests, and verification workers.
 
-Define Bonsai’s observable behavior in executable `features/*.feature` contracts. The normal test suite must execute them against the real CLI; `bun run test:features` runs them alone. Keep feature verification distinct from the root retained-code gate.
+## BDD and the code allowance
+
+Read [the BDD workflow](docs/bdd.md) before changing product behavior or its contracts. Bonsai's executable product specifications govern its code allowance: the deduplicated external action–observation surface supplies one global ceiling. Test counts, scenario counts, example rows, file splits, and fixture names earn no additional allowance. Every individual observation remains required, and all maintained code and support consume their full retained cost.
+
+- Start from the requested product promise and concrete positive, negative, and boundary examples. Keep action identities aligned with public commands; use fixture inputs for different contexts. Do not invent promises, action aliases, or response aliases to justify existing code or enlarge the ceiling.
+- For new behavior, write the executable example first and observe a failure caused by the missing product behavior. A broken fixture, missing binding, compiler error, or unavailable tool is not that evidence. Implement the smallest change, make the example pass, then refactor while preserving its obligations.
+- For already implemented behavior missing a specification, establish a green real-CLI example and demonstrate that a controlled product fault or rejection probe makes the intended observation fail. Record this as retrospective coverage, not a spec-first red step.
+- Keep expected product outcomes in `.feature` files. Support arranges isolated inputs, invokes the real CLI, and returns reports or independently observed effects; it must not duplicate the decision algorithm or manufacture passed observations.
+- Use unit, protocol, compiler, presentation, and performance tests for detailed regressions. They add confidence but grant no allowance and cannot root unsupported production code. Ancestry is a structural connection, not proof of behavioral completeness.
+- Preserve existing promises and every verification obligation unless the requested product change authorizes their removal. Review contract-surface changes against that scope and report their allowance effect separately from implementation savings.
+
+The normal suite executes `features/*.feature` against the real CLI. Use the focused specification command for the red/green loop and `bun run test:features` for the complete self-verification. Keep passing feature evidence distinct from the root retained-code verdict; never change its scope, coefficients, or deadline merely to obtain a pass.
 
 Verification runs concurrent isolated scenarios by default, sized from available CPU capacity and bounded by scenario count. Use `check --serial` for ordered scenarios sharing application state. Execution mode and worker count do not belong in project settings.
 

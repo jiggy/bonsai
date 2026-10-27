@@ -47,17 +47,26 @@ Use the checker's `examples/checkout/features/checkout.feature` and `examples/ch
 
 The literal `actions` registry serves both static resolution and runtime execution. Keep action identifiers and response selectors explicit. Put cases and expected outcomes in `.feature` files; Bonsai expands each example and owns the response assertions. Read the installed README before introducing other Gherkin forms.
 
+Choose stable external operation names and observable product outcomes. Reuse them across fixture contexts and example rows; naming another fixture or wrapping the same response under another alias must not manufacture allowance. The executable action–observation surface supplies one global ceiling, while all concrete observations remain mandatory. Lower-level test counts and structural ancestry do not prove complete behavioral specification.
+
+For a new behavior, demonstrate its intended failing acceptance example before implementation. For existing behavior being adopted, begin with a green control and show a controlled violation is rejected. Keep that retrospective evidence distinct from a spec-first red step. Arrange data and invoke real handlers in bindings; leave expected outcomes and assertions in the contracts.
+
 Run `check --root "$PROJECT_DIR" --json` through the checker. Resolve every unrooted component within the declared scope by connecting it to required behavior or removing unsupported material. Expand contracts to the intended adoption scope before claiming the entire inventory is justified.
 
 **Done:** the baseline has a complete `pass`, all required observations executed, and the scope identified in step 1 matches the implemented contracts and inventory.
 
 ## 5. Demonstrate rejection and recovery
 
-Use an isolated copy or a reversible edit outside existing user changes. Add an unused top-level function to an inventoried production module. The gate must exit 1 and identify its missing ancestry, including when the module's other symbols are retained. Remove exactly that probe and rerun: the original candidate must pass again.
+Use an isolated copy or a reversible edit outside existing user changes. Demonstrate both boundaries separately:
+
+- Change one real handler's response for a specified input while preserving a runnable, analyzable program. The gate must reject the violated observation; an unrelated setup or compiler failure is not evidence of assertion sensitivity.
+- Add an unused top-level function to an inventoried production module. The gate must exit 1 and identify its missing ancestry, including when the module's other symbols are retained.
+
+Restore each probe and rerun the original candidate. Do not weaken expected results, change scope, or enlarge policy to recover the pass.
 
 Record the baseline fingerprint, retained size, ceiling, surface count, check results, and the rejection/recovery outcomes. Keep generated reports outside maintained paths.
 
-**Done:** the installed gate distinguishes a measured pass from an actual unsupported-code rejection, and the temporary probe is removed.
+**Done:** the installed gate distinguishes a measured pass from both a behavioral violation and unsupported retained code; every temporary probe is removed and the restored candidate passes.
 
 ## 6. Make the loop discoverable
 
@@ -66,6 +75,8 @@ Add a project command that preserves the checker's exit status and an agent-inst
 > Bonsai: read `.agents/skills/bonsai/SKILL.md` when implementing changes under the gate or resolving its failures. Run `<project gate command>` before claiming acceptance.
 
 Use the installed skill's actual location and the real command. Copy this entire skill directory, including `references/`, into the agent system's skill location when installing it; the reference link must remain valid.
+
+State the governing BDD rule in the project's agent instructions: reviewed executable product promises determine the allowance; supporting test counts do not. Require examples before implementing new behavior, meaningful failure evidence, full verification after refactoring, and explicit reporting of contract-surface changes. Keep all existing promises unless the task authorizes their change. A failing budget is a constraint to resolve through code reduction, not a reason to invent additional promises.
 
 For initial adoption, run without `--base` until the base revision contains the project-root configuration and contracts. Subsequently, `--base <revision>` requires `--root` to be the Git repository root and uses the base's policy and inventory by default. Ensure that revision is available in local and CI checkouts. Treat additions to the maintained inventory as explicit scope changes; a candidate edit alone does not change the base inventory.
 
