@@ -29,14 +29,15 @@ publish it or update the registry tag.
 
 The package pins `tsrs@0.18.0-ts7.1.0-dev.20260929`, including prebuilt binaries
 and standard libraries. Its optional platform packages have no install/build
-scripts. Users need neither Node nor Cargo, `rustc`, or a local compiler toolchain.
+scripts. Packaged binaries need neither Node nor Cargo, `rustc`, or a local compiler toolchain.
 The CLI, asynchronous SDK, and verification subprocess run through Bun.
 
 | Target in the pinned release | Availability |
 | --- | --- |
 | Linux x64 and arm64, GNU or musl | Prebuilt |
 | macOS arm64 | Prebuilt |
-| Windows and macOS x64 | Unsupported |
+| Windows | Unsupported |
+| macOS x64 | No prebuilt package; matching local build through `BONSAI_NATIVE_BINARY` |
 
 Newer upstream releases add platforms, but Bonsai does not claim support until
 its pinned SDK and runtime are tested there. Missing dependencies and unsupported
@@ -52,7 +53,11 @@ is unavailable, the diagnostic gives a dependency repair.
 `BONSAI_NATIVE_BINARY` optionally selects an absolute path to a matching tsrs
 API-server binary; relative overrides resolve against the caller directory.
 Bonsai clears upstream `TSRS_BINARY` at the worker boundary. The override does not
-accept the retired Oxc collector. Remove an obsolete override before reinstalling:
+accept the retired Oxc collector. Unsupported targets link to matching compiler
+source and ask for `BONSAI_NATIVE_BINARY`; reinstalling cannot add an unpublished
+binary. Invalid explicit overrides ask for a working local path instead of
+silently discarding that choice. To intentionally return to an available prebuilt
+binary, remove the override before reinstalling:
 
 ```sh
 unset BONSAI_NATIVE_BINARY
@@ -63,6 +68,29 @@ bun run ./src/cli.ts check --verbose
 That lockfile command applies to a source checkout. Installed-package repairs
 reinstall the published package, rather than asking users to enter a temporary
 `bunx` cache directory. Help and version never start or install a native checker.
+
+### Local build on Intel macOS
+
+Installing dependencies again cannot supply an unpublished `darwin-x64` package.
+Build the exact tsrs release matching Bonsai's pinned SDK, using Rustup and Xcode
+Command Line Tools. From the Bonsai checkout:
+
+```sh
+mkdir -p .bonsai
+git clone --depth 1 --branch v0.18.0 https://github.com/oxc-project/tsrs.git .bonsai/tsrs
+cd .bonsai/tsrs
+TSRS_TS_VERSION=7.1.0-dev.20260930.4 cargo build --locked --release -p tsrs_cli --bin tsrs
+export BONSAI_NATIVE_BINARY="$PWD/target/release/tsrs"
+cd ../..
+"$BONSAI_NATIVE_BINARY" --version
+bun run ./src/cli.ts check --verbose
+```
+
+Rustup selects the source checkout's pinned Rust 1.99.1 toolchain. The binary
+embeds its standard libraries. Keep the `BONSAI_NATIVE_BINARY` export in the
+terminal running Bonsai; setting `TSRS_BINARY` has no effect on Bonsai's worker.
+CI runs installation regressions on real Intel and Apple Silicon macOS runners,
+including a compiled Intel binary that completes native analysis and verification.
 
 ## Analysis and verification
 

@@ -18,7 +18,7 @@ Keep native semantic conformance, lexical accounting, and runtime evidence disti
 
 Document native analysis as the default and `--engine rust` as a compatibility spelling. `--engine typescript` is unsupported. Keep development compiler oracles outside published runtime sources. Reference comparisons run in development tests, never inside a native check. Preserve explicit TypeScript-version gaps, Bun asynchronous transport requirements, native platform support, and the distinction between analysis speed, completed verification, and gate acceptance. Never compare an incomplete run with a completed gate as an equivalent speedup.
 
-Document prebuilt platform coverage and source-checkout versus installed-package repairs. Never imply a prepared npm version has been published, or ask users to compile a missing native dependency.
+Document prebuilt platform coverage and source-checkout versus installed-package repairs. Never imply a prepared npm version has been published or ask users to compile a missing published platform package. Unpublished targets may use an explicit local build matching the pinned SDK through `BONSAI_NATIVE_BINARY`; distinguish this from prebuilt package support and automatic installation.
 
 ## Work Guidance
 

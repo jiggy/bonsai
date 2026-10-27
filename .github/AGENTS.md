@@ -14,7 +14,9 @@ The website workflow runs `website:build` and `website:check` with read-only con
 
 The isolated deploy job has only `pages: write` and `id-token: write`, targets the `github-pages` environment, and deploys the uploaded artifact without a checkout or candidate commands. Other branches may be checked manually but cannot deploy.
 
-Formatting covers Biome-managed files. Read-only validation installs the pinned native TypeScript checker through Bun and runs differential source comparisons, types, the full test suite, and the demo. There is no authored Cargo crate or Rust build step. Keep native analysis commands out of write-capable jobs.
+Formatting covers Biome-managed files. Read-only validation installs the pinned native TypeScript checker through Bun and runs differential source comparisons, types, the full test suite, and the demo. There is no authored Cargo crate. Keep native analysis commands out of write-capable jobs.
+
+`native-platforms` runs installation regressions on `macos-15-intel` (darwin-x64) and `macos-15` (darwin-arm64), asserting Bun's actual platform and architecture. Intel builds the immutable upstream tsrs revision matching the pinned SDK with its optimized `ci` profile without LTO; Apple Silicon uses its published package. Both require a real explicit-override check with passing evidence, and Intel also exercises the actual unsupported packaged target. There is no authored Cargo crate. These jobs validate the same merge result and formatting commit as Linux. Formatting check reporting includes native-platform failures. Use the ordinary suite's isolated Bun runner and 30-second test timeout for these targeted regressions, including the multi-command check/explain case.
 
 `test:package` explicitly downloads production dependencies into an isolated consumer and fresh Bun cache. It packs the actual release files, disables install scripts, and runs `bunx` without Node, Cargo, or a native override on PATH. Keep this network-dependent release check in the read-only validation job; the ordinary test suite remains network-free.
 

@@ -121,8 +121,73 @@ jobs:
         run: bun run test:package
       - run: bun run demo
 
+  native-platforms:
+    name: Native recovery (${{ matrix.platform }})
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15-intel
+            platform: darwin-x64
+          - runner: macos-15
+            platform: darwin-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git merge --no-edit "$FORMATTED_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - name: Assert the actual runtime platform
+        env:
+          EXPECTED_PLATFORM: ${{ matrix.platform }}
+        run: test "$(bun -p 'process.platform + "-" + process.arch')" = "$EXPECTED_PLATFORM"
+      - name: Check out the compiler matching the pinned tsrs dependency
+        if: matrix.platform == 'darwin-x64'
+        uses: actions/checkout@v4
+        with:
+          repository: oxc-project/tsrs
+          ref: 5f92808bc92bb97b06212153ab73d28d551c0b9b # v0.18.0
+          path: .bonsai/tsrs
+          persist-credentials: false
+      - name: Build the matching Intel macOS API server
+        if: matrix.platform == 'darwin-x64'
+        working-directory: .bonsai/tsrs
+        env:
+          TSRS_TS_VERSION: 7.1.0-dev.20260930.4
+        run: cargo build --locked --profile ci -p tsrs_cli --bin tsrs
+      - name: Test native installation failures and a working explicit override
+        env:
+          NATIVE_PLATFORM: ${{ matrix.platform }}
+        run: |
+          if [ "$NATIVE_PLATFORM" = darwin-x64 ]; then
+            export BONSAI_NATIVE_BINARY="$PWD/.bonsai/tsrs/target/ci/tsrs"
+          else
+            export BONSAI_NATIVE_BINARY="$(bun -e "import getExePath from './node_modules/tsrs/lib/getExePath.js'; console.log(getExePath())")"
+          fi
+          test -x "$BONSAI_NATIVE_BINARY"
+          bun test --isolate --timeout 30000 test/native-installation.test.ts
+
   report-formatting-check:
-    needs: [apply-formatting, verify]
+    needs: [apply-formatting, verify, native-platforms]
     if: always() && needs.apply-formatting.outputs.sha != ''
     permissions:
       checks: write
@@ -135,8 +200,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
           RESULT: ${{ needs.verify.result }}
+          NATIVE_RESULT: ${{ needs.native-platforms.result }}
         run: |
           conclusion="$RESULT"
+          if [ "$conclusion" = success ] && [ "$NATIVE_RESULT" != success ]; then
+            conclusion="$NATIVE_RESULT"
+          fi
           if [ "$conclusion" = skipped ]; then
             conclusion=failure
           fi

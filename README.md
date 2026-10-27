@@ -13,9 +13,11 @@ The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`
 ## Try it
 
 Requires Bun 1.4.3 or later. The CLI uses the packaged Rust TypeScript checker;
-users do not need Node, Cargo, or a Rust compiler. Supported prebuilt targets are
+users on supported prebuilt targets do not need Node, Cargo, or a Rust compiler. Supported prebuilt targets are
 Linux x64/arm64 (GNU or musl) and macOS arm64. See [native installation](docs/native-prototype.md)
-for platform limits and repairs.
+for platform limits and repairs. Intel macOS needs a
+[local build of the matching compiler](docs/native-prototype.md#local-build-on-intel-macos),
+selected with `BONSAI_NATIVE_BINARY`; Bonsai ignores `TSRS_BINARY`.
 
 ```sh
 bun install --frozen-lockfile
