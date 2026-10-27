@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { compareCases } from '../native/tools/compare.ts'
 import { snapshot } from '../src/project.ts'
 import { countTokens } from '../src/source.ts'
+import { analyzeSource } from './reference.ts'
 import type { Config } from '../src/model.ts'
 
 test('native TypeScript diagnostics and source facts match the reference fixture corpus', {
@@ -47,13 +48,13 @@ test('maintained Rust source is charged and blocks unsupported ancestry before v
         maxFeedbackMs: 15000,
       },
     }
-    for (const engine of ['typescript', 'rust'] as const) {
-      const candidate = await snapshot(root, config, true, undefined, undefined, engine)
-      assert.deepEqual(candidate.source.problems, ['Unsupported source language: core.rs'])
-      assert.equal(
-        candidate.source.files.find((file) => file.file === 'core.rs')?.tokens,
-        countTokens(rust),
-      )
+    const candidate = await snapshot(root, config)
+    for (const source of [
+      analyzeSource(root, config.maintained, config.bindings),
+      candidate.source,
+    ]) {
+      assert.deepEqual(source.problems, ['Unsupported source language: core.rs'])
+      assert.equal(source.files.find((file) => file.file === 'core.rs')?.tokens, countTokens(rust))
       assert.equal(candidate.evidence, undefined)
     }
   } finally {

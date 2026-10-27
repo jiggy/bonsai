@@ -7,10 +7,9 @@ import { runEvidence } from './evidence.ts'
 import { validatePolicy } from './policy.ts'
 import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
-import { collectRustSource, type SourceEngine } from './collector.ts'
+import { collectRustSource } from './collector.ts'
 
 export { CollectorError } from './collector.ts'
-export type { SourceEngine } from './collector.ts'
 
 const require = createRequire(import.meta.url)
 
@@ -73,7 +72,6 @@ export async function snapshot(
   execute = true,
   signal?: AbortSignal,
   timer = new Timer(),
-  engine: SourceEngine = 'typescript',
 ): Promise<Snapshot> {
   const started = performance.now()
   try {
@@ -92,27 +90,19 @@ export async function snapshot(
     )
     const sourceTimer = new Timer()
     timer.start('source', sourceTimer)
-    let source
-    let analysis: Snapshot['analysis']
-    if (engine === 'rust') {
-      const collected = await collectRustSource(
-        root,
-        files,
-        config.bindings,
-        signal,
-        execute ? config.policy.maxFeedbackMs - (performance.now() - started) : undefined,
-        sourceTimer,
-      )
-      source = collected.source
-      analysis = collected.analysis
-      if (collected.interrupted) timer.finish('interrupted')
-    } else {
-      const { analyzeSource } = await import('./source.ts')
-      source = analyzeSource(root, files, config.bindings, sourceTimer)
-    }
+    const collected = await collectRustSource(
+      root,
+      files,
+      config.bindings,
+      signal,
+      execute ? config.policy.maxFeedbackMs - (performance.now() - started) : undefined,
+      sourceTimer,
+    )
+    const source = collected.source
+    if (collected.interrupted) timer.finish('interrupted')
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
-    if (analysis) result.analysis = analysis
+    result.analysis = collected.analysis
     let feedbackElapsed = execute ? performance.now() - started : undefined
     if (execute && !contracts.problems.length && !source.problems.length) {
       timer.start('verification')
@@ -124,7 +114,6 @@ export async function snapshot(
           hash,
           config.policy.maxFeedbackMs - (performance.now() - started),
           signal,
-          engine,
         )
         timer.finish()
       } catch (error) {

@@ -31,22 +31,12 @@ function contracts() {
   )
 }
 
-function check(root: string, config?: Config, engine: 'typescript' | 'rust' = 'typescript') {
+function check(root: string) {
   const result = spawnSync(
     process.execPath,
-    [
-      resolve(root, 'src/cli.ts'),
-      'check',
-      '--root',
-      root,
-      ...(config ? ['--policy', '-'] : []),
-      '--json',
-      '--engine',
-      engine,
-    ],
+    [resolve(root, 'src/cli.ts'), 'check', '--root', root, '--json'],
     {
       cwd: root,
-      input: config ? JSON.stringify(config) : undefined,
       encoding: 'utf8',
       timeout: 75000,
       maxBuffer: 16 * 1024 * 1024,
@@ -152,7 +142,7 @@ test('the native root gate verifies its full committed inventory within the save
     !files.some((file) => file.endsWith('.rs')),
     'The obsolete collector must be removed, not excluded',
   )
-  const report = check(repository, undefined, 'rust')
+  const report = check(repository)
   const reportPath = process.env.BONSAI_SELF_CHECK_REPORT
   if (reportPath)
     writeFileSync(
@@ -168,19 +158,19 @@ test('the native root gate verifies its full committed inventory within the save
   assert.equal(report.snapshot.analysis?.status, 'complete')
 })
 
-test('the reference TypeScript implementation fulfills every feature through the real CLI', {
-  timeout: 90000,
+test('the native checker fulfills every feature from a complete archived project', {
+  timeout: 30000,
 }, () => {
   const required = contracts()
   assert.deepEqual(required.problems, [])
   assert.ok(required.cases.length >= 10)
   assert.ok(required.checks.length > required.pairs.length)
   const config = readConfig(repository)
-  // The reference uses the same complete inventory, copied for archive/loader coverage.
+  // Copy the same complete inventory for archive and loader coverage.
   const files = inventory(repository, config.maintained, config.exclude)
   const work = resolve(repository, 'work')
   mkdirSync(work, { recursive: true })
-  const root = mkdtempSync(resolve(work, 'typescript-self-host-'))
+  const root = mkdtempSync(resolve(work, 'native-self-host-'))
   try {
     for (const file of files) {
       const target = resolve(root, file)
@@ -189,10 +179,8 @@ test('the reference TypeScript implementation fulfills every feature through the
     }
     const scoped = { ...config, maintained: files }
     writeFileSync(resolve(root, 'bonsai.json'), JSON.stringify(scoped))
-    // Only the fixture's execution window changes; budget rules stay committed values.
-    const executionConfig = { ...scoped, policy: { ...scoped.policy, maxFeedbackMs: 60000 } }
-    const report = check(root, executionConfig)
-    fulfilled(report, executionConfig, files, required)
+    const report = check(root)
+    fulfilled(report, scoped, files, required)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

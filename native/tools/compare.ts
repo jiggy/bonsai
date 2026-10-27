@@ -6,7 +6,7 @@ import { compileContracts } from '../../src/contracts.ts'
 import type { Contracts, Source } from '../../src/model.ts'
 import { evaluate } from '../../src/policy.ts'
 import { buildSnapshot } from '../../src/retention.ts'
-import { analyzeSource } from '../../src/source.ts'
+import { analyzeSource } from '../../test/reference.ts'
 import { canonicalSource, collectNative } from './client.ts'
 import { cases, materializeFixture } from './fixtures.ts'
 

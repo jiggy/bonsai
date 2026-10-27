@@ -438,12 +438,14 @@ async function main(): Promise<void> {
     }
     return
   }
-  const engine = text('engine') ?? 'typescript'
-  if (engine !== 'typescript' && engine !== 'rust')
+  const engine = text('engine') ?? 'rust'
+  if (engine !== 'rust')
     throw new CliError(
-      `Unknown source engine '${engine}'`,
+      engine === 'typescript'
+        ? 'The TypeScript engine is no longer available. Omit --engine to use the Rust checker'
+        : `Unknown source engine '${engine}'. Bonsai uses the Rust checker`,
       'USAGE',
-      'Use --engine typescript or --engine rust',
+      'bonsai help check',
     )
   const quiet = enabled('quiet') && !enabled('verbose')
   const human = format === 'human' || (format === 'auto' && Boolean(process.stdout.isTTY))
@@ -590,10 +592,6 @@ async function main(): Promise<void> {
     return
   }
   const { readConfig, snapshot: collectSnapshot, CollectorError } = await import('./project.ts')
-  if (engine === 'typescript' && (command === 'check' || command === 'explain')) {
-    const { analyzeSource } = await import('./source.ts')
-    void analyzeSource
-  }
   const snapshot = async (...parameters: Parameters<typeof collectSnapshot>) => {
     try {
       return await collectSnapshot(...parameters)
@@ -771,18 +769,18 @@ async function main(): Promise<void> {
   if (temporary) {
     checkTimer?.start('base')
     if (checkTimer) baseTimer = new Timer()
-    base = await snapshot(temporary, config, false, cancellation.signal, baseTimer, engine)
+    base = await snapshot(temporary, config, false, cancellation.signal, baseTimer)
     if (base.contracts.problems.length)
       throw new CliError(
         `Can't compile base contracts: ${base.contracts.problems.join(', ')}`,
         'BASE_INCOMPLETE',
         'Fix the base contracts or select another --base revision',
       )
-    if (engine === 'rust' && base.analysis?.status !== 'complete')
+    if (base.analysis?.status !== 'complete')
       throw new CliError(
         `Rust checker can't check base '${baseValue}': ${base.source.problems.join(', ')}`,
         'BASE_INCOMPLETE',
-        'Use --engine typescript for this base, or select a base supported by the Rust collector',
+        'Fix the reported source form or select a base supported by the native checker',
       )
   }
   const inputQueries =
@@ -801,7 +799,6 @@ async function main(): Promise<void> {
     command === 'check',
     cancellation.signal,
     candidateTimer,
-    engine,
   )
   candidateTiming = candidate.timing
   if (stopping) return

@@ -14,10 +14,12 @@ subjects without letting shared support justify unrelated code.
 
 Profiles expose command, source, and verification durations, including interrupted
 work. Native benchmarks use fresh processes and retain evidence completion state.
-Expand real-project and diagnostic conformance before adopting a native default;
-known TypeScript 5/7 gaps remain explicit blockers. See [native scope](native-prototype.md)
+Expand real-project and diagnostic conformance for the sole native runtime;
+known TypeScript 5/7 gaps remain explicit blockers. Keep the development oracle
+outside the published package and validate releases from an isolated npm tarball. See [native scope](native-prototype.md)
 and [performance evidence](performance.md).
 
+- Profile nested verification and native graph transfer before further optimization; remove unused or duplicate semantic queries while preserving fresh programs and every observation.
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
 - Extend the fixed subprocess adapter only from real launch patterns; computed targets, general import side effects, class initialization, and resource dependencies still need precise tracing and diagnostics.
 - Extend explanation output to show actual contract-to-component paths and verification subjects.

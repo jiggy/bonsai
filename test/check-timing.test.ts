@@ -68,7 +68,7 @@ function sourceStages(profile: Timing) {
   assert.ok(source.stages, 'Source collection must expose its measured work')
   assert.deepEqual(
     source.stages.map((entry) => entry.name),
-    ['measurement', 'program', 'diagnostics', 'graph'],
+    ['measurement', 'program', 'diagnostics', 'graph', 'native'],
   )
   assert.ok(source.stages.every((entry) => entry.status === 'completed'))
 }

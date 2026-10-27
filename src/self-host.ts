@@ -13,7 +13,7 @@ type ProjectInput = {
   unbound?: boolean
   ignoredCode?: boolean
   computedImport?: boolean
-  engine?: 'typescript' | 'rust'
+  engine?: 'rust'
   missingNative?: boolean
   subprocess?: 'live' | 'unused' | 'uncontracted' | 'missing'
 }
@@ -22,14 +22,7 @@ const cli = fileURLToPath(new URL('./cli.ts', import.meta.url))
 const repository = fileURLToPath(new URL('../', import.meta.url))
 
 function invoke(args: string[], environment: NodeJS.ProcessEnv = {}) {
-  const selected = process.env.BONSAI_SELF_HOST_ENGINE
-  const engine =
-    (args[0] === 'check' || args[0] === 'explain') &&
-    !args.includes('--engine') &&
-    (selected === 'rust' || selected === 'typescript')
-      ? ['--engine', selected]
-      : []
-  const result = spawnSync(process.execPath, [cli, ...args, ...engine, '--json'], {
+  const result = spawnSync(process.execPath, [cli, ...args, '--json'], {
     cwd: repository,
     encoding: 'utf8',
     timeout: 30000,

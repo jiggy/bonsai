@@ -117,6 +117,8 @@ jobs:
           path: ${{ runner.temp }}/bonsai-self-check.json
           if-no-files-found: ignore
           retention-days: 14
+      - name: Verify the production package with a fresh cache
+        run: bun run test:package
       - run: bun run demo
 
   report-formatting-check:

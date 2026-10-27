@@ -13,7 +13,6 @@ const requestLimit = 4 * 1024 * 1024
 const errorLimit = 64 * 1024
 const contextExclusions = new Set([
   'BONSAI_NATIVE_SESSION',
-  'BONSAI_SELF_HOST_ENGINE',
   'BONSAI_ROOT',
   'BONSAI_BASE',
   'BONSAI_POLICY',

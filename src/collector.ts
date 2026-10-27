@@ -1,12 +1,9 @@
-import { existsSync } from 'node:fs'
-import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { createRequire } from 'node:module'
 import type { Snapshot, Source, Timing, TimingStage } from './model.ts'
 import type { Timer } from './timing.ts'
 import { requestNativeSession, SessionInterrupted, spawnNativeWorker } from './native-session.ts'
+import { nativeBinary, nativeRepair, NativeInstallError } from './native-install.ts'
 
-export type SourceEngine = 'typescript' | 'rust'
 type Collection = {
   source: Source
   analysis: NonNullable<Snapshot['analysis']>
@@ -23,16 +20,9 @@ type NativeResponse = {
   timing: Timing
 }
 
-const checkout = fileURLToPath(new URL('../', import.meta.url))
 const require = createRequire(import.meta.url)
 const version: string = require('../package.json').dependencies.tsrs
 const categories = ['config', 'options', 'syntactic', 'bind', 'global', 'semantic']
-const shellWord = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
-const install = `cd ${shellWord(checkout)} && bun install --frozen-lockfile`
-const repair = () =>
-  process.env.BONSAI_NATIVE_BINARY === undefined
-    ? install
-    : `unset BONSAI_NATIVE_BINARY && ${install}`
 
 export class CollectorError extends Error {
   readonly code = 'RUST_COLLECTOR'
@@ -40,7 +30,7 @@ export class CollectorError extends Error {
 
   constructor(
     message: string,
-    readonly run = repair(),
+    readonly run = nativeRepair(),
   ) {
     super(message)
     this.name = 'CollectorError'
@@ -225,9 +215,12 @@ async function nativeSource(
   if (signal?.aborted) throw new CollectorInterrupted('Command interrupted')
   if (timeoutMs !== undefined && timeoutMs <= 0)
     throw new CollectorInterrupted('Feedback deadline expired before Rust analysis')
-  const binary = process.env.BONSAI_NATIVE_BINARY
-  if (binary !== undefined && (!binary.trim() || !existsSync(resolve(binary))))
-    throw new CollectorError(`Rust checker executable is unavailable: ${binary || '(empty path)'}`)
+  try {
+    nativeBinary()
+  } catch (error) {
+    if (error instanceof NativeInstallError) throw new CollectorError(error.message, error.run)
+    throw error
+  }
   const request = JSON.stringify({ protocol: 2, root, files, bindings, cwd: process.cwd() })
   try {
     const shared = await requestNativeSession(request, signal, timeoutMs, (output) => {

@@ -33,16 +33,16 @@ Run the existing suite for machine contracts, deadlines, signals, and actual `.f
 
 ## Rust engine
 
-`check` and `explain` share their frontend when `--engine rust` is selected. The
-Rust path collects diagnostics and symbols independently through pinned tsrs.
+`check` and `explain` always use the Rust checker; `--engine rust` remains a
+compatibility spelling. The native path collects diagnostics and symbols independently through pinned tsrs.
 The TypeScript reference runs separately in development comparisons, never as
-part of a production native check. Neither engine claims universal compiler
-compatibility.
+part of a production check. The native checker does not claim universal
+compatibility with the development oracle.
 
 `test/native-cli.test.ts` checks actual Rust-backed pass/reject reports, JSON facts,
 plain columns, quiet and verbose output, and read-only explanations. Presentation
-comparisons normalize only elapsed measurements, explicit engine selection, and
-the additive engine metadata. PTY checks inspect red, non-dim blocker text across
+comparisons check the default command against its explicit compatibility spelling,
+normalizing measured durations. PTY checks inspect red, non-dim blocker text across
 narrow wrapping, monochrome output, and independently redirected stdout.
 
 Unsupported facts remain explicit incomplete results. Interrupted native collection
@@ -50,7 +50,7 @@ retains provisional inventory measurements. Missing, crashed, or malformed worke
 errors without raw worker output. Tests check base analysis, compiler diagnostics,
 subprocess cleanup on timeout and SIGINT, and a handler side-effect marker proving
 that failed native analysis cannot run candidate code. Recovery commands retain
-the selected engine; invalid binary overrides receive an unset-and-install repair.
+an explicit compatibility option; invalid binary overrides receive an unset-and-install repair.
 
 Fixed subprocess entry-point failures now group missing/unmaintained and unsupported
 targets with their launch locations and an explicit inventory/path repair. PTY

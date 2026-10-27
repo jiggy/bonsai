@@ -8,17 +8,17 @@ import { parseArgs } from 'node:util'
 import type { CheckTiming, Decision, Snapshot } from '../../src/model.ts'
 import { canonicalSource } from './client.ts'
 
-type Engine = 'typescript' | 'rust'
 type Report = { decision: Decision; snapshot: Snapshot; timing: CheckTiming }
 type Sample = {
   wallMs: number
   timing: CheckTiming
+  analysis: Snapshot['analysis']
   decision: Decision['status']
   requiredChecks: number
   passedChecks: number
   verificationComplete: boolean
 }
-type ParityMismatch = { engine: Engine; sampleIndex: number; details: string }
+type ParityMismatch = { sampleIndex: number; details: string }
 
 const executable = fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
 
@@ -39,11 +39,11 @@ function comparable(report: Report) {
   }
 }
 
-function check(root: string, engine: Engine) {
+function check(root: string) {
   const began = performance.now()
   const result = spawnSync(
     process.execPath,
-    [executable, 'check', '--root', root, '--engine', engine, '--json', '--timeout', '90'],
+    [executable, 'check', '--root', root, '--json', '--timeout', '90'],
     {
       encoding: 'utf8',
       timeout: 95000,
@@ -69,6 +69,7 @@ function check(root: string, engine: Engine) {
   const sample: Sample = {
     wallMs,
     timing: report.timing,
+    analysis: report.snapshot.analysis,
     decision: report.decision.status,
     requiredChecks: report.snapshot.contracts.checks.length,
     passedChecks:
@@ -91,54 +92,48 @@ function summarize(samples: Sample[]) {
 
 /** Fresh complete CLI invocations, including verification whenever analysis permits it. */
 export async function benchmark(runs = 3, root = resolve('examples/checkout')) {
-  const samples: Record<Engine, Sample[]> = { typescript: [], rust: [] }
+  const samples: Sample[] = []
   const parityMismatches: ParityMismatch[] = []
   let reference: ReturnType<typeof comparable> | undefined
   const started = performance.now()
   for (let index = 0; index < runs; index++) {
-    const engines: Engine[] = index % 2 ? ['rust', 'typescript'] : ['typescript', 'rust']
-    for (const engine of engines) {
-      const result = check(root, engine)
-      samples[engine].push(result.sample)
-      const facts = comparable(result.report)
-      if (reference) {
-        try {
-          assert.deepEqual(facts, reference, 'Timed checks must report the same facts')
-        } catch (error) {
-          parityMismatches.push({
-            engine,
-            sampleIndex: index,
-            details: error instanceof Error ? error.message : String(error),
-          })
-        }
-      } else reference = facts
-    }
+    const result = check(root)
+    samples.push(result.sample)
+    const facts = comparable(result.report)
+    if (reference) {
+      try {
+        assert.deepEqual(facts, reference, 'Timed checks must report the same facts')
+      } catch (error) {
+        parityMismatches.push({
+          sampleIndex: index,
+          details: error instanceof Error ? error.message : String(error),
+        })
+      }
+    } else reference = facts
   }
-  const typescript = summarize(samples.typescript)
-  const rust = summarize(samples.rust)
-  const completedVerification = [...samples.typescript, ...samples.rust].every(
-    (sample) => sample.verificationComplete,
-  )
+  const rust = summarize(samples)
+  const completedVerification = samples.every((sample) => sample.verificationComplete)
   return {
-    protocol: 2,
+    protocol: 3,
+    engine: 'rust',
     recordedAt: new Date().toISOString(),
     elapsedMs: performance.now() - started,
     root,
     runs,
     unit: 'milliseconds',
-    scope: 'fresh CLI check, including source diagnostics and required verification when eligible',
+    scope:
+      'fresh Rust CLI check, including source diagnostics and required verification when eligible',
+    comparison: 'fact and evidence stability across repeated native checks',
     sourceAndDecisionParity: parityMismatches.length ? 'mismatch' : 'matched',
     parityMismatches,
     completedVerification,
-    completedCheckSpeedup:
-      completedVerification && !parityMismatches.length ? typescript.median / rust.median : null,
     limitations: [
       'Cold means a fresh process, without flushing operating-system filesystem caches.',
-      'Engines alternate on the same root and saved policy; no policy limit is increased.',
+      'Samples use the same root and saved policy; no policy limit is increased.',
       'External wall time includes startup, serialization, output delivery, and cleanup.',
       'Reported command and feedback timings retain their own published boundaries.',
-      'Incomplete runs retain measurements but do not establish a completed-check speedup.',
-      'Matching timed inputs do not establish universal TypeScript compatibility.',
+      'Incomplete runs retain measurements but do not establish completed-check performance.',
+      'This report has no earlier baseline and does not claim a speedup.',
     ],
     environment: {
       platform: platform(),
@@ -148,7 +143,7 @@ export async function benchmark(runs = 3, root = resolve('examples/checkout')) {
       logicalCpus: cpus().length,
       runtime: { executable: process.execPath, bun: process.versions.bun ?? null },
     },
-    measurements: { typescript, rust },
+    measurements: { rust },
   }
 }
 

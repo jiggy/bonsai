@@ -110,7 +110,7 @@ test('generated Bash completions complete enum values and filesystem arguments',
   try {
     assert.deepEqual(complete('check', '--output', 'js'), ['json'])
     assert.deepEqual(complete('check', '--engine', 'ru'), ['rust'])
-    assert.deepEqual(complete('explain', '--engine=ty'), ['--engine=typescript'])
+    assert.deepEqual(complete('explain', '--engine=ty'), [])
     assert.deepEqual(complete('config', 'show', '--engine', 'ru'), [])
     assert.deepEqual(complete('check', '--output=js'), ['--output=json'])
     assert.deepEqual(complete('check', '--output', '=', 'js'), ['json'])

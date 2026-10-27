@@ -1,7 +1,6 @@
 # Performance
 
-The native engine replaces the TypeScript program, binder, and checker with the
-pinned tsrs implementation. The Bun frontend, token metric, graph rules, and real
+Production analysis uses the pinned Rust tsrs program, binder, and checker. The Bun frontend, token metric, graph rules, and real
 verification remain shared. Reference comparisons run in development tests, outside
 the production native command. See [the native boundary](native-prototype.md).
 
@@ -12,11 +11,39 @@ bun run ./src/cli.ts check --root examples/checkout --verbose
 bun run ./src/cli.ts check --root examples/checkout --verbose --json
 ```
 
-Use the same root, policy, contracts, and engine for comparisons. Record the
+Use the same root, policy, contracts, compiler version, and measurement boundaries for comparisons. Record the
 decision and completed observations alongside time: skipping diagnostics or
 interrupting verification changes the workload. JSON retains command and candidate
 timings, including interrupted phases. Their endpoints differ from external wall
 time and the policy feedback measurement; see [timing boundaries](design.md#timing-boundaries).
+
+## Current profiling priorities
+
+`native:bench` protocol 3 records repeated fresh native checks, their individual
+samples, fact consistency, and verification completion. It does not compare the
+Rust default with its `--engine rust` compatibility spelling as different engines.
+The TypeScript oracle lives only in development tooling.
+
+The saved complete-root profile after test-harness compaction measured 6.39 seconds
+of feedback: 4.47 seconds in verification and 1.81 seconds in source analysis.
+The source total included 1.28 seconds in graph transfer, 340 ms of worker overhead,
+62 ms of native program setup, and 99 ms of diagnostics. These nested measurements
+must not be added to their enclosing source total. The run completed all 117
+observations present in that revision under its 15-second policy.
+
+Profile nested verification work and native graph subphases/query counts next.
+The adapter currently requests symbols for many ordinary strings and complete
+property-access expressions that the graph may not consume. Reducing those queries
+is a concrete candidate after full source/ancestry/decision conformance checks.
+Keep every handler call, sequential scenario semantics, and fresh compiler programs;
+result caching or parallel verification would change the workload.
+
+The measurements below describe earlier revisions, including the removed public
+TypeScript engine and comparison-only 60-second fixture windows. Their historical
+numbers remain evidence for those workloads; current commands use one native
+engine and the saved project deadline.
+
+## Historical compiler profile
 
 A local pre-optimization source profile measured 6,587 ms for 79 maintained files,
 414 components, and 838 relationships. TypeScript reported 1,447 ms for program
@@ -124,7 +151,7 @@ those inputs incomplete. Local lexical-parser failures also block acceptance.
 
 ## Earlier internal optimizations
 
-The existing TypeScript engine now avoids two repeated costs:
+Before its removal from production, the TypeScript engine avoided two repeated costs:
 
 - Verification imports inventory and fingerprinting from a compiler-independent
   module. Fresh evidence workers no longer load TypeScript unless the application
@@ -183,7 +210,7 @@ startup, transport, and cleanup overhead are recorded separately. Native graph
 work includes lexical AST mapping and batched semantic transfer, which can become
 the next source-analysis bottleneck after type checking is removed.
 
-The benchmark runs fresh TypeScript and Rust CLI processes alternately against the
+The comparison harness used for these measurements ran fresh TypeScript and Rust CLI processes alternately against the
 same inventory and policy, comparing decisions, source facts, and runtime
 evidence. It retains mismatched results with structured details and exits 1 after
 writing the report. It records every observation and completion state. An incomplete
@@ -222,16 +249,16 @@ and correctly rejected the policy violations at 13,803 ms. The benchmark preserv
 both results, reported the mismatch, exited 1, and set `completedCheckSpeedup` to
 `null`. Unequal completion states do not establish a speedup.
 
-Reproduce the checkout workload with:
+Measure the checkout workload with the current native-only harness:
 
 ```sh
 bun run native:bench --runs 5 --root examples/checkout --output work/checkout-benchmark.json
 ```
 
-For an equivalent complete-root comparison, pass `--root` pointing to a disposable
-copy with the same maintained files and an explicit 60-second feedback window.
-Running the tool on the original root preserves its saved limit and records any
-completion difference. These small samples establish improvement on the measured
+Those historical complete-root comparisons used disposable copies with identical
+maintained files and an explicit 60-second comparison window. Current root
+measurements preserve the saved 15-second policy; compare equivalent completion
+states and workloads rather than reproducing the removed runtime engine. These small samples establish improvement on the measured
 workloads, not a guarantee for other projects or machines. Complete feature
 evidence does not erase ancestry or retained-size violations.
 
@@ -282,7 +309,7 @@ stress check, not a guarantee for other hardware.
 Regressions compare configuration values, prototypes, and exact syntax errors
 with the reference parser. A runtime load guard forbids TypeScript in native CLI
 parents with standard configs, observes its load in semantic workers, and uses
-the TypeScript engine and JSONC fallback as controls. This detects duplicated
+the then-available TypeScript engine and JSONC fallback as controls. This detects duplicated
 startup even on machines fast enough to stay below the feedback ceiling.
 
 ## Reuse lexical startup during verification

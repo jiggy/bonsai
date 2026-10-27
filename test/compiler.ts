@@ -1,14 +1,7 @@
 import ts from 'typescript'
+import { sourceCompilerOptions } from '../src/compiler-options.ts'
 
-export const sourceCompilerOptions: ts.CompilerOptions = {
-  target: ts.ScriptTarget.ES2023,
-  module: ts.ModuleKind.NodeNext,
-  moduleResolution: ts.ModuleResolutionKind.NodeNext,
-  allowImportingTsExtensions: true,
-  noEmit: true,
-  strict: true,
-  skipLibCheck: true,
-}
+export { sourceCompilerOptions } from '../src/compiler-options.ts'
 
 type Document = {
   fileName: string

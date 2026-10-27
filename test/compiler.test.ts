@@ -4,7 +4,8 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import ts from 'typescript'
-import { createCompilerSession, sourceCompilerOptions } from '../src/compiler.ts'
+import { createCompilerSession } from './compiler.ts'
+import { sourceCompilerOptions } from '../src/compiler-options.ts'
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-compiler-'))

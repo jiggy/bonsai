@@ -15,8 +15,9 @@ import {
   type Node as NativeNode,
   type SourceFile as NativeSourceFile,
 } from 'tsrs/unstable/ast'
-import { sourceCompilerOptions } from './compiler.ts'
+import { sourceCompilerOptions } from './compiler-options.ts'
 import type { Timer } from './timing.ts'
+import { nativeBinary } from './native-install.ts'
 
 type Span = Map<string, ts.Node>
 type RemoteSpan = Map<string, NativeNode>
@@ -95,9 +96,7 @@ export async function createTsrsProgram(
   const api = new API({
     cwd,
     runExternalCode: false,
-    ...(process.env.BONSAI_NATIVE_BINARY !== undefined && {
-      tsserverPath: resolve(process.env.BONSAI_NATIVE_BINARY),
-    }),
+    tsserverPath: nativeBinary(),
   })
   // The pinned SDK's public close waits for initialization. A server that never
   // answers initialization therefore needs to be stopped and reaped first.

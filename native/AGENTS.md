@@ -1,10 +1,10 @@
 # Purpose
 
-Compare the native TypeScript checker with the reference engine and measure complete CLI checks.
+Compare native source analysis with a development TypeScript oracle and measure complete native CLI checks.
 
 ## Ownership
 
-Bun development tools in `tools/`: shared differential fixtures, canonical source facts, reference/native comparisons, and fresh-process CLI benchmarks. The production native collector lives under `src/` at the repository root and uses the pinned tsrs package; this directory contains no Cargo crate or native implementation.
+Bun development tools in `tools/`: shared differential fixtures, canonical source facts, development-oracle comparisons, and fresh-process native CLI benchmarks. The production native collector lives under `src/` at the repository root and uses the pinned tsrs package; this directory contains no Cargo crate or native implementation.
 
 ## Local Contracts
 
@@ -14,17 +14,17 @@ Unsupported source or unresolved dependencies remain explicit. A matching source
 
 Keep this authored tooling in maintained inventory. Retire obsolete implementations by deleting them, rather than excluding retained source. Other projects' authored Rust remains measured and unsupported until a Rust ancestry adapter exists.
 
-Compare both engines on identical inputs. Benchmarks launch fresh CLI processes, include startup, alternate engines, and preserve individual samples, decisions, and verification state. Cold means a fresh process, without flushing operating-system file caches. Distinguish incomplete runs from completed verification and never report skipped work as a complete-check speedup.
+Compare the native collector and development oracle on identical inputs. Benchmark protocol 3 launches fresh native CLI processes and preserves individual samples, compiler identity, decisions, and verification state. Repeated-run parity describes fact stability, not an engine comparison; do not report a speedup ratio between the default and its Rust compatibility spelling. Cold means a fresh process, without flushing operating-system file caches. Distinguish incomplete runs from completed verification and never report skipped work as a complete-check speedup.
 
-The reference collector retains its production compiler-session rules. No benchmark or comparison persists trusted diagnostics, source results, or runtime evidence.
+The reference collector lives in `test/reference.ts` and uses development-only `test/compiler.ts`; it must not return to published runtime sources. No benchmark or comparison persists trusted diagnostics, source results, or runtime evidence.
 
 ## Work Guidance
 
-Keep development commands small and their JSON reports versioned. Do not switch the default engine before compatibility and performance are demonstrated.
+Keep development commands small and their JSON reports versioned. Keep the native runtime and development oracle distinct; neither reference assumptions nor benchmark samples authorize a pass.
 
 ## Verification
 
-`bun run native:compare`, `bun run native:bench`, and the normal Bun suite's source and real-CLI engine comparisons.
+`bun run native:compare`, `bun run native:bench`, and the normal Bun suite's source conformance and native CLI regressions.
 
 ## Child DOX Index
 

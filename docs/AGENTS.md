@@ -8,15 +8,17 @@ Design baseline, roadmap, command reference, CLI review evidence (`check-ux-revi
 
 ## Local Contracts
 
-Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and the full-check regression's test-only feedback window from committed root admission policy.
+Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and development oracle comparisons from native full-root admission checks under the saved deadline.
 
 Document fixed subprocess entry-point syntax separately from runtime coverage. Child launches root executable startup, not entire modules or exports. Keep unsupported launch forms, import side effects, and class initialization explicit. Test-helper subject discovery uses established production ancestry; supporting helper ancestry cannot justify unrelated callers.
 
 Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
 
-Keep native semantic conformance, lexical accounting, and runtime evidence distinct. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. The default CLI remains TypeScript, and authored Rust stays measured with explicit unsupported analysis until an adapter exists.
+Keep native semantic conformance, lexical accounting, and runtime evidence distinct. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. Rust is the sole production engine, and authored Rust stays measured with explicit unsupported analysis until an adapter exists.
 
-Document `--engine rust` as independent pinned tsrs analysis through the Bun frontend. Reference comparisons run in development tests, never inside a native check. Preserve explicit TypeScript-version gaps, Bun asynchronous transport requirements, native platform support, and the distinction between analysis speed, completed verification, and gate acceptance. Never compare an incomplete run with a completed gate as an equivalent speedup.
+Document native analysis as the default and `--engine rust` as a compatibility spelling. `--engine typescript` is unsupported. Keep development compiler oracles outside published runtime sources. Reference comparisons run in development tests, never inside a native check. Preserve explicit TypeScript-version gaps, Bun asynchronous transport requirements, native platform support, and the distinction between analysis speed, completed verification, and gate acceptance. Never compare an incomplete run with a completed gate as an equivalent speedup.
+
+Document prebuilt platform coverage and source-checkout versus installed-package repairs. Never imply a prepared npm version has been published, or ask users to compile a missing native dependency.
 
 ## Work Guidance
 

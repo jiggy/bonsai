@@ -13,7 +13,7 @@ import {
 import { dirname, join, relative, resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { stripVTControlCharacters } from 'node:util'
-import { analyzeSource } from '../src/source.ts'
+import { analyzeSource } from './reference.ts'
 import { cliEnvironment, executable, runCli } from './cli.ts'
 import { createProject } from './project.ts'
 import { characters, hasPty, quote } from './terminal.ts'
@@ -112,8 +112,15 @@ function cli(
   }
 }
 
-function report(root: string, engine: 'typescript' | 'rust', args: string[] = []) {
-  const result = cli(['check', '--root', root, '--engine', engine, '--json', ...args])
+function report(root: string, engine: 'rust' | undefined, args: string[] = []) {
+  const result = cli([
+    'check',
+    '--root',
+    root,
+    ...(engine ? ['--engine', engine] : []),
+    '--json',
+    ...args,
+  ])
   assert.equal(result.stderr, '', result.stderr)
   return { result, value: JSON.parse(result.stdout) }
 }
@@ -128,24 +135,27 @@ function withoutMeasurements(value: ReturnType<typeof report>['value']) {
 }
 
 function withoutHumanMeasurements(text: string) {
+  const output: string[] = []
   let timing = false
-  return stripVTControlCharacters(text)
-    .split('\n')
-    .filter((line) => !line.includes('Rust worker overhead:'))
-    .map((line) => {
-      if (line === 'Timing') timing = true
-      else if (timing && !line.trim()) timing = false
-      if (timing)
-        line = line
-          .replace(/\b\d+(?:\.\d+)?(?:ms|s)\b/, '<duration>')
-          .replace(/├─(?= Dependency graph:)/, '└─')
-      return line
-        .replace(/\b\d+(?:\.\d+)?(?:ms|s)(?= elapsed\b)/g, '<duration>')
-        .replace(/ --engine (?:typescript|rust)\b/g, '')
-        .trimEnd()
-    })
-    .join('\n')
-    .replace(/\b\d+(?:\.\d+)?(?:ms|s)\s+elapsed\b/g, '<duration> elapsed')
+  for (let line of stripVTControlCharacters(text).split('\n')) {
+    line = line
+      .replace(/\b\d+(?:\.\d+)?\s*(?:ms|s)(?= elapsed\b)/g, '<duration>')
+      .replace(/ --engine rust\b/g, '')
+      .trimEnd()
+    if (line === 'Timing') {
+      timing = true
+      output.push(line)
+    } else if (timing && line) {
+      line = line.replace(/\b\d+(?:\.\d+)?(?:ms|s)\b/g, '<duration>')
+      // Duration width can move a continuation without changing the metric row.
+      if (/^\s*[├└]─ /.test(line) || line.startsWith('Feedback window:')) output.push(line)
+      else output[output.length - 1] += ' ' + line.trim()
+    } else {
+      if (!line) timing = false
+      output.push(line)
+    }
+  }
+  return output.join('\n')
 }
 
 function mock(root: string, source: string) {
@@ -176,7 +186,7 @@ test('the Rust engine preserves actual check facts and outcomes for supported pr
   for (const options of [{}, { broken: true }, { unused: true }, { budget: 1 }]) {
     const project = fixture(options)
     try {
-      const reference = report(project.root, 'typescript')
+      const reference = report(project.root, undefined)
       const rust = report(project.root, 'rust')
       assert.equal(rust.result.status, reference.result.status)
       assert.equal(rust.value.snapshot.analysis.engine, 'rust')
@@ -203,12 +213,12 @@ test('Rust checks keep human, plain, quiet and inspection output on the shared C
       ['--output', 'human', '--verbose', '--no-color'],
       ['--output', 'human', '--quiet'],
     ]) {
-      const reference = cli(['check', '--root', project.root, '--engine', 'typescript', ...args])
+      const reference = cli(['check', '--root', project.root, ...args])
       const rust = cli(['check', '--root', project.root, '--engine', 'rust', ...args])
       assert.equal(rust.status, reference.status)
       if (args.includes('--verbose')) {
         assert.match(rust.stderr, /Rust worker overhead:/)
-        assert.doesNotMatch(reference.stderr, /Rust worker overhead:/)
+        assert.match(reference.stderr, /Rust worker overhead:/)
         assert.doesNotMatch(rust.stderr, /Rust compatibility comparison/)
       }
       assert.equal(
@@ -222,15 +232,7 @@ test('Rust checks keep human, plain, quiet and inspection output on the shared C
       assert.doesNotMatch(rust.stdout + rust.stderr, /\x1b\[/)
       if (args[0] === '--plain') assert.equal(rust.stdout.trim().split('\t').length, 8)
     }
-    const reference = cli([
-      'explain',
-      'handler.ts',
-      '--root',
-      project.root,
-      '--engine',
-      'typescript',
-      '--json',
-    ])
+    const reference = cli(['explain', 'handler.ts', '--root', project.root, '--json'])
     const rust = cli([
       'explain',
       'handler.ts',
@@ -243,7 +245,6 @@ test('Rust checks keep human, plain, quiet and inspection output on the shared C
     assert.equal(rust.status, reference.status)
     const explanation = JSON.parse(rust.stdout)
     assert.equal(explanation.analysis.engine, 'rust')
-    delete explanation.analysis
     assert.deepEqual(explanation, JSON.parse(reference.stdout))
   } finally {
     project.dispose()
@@ -264,11 +265,8 @@ test('Rust checks collect native diagnostics and support interpolated templates'
         assert.equal(rust.result.status, 2)
         assert.equal(rust.value.decision.status, 'incomplete')
         assert.equal(rust.value.snapshot.evidence, undefined)
-        const reference = report(project.root, 'typescript')
-        assert.deepEqual(
-          rust.value.snapshot.source.problems,
-          reference.value.snapshot.source.problems,
-        )
+        const reference = analyzeSource(project.root, project.files, 'bindings.ts')
+        assert.deepEqual(rust.value.snapshot.source.problems, reference.problems)
         assert.match(rust.value.snapshot.source.problems.join('\n'), /not assignable/)
       } else {
         assert.equal(rust.result.status, 1)
@@ -294,12 +292,17 @@ test('engine selection validates early and help never requires a native binary',
     env: { BONSAI_NATIVE_BINARY: missing, BONSAI_ROOT: '/missing-project' },
   })
   assert.equal(help.status, 0, help.stderr)
-  assert.deepEqual(JSON.parse(help.stdout).flags.engine.choices, ['typescript', 'rust'])
+  assert.deepEqual(JSON.parse(help.stdout).flags.engine.choices, ['rust'])
   const invalid = cli(['check', '--engine', 'rusty', '--root', '/missing-project', '--json'])
   assert.equal(invalid.status, 2)
   assert.equal(invalid.stdout, '')
   assert.equal(JSON.parse(invalid.stderr).code, 'USAGE')
-  assert.match(JSON.parse(invalid.stderr).run, /typescript.*rust/)
+  assert.equal(JSON.parse(invalid.stderr).run, 'bonsai help check')
+  const retired = cli(['check', '--engine', 'typescript', '--root', '/missing-project', '--json'])
+  assert.equal(retired.status, 2)
+  assert.equal(retired.stdout, '')
+  assert.equal(JSON.parse(retired.stderr).code, 'USAGE')
+  assert.equal(JSON.parse(retired.stderr).run, 'bonsai help check')
 })
 
 test('native server failures are structured runtime errors and cannot run handlers', {

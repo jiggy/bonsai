@@ -1,6 +1,6 @@
 # CLI reference
 
-Bonsai 0.0.0-alpha.0. Generated with `bonsai help --markdown`.
+Bonsai 0.0.0-alpha.1. Generated with `bonsai help --markdown`.
 
 ## init
 
@@ -57,18 +57,18 @@ Check behavior, ancestry, and the retained-code budget
 USAGE
   bonsai check [flags]
 
-Runs the project’s named handlers in a worker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json. Experimental --engine rust uses the Rust TypeScript checker for source analysis.
+Runs the project’s named handlers in a worker and checks source with the native Rust TypeScript checker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json.
 
 EXAMPLES
   $ bonsai check
   $ bonsai check --root examples/checkout --json
-  $ bonsai check --root examples/checkout --engine rust --verbose
+  $ bonsai check --root examples/checkout --verbose
 
 OPTIONS
   -r, --root string         project directory (default current directory)
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
-      --engine string       source engine: typescript, rust (default typescript)
+      --engine string       compatibility option: rust (always used by default)
       --timeout string      command deadline in seconds (default none)
       --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors
@@ -109,7 +109,7 @@ Show why a file or component is retained
 USAGE
   bonsai explain <file-or-component> [flags]
 
-Inspects ancestry and relationships without running handlers. Use - to read one target per line from stdin. Experimental --engine rust uses the Rust TypeScript checker for source analysis.
+Inspects ancestry and relationships with the native Rust TypeScript checker without running handlers. Use - to read one target per line from stdin.
 
 EXAMPLES
   $ bonsai explain src/checkout.ts --root examples/checkout
@@ -120,7 +120,7 @@ OPTIONS
   -r, --root string         project directory (default current directory)
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
-      --engine string       source engine: typescript, rust (default typescript)
+      --engine string       compatibility option: rust (always used by default)
       --timeout string      command deadline in seconds (default none)
       --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors

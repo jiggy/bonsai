@@ -8,7 +8,7 @@ import { pathToFileURL } from 'node:url'
 import { canonicalSource } from '../native/tools/client.ts'
 import { collectRustSource } from '../src/collector.ts'
 import { openNativeSession } from '../src/native-session.ts'
-import { analyzeSource } from '../src/source.ts'
+import { analyzeSource } from './reference.ts'
 
 const repository = resolve('.')
 const executable = resolve('src/cli.ts')

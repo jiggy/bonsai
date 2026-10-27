@@ -30,7 +30,7 @@ One package, with six principal modules:
 | `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
 | `cli` | Collect facts, compare a base, explain components, and return actionable output. |
 
-`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler.ts` reuses bounded parsed documents within a process while creating fresh programs, resolutions, and diagnostics for each analysis. There is no database, persistent daemon, LLM call, or external service.
+`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler-options.ts` defines the native and development oracle's shared options. `test/compiler.ts` and `test/reference.ts` keep the JavaScript compiler oracle outside the production package. There is no database, persistent daemon, LLM call, or external service.
 
 ## Initial adapter choices
 
@@ -74,11 +74,9 @@ including partial failures.
 Root `.feature` files specify observable Bonsai behavior; executable bindings run
 the real CLI against isolated projects. The native root check measures the complete
 committed inventory and requires every observation under the saved feedback
-policy. Its bindings inherit the selected engine for nested check/explain commands;
-application action signatures and verification obligations are unchanged. A copied
-reference fixture checks the same full inventory with TypeScript and a test-only
-60-second window. Both preserve the budget and must reject genuine retained-size
-violations. The retired prototype was deleted, without exclusions or a claim of
+policy. Nested check/explain commands use the same sole native engine. A copied
+archive fixture checks the same full inventory under the saved 15-second window.
+Both preserve the budget and must reject genuine retained-size violations. The retired prototype was deleted, without exclusions or a claim of
 Rust source ancestry support.
 
 Literal dynamic imports resolve selected exports without retaining unused siblings.
@@ -109,10 +107,11 @@ force; passing the regression does not assert full root acceptance.
 
 ## Native semantic backend
 
-`check --engine rust` and `explain --engine rust` use the pinned tsrs compiler for
+`check` and `explain` use the pinned tsrs compiler for
 program construction, all compiler diagnostic categories, and symbol resolution.
 The existing Bun frontend launches a Bun semantic worker using tsrs's asynchronous
-SDK. No TypeScript reference compiler runs on this path. TypeScript's lexical
+SDK. `--engine rust` remains a compatibility spelling; other engines are rejected.
+No TypeScript reference compiler ships in the runtime sources. TypeScript's lexical
 scanner and source parser still supply the exact metric and local ASTs; shared
 Bonsai rules consume native semantic facades. Batched symbol and type queries
 avoid a request for each identifier. Owned and imported declarations are resolved
@@ -121,10 +120,8 @@ back to source locations without granting unused exports ancestry.
 The native CLI parent defers compiler dependencies to its semantic worker.
 Standard JSON configuration objects use equivalent native parsing; JSONC,
 malformed input, and unusual property keys retain the reference parser and exact
-diagnostics. Contract compilation loads inside its measured phase. TypeScript
-check/explain preloads the reference analyzer during command setup to preserve
-the existing feedback boundary. These startup changes do not cache action results
-or alter sequential scenario execution.
+diagnostics. Contract compilation loads inside its measured phase. These startup
+changes do not cache action results or alter sequential scenario execution.
 
 Native verification opens a private local broker scoped to that invocation.
 Matching nested CLI processes reuse a Bun lexical worker, which starts lazily.
@@ -157,14 +154,15 @@ facts, and timing shapes. It bounds output and deadlines, requests graceful work
 cancellation so the compiler is killed and reaped, and forces process-group cleanup
 if necessary. Missing or broken installations use the existing CLI error path.
 Native metadata records the backend, pinned version, native diagnostic validation,
-and completion state. Base and candidate use the same selected engine.
+and completion state. Base and candidate both use the native checker.
 
 Development comparisons run the TypeScript reference separately on identical
 inputs, comparing diagnostics, token costs, graph facts, ancestry, and policy
 results. Real CLI tests require candidate-bound observations. Fresh-process
 benchmarks record completed checks and actual evidence as well as timings; an
-incomplete run cannot establish a completed-gate speedup. The default remains
-TypeScript pending broader project validation. See [native scope and commands](native-prototype.md).
+incomplete run cannot establish a completed-gate speedup. Native benchmark protocol 3
+records repeated-run consistency and completion without comparing identical runtime
+aliases as different engines. See [native scope and commands](native-prototype.md).
 
 ## Deliberate gaps
 

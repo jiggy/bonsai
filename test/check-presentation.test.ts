@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
-import { readFileSync, rmSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
 import { displayWidth } from '../src/cli-interface.ts'
@@ -307,7 +307,8 @@ test('check setup failures use the same readable alert role as gate blockers', (
 test('timing values stay primary and interrupted stages use an explicit warning state', {
   skip: !hasPty,
 }, () => {
-  const { root, dispose } = fixture({ feedbackMs: 0.000001 })
+  const { root, dispose } = fixture({ feedbackMs: 3000 })
+  writeFileSync(join(root, 'handler.ts'), 'export function sample() { while (true) {} }\n')
   try {
     const result = run(root, ['--verbose'], {}, true)
     assert.equal(result.status, 2, result.stdout + result.stderr)

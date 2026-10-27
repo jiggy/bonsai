@@ -160,13 +160,17 @@ test('an interrupted verification reports missing completion rather than claimin
     )
     const path = join(root, 'bonsai.json')
     const config = JSON.parse(readFileSync(path, 'utf8'))
-    config.policy.maxFeedbackMs = 0.000001
+    config.policy.maxFeedbackMs = 3000
     writeFileSync(path, JSON.stringify(config))
+    writeFileSync(
+      join(root, 'handler.ts'),
+      `import { writeFileSync } from 'node:fs'\nexport async function handler() { writeFileSync(${JSON.stringify(marker)}, 'started'); await new Promise(() => {}); return { status: 'ok' } }\n`,
+    )
     const result = run(root, 'human')
     assert.equal(result.status, 2, result.stderr)
     assert.match(result.stderr, /Evidence collection interrupted/)
     assert.match(result.stderr, /Required checks: not completed \(1 expected\)/)
-    assert.equal(existsSync(marker), false)
+    assert.equal(existsSync(marker), true)
   } finally {
     dispose()
   }

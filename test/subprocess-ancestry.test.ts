@@ -2,7 +2,8 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { analyzeSource, inventory } from '../src/source.ts'
+import { inventory } from '../src/source.ts'
+import { analyzeSource } from './reference.ts'
 import { collectRustSource } from '../src/collector.ts'
 import { compileContracts } from '../src/contracts.ts'
 import { buildSnapshot } from '../src/retention.ts'
@@ -105,10 +106,10 @@ test('fixed child entry points retain executable startup and selected helpers wi
   }
 })
 
-test('the actual CLI verifies a child process with both engines while explain never executes it', () => {
+test('the native default and compatibility alias verify a child while explain never executes it', () => {
   const project = fixture()
   try {
-    for (const engine of ['typescript', 'rust']) {
+    for (const selection of [[], ['--engine', 'rust']]) {
       for (const command of ['explain', 'check']) {
         rmSync(resolve(project.root, 'executed'), { force: true })
         const result = runCli(
@@ -117,8 +118,7 @@ test('the actual CLI verifies a child process with both engines while explain ne
             ...(command === 'explain' ? ['child.ts#answer'] : []),
             '--root',
             project.root,
-            '--engine',
-            engine,
+            ...selection,
             '--json',
           ],
           {

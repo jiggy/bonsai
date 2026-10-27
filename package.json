@@ -1,6 +1,6 @@
 {
   "name": "@jigging/bonsai",
-  "version": "0.0.0-alpha.0",
+  "version": "0.0.0-alpha.1",
   "description": "Deliberate growth. Continuous pruning. A contract-rooted code budget gate.",
   "type": "module",
   "engines": {
@@ -11,12 +11,13 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "bun test --timeout 30000",
+    "test": "bun test --isolate --timeout 30000",
     "bonsai": "bun src/cli.ts",
     "demo": "bun src/cli.ts check --root examples/checkout",
     "format": "biome format --write .",
     "format:check": "biome format .",
     "test:features": "bun test --timeout 60000 test/self-host.test.ts",
+    "test:package": "BONSAI_PACKAGE_SMOKE=1 bun test --timeout 180000 test/package-install.test.ts",
     "website:build": "bun website/build.mjs",
     "website:check": "bun website/check.mjs",
     "native:compare": "bun native/tools/compare.ts",

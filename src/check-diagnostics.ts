@@ -55,7 +55,7 @@ export function checkDiagnostics(
     [
       'Rust checker unsupported: ',
       "Rust checker doesn't support this source",
-      `Use --engine typescript for this project, or add support for the reported source form. See ${docsUrl.replace('/cli.md', '/native-prototype.md')}`,
+      `Add support for the reported source form before rerunning the check. See ${docsUrl.replace('/cli.md', '/native-prototype.md')}`,
     ],
     [
       'Rust checker interrupted: ',

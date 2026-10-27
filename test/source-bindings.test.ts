@@ -4,7 +4,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { snapshot, readConfig } from '../src/project.ts'
-import { analyzeSource, inventory } from '../src/source.ts'
+import { inventory } from '../src/source.ts'
+import { analyzeSource } from './reference.ts'
 import type { Config } from '../src/model.ts'
 
 function fixture(registry: string) {

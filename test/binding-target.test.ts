@@ -18,7 +18,8 @@ import { collectEvidence } from '../src/evidence.ts'
 import type { Config, Snapshot } from '../src/model.ts'
 import { evaluate } from '../src/policy.ts'
 import { snapshot } from '../src/project.ts'
-import { analyzeSource, fingerprint, inventory } from '../src/source.ts'
+import { fingerprint, inventory } from '../src/source.ts'
+import { analyzeSource } from './reference.ts'
 
 function fixture() {
   mkdirSync(resolve('work'), { recursive: true })

@@ -12,7 +12,10 @@ The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`
 
 ## Try it
 
-Requires Bun 1.4.3 or later. Bun manages dependencies and runs the CLI, tests, and verification workers.
+Requires Bun 1.4.3 or later. The CLI uses the packaged Rust TypeScript checker;
+users do not need Node, Cargo, or a Rust compiler. Supported prebuilt targets are
+Linux x64/arm64 (GNU or musl) and macOS arm64. See [native installation](docs/native-prototype.md)
+for platform limits and repairs.
 
 ```sh
 bun install --frozen-lockfile
@@ -157,8 +160,8 @@ the validated internal loader boundary; existing fields remain available.
 Check reports also include additive `timing` and `snapshot.timing` measurements.
 Static child launches add relationships with `kind: "entry-point"`, retaining
 the launch location in `sourceRef`.
-Rust-mode snapshots add `analysis` metadata for the selected engine and its
-native compiler identity and diagnostic status.
+Snapshots include `analysis` metadata identifying the native compiler and its
+diagnostic status.
 
 ### Read a check result
 
@@ -252,8 +255,10 @@ against `--root` in Bash, zsh, and fish. They don't run handlers.
 
 ### CLI migration
 
-Existing `check` and `explain` invocations and their `--json` report fields are
-preserved. Default output is now human-oriented at a terminal and plain records
+Rust is now the sole source engine. Existing `--engine rust` commands remain valid;
+replace `check --engine typescript` with `check` and `explain --engine typescript`
+with `explain`. Unsupported native inputs remain incomplete rather than falling
+back. The `--json` report fields are preserved. Default output is human-oriented at a terminal and plain records
 in pipes; scripts parsing the old formatted summary or default explanation JSON
 should request `--json` explicitly. JSON is compact in pipes; add `--pretty` for
 indentation. Plain check columns are, in order: status, retained tokens, ceiling,
@@ -267,34 +272,32 @@ under `--json`. No match for an explicitly named target exits 4.
 Use `bun install --frozen-lockfile`, `bun run check`, `bun run test`, and
 `bun run demo`. Regenerate the command reference with
 `bun run --silent bonsai help --markdown > docs/cli.md` after command changes.
-Bun remains the supported distribution/runtime; static binary releases and a
-self-updater are outside this CLI rewrite.
+Bun remains the supported distribution/runtime; standalone Bonsai executables and
+a self-updater are outside this CLI rewrite.
 
-The experimental [Rust TypeScript checker](docs/native-prototype.md) is installed
-with the pinned `tsrs` dependency; no Cargo build is required. Try it through the
-same CLI and presentation:
+The [Rust TypeScript checker](docs/native-prototype.md) is installed with the
+pinned `tsrs` dependency. Run the native implementation directly:
 
 ```sh
 bun install --frozen-lockfile
-bun run ./src/cli.ts check --engine rust --verbose
-bun run ./src/cli.ts check --root examples/checkout --engine rust --verbose
+bun run ./src/cli.ts check --verbose
+bun run ./src/cli.ts check --root examples/checkout --verbose
 ```
 
-`--engine typescript` remains the default. `--engine rust` uses native compiler
-diagnostics and symbol resolution independently; it does not run the TypeScript
-reference compiler. Both share Bonsai's lexical token metric, structural rules,
-CLI, and evidence worker. Differential comparisons run in tests and through
-`bun run native:compare`; `bun run native:bench` measures fresh complete commands.
-Standard JSON configs keep TypeScript out of the native CLI parent; its worker
-loads the lexical parser once. JSONC and malformed configs retain the original
-parser and diagnostics. Every contract case still executes in order.
-During verification, nested Rust CLI checks can share a lexical worker scoped to
-that invocation. It starts only when needed; every request still creates a fresh
-compiler process and program, and application handlers run in fresh verification
-processes. The worker closes when the owning verification finishes.
-The pinned package supports Linux x64/arm64 and macOS arm64. Unsupported forms and
-known compiler gaps block acceptance. See the native documentation for platform,
-configuration, and TypeScript-version limits.
+Rust is the only production engine. Existing `--engine rust` invocations remain
+valid; remove `--engine typescript` from older commands. There is no fallback
+compiler. TypeScript remains a dependency for lexical scanning, parsing, JSONC,
+and ambient-type discovery; it does not construct or check a JavaScript compiler
+program in production. The reference compiler lives in development-only
+`test/reference.ts` and `test/compiler.ts`, outside the published package.
+
+`bun run native:compare` compares native source facts with that independent oracle.
+`bun run native:bench` measures repeated fresh native commands and their evidence,
+without an engine speedup ratio. Standard JSON configs keep TypeScript out of the
+CLI parent; JSONC and malformed configs retain the established parser diagnostics.
+Nested checks may share a lexical worker within one verification invocation, while
+every request creates a fresh native compiler process and program. Application
+handlers keep their execution order and fresh verification-process boundary.
 
 ## Bonsai's own executable contracts
 
@@ -310,15 +313,15 @@ bun run test:features
 
 `bun run test` includes the same feature suite. The native root regression checks
 the complete committed inventory through the actual CLI and verifies every
-observation under the saved 15-second feedback policy. Bonsai's own feature
-bindings inherit the selected engine for nested CLI checks. A copied reference
-fixture runs the same full inventory with TypeScript and a test-only 60-second
-feedback window, preserving the retained-code budget and archive-loader coverage.
+observation under the saved 15-second feedback policy. A copied archive fixture
+runs the same complete inventory through the native CLI under that same deadline,
+preserving budget and archive-loader coverage. Development source comparisons
+use the separate TypeScript oracle; it is never a production engine choice.
 CI saves the native regression's actual report as the `bonsai-self-check` artifact,
 including its decision, evidence, inventory, and phase timings. Inspect completion
 and observation counts alongside timings when comparing workflow runs.
 
-`bun run bonsai check --engine rust` inspects the committed root inventory and
+`bun run bonsai check` inspects the committed root inventory and
 policy. Owned source, tests, contracts, documentation, and configuration remain
 measured; installed third-party CLI skills and the separate checkout example stay
 outside that scope. The root policy keeps its 20,000-token bootstrap, 30,000-token
@@ -331,15 +334,32 @@ The unused Oxc prototype was deleted when tsrs replaced it. Its Cargo files and
 Rust sources were removed rather than excluded. Authored Rust in consuming
 projects remains unsupported and measured until a language adapter exists.
 
-## Publish an alpha
+## Install and publish an alpha
 
-Install Bun before using the published CLI. To publish this scoped package publicly
-under the prerelease tag, run `bun publish --access public --tag alpha`.
-`publishConfig` declares public access and the `alpha` tag; pass `--tag alpha`
-explicitly to ensure prereleases never use `latest` across client versions.
-Use `npm publish --access public --tag alpha` if publishing with npm.
-Preview package contents with `npm pack --dry-run`; only runtime sources, the
-skill, documentation, and the example are included alongside package metadata.
+After the native release is published, users can run it without a checkout or
+compilation:
+
+```sh
+bunx --bun @jigging/bonsai@alpha init
+bunx --bun @jigging/bonsai@alpha check --verbose
+```
+
+For reproducible CI, select a published version explicitly, for example
+`bunx --bun @jigging/bonsai@0.0.0-alpha.1 check --json` after that release exists.
+The npm package downloads the matching prebuilt dependency through optional
+packages; no install script or dependency-trust approval builds it locally.
+
+The published `0.0.0-alpha.0` package predates the native implementation. This
+checkout prepares `0.0.0-alpha.1`; a GitHub update alone does not publish it or move
+the npm `alpha` tag. Validate the actual tarball in a fresh consumer before release.
+It must run outside this checkout with production dependencies, scripts disabled,
+and no native binary override.
+
+Publish a new version explicitly with `bun publish --access public --tag alpha`.
+`publishConfig` declares public access and the `alpha` tag; pass the tag to prevent
+prereleases using `latest` across client versions. Preview contents with
+`bun pm pack --dry-run --ignore-scripts`. Runtime sources, the skill, documentation,
+and example are included; development compiler oracles and tests are not.
 
 ## Formatting and Codex cloud
 
@@ -490,8 +510,8 @@ or exports. This adapter does not authorize arbitrary application runtime import
 Fixed Bun/Node child entry points are supported as described below. The supported
 checkout example is available through `bun run bonsai check --root examples/checkout`.
 
-The experimental native backend uses the pinned tsrs TypeScript 7 checker while
-the default reference uses TypeScript 5.9. Shared lexical parsing and graph rules
+The production backend uses the pinned tsrs TypeScript 7 checker. A separate
+development oracle uses TypeScript 5.9; shared lexical parsing and graph rules
 preserve Bonsai's supported accounting. The native adapter explicitly preserves
 ambient type discovery and blocks known semantic gaps, including disabling the
 default library through a source directive. This is not universal compiler

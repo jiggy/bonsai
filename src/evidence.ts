@@ -81,12 +81,9 @@ export async function runEvidence(
   fingerprint: string,
   timeoutMs: number,
   signal?: AbortSignal,
-  engine: 'typescript' | 'rust' = 'typescript',
 ): Promise<Evidence> {
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
-  if (engine !== 'rust')
-    return forkEvidence(root, config, contracts, fingerprint, timeoutMs, signal, engine)
   const began = performance.now()
   const { openNativeSession } = await import('./native-session.ts')
   const session = await openNativeSession()
@@ -98,7 +95,6 @@ export async function runEvidence(
       fingerprint,
       timeoutMs - (performance.now() - began),
       signal,
-      engine,
       session.value,
     )
   } finally {
@@ -113,7 +109,6 @@ async function forkEvidence(
   fingerprint: string,
   timeoutMs: number,
   signal: AbortSignal | undefined,
-  engine: 'typescript' | 'rust',
   session?: string,
 ): Promise<Evidence> {
   const { fork } = await import('node:child_process')
@@ -163,7 +158,7 @@ async function forkEvidence(
       if (result.evidence) finish(undefined, result.evidence)
       else finish(new Error(result.error ?? 'Invalid worker report'))
     })
-    child.send({ root, config, contracts, fingerprint, engine })
+    child.send({ root, config, contracts, fingerprint })
     if (signal?.aborted) abort()
   })
 }

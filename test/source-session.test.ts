@@ -3,13 +3,13 @@ import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { analyzeSource } from '../src/source.ts'
+import { analyzeSource } from './reference.ts'
 
 test('reused compiler documents preserve complete source facts through edits and errors', () => {
   mkdirSync(resolve('work'), { recursive: true })
   const root = mkdtempSync(resolve('work/source-session-'))
   const files = ['bindings.ts', 'dependency.ts', 'handler.ts', 'package.json']
-  const collector = new URL('../src/source.ts', import.meta.url).href
+  const collector = new URL('./reference.ts', import.meta.url).href
   const compare = () => {
     const actual = analyzeSource(root, files, 'bindings.ts')
     const fresh = spawnSync(

@@ -18,8 +18,9 @@ import { materializeFixture } from '../native/tools/fixtures.ts'
 import { buildSnapshot } from '../src/retention.ts'
 import { evaluate } from '../src/policy.ts'
 import { snapshot } from '../src/project.ts'
-import { analyzeSource } from '../src/source.ts'
-import type { Config } from '../src/model.ts'
+import { runEvidence } from '../src/evidence.ts'
+import { analyzeSource } from './reference.ts'
+import type { Config, Source } from '../src/model.ts'
 import { cliEnvironment, runCli } from './cli.ts'
 
 const feature = `Feature: Native semantics
@@ -58,7 +59,7 @@ function fixture(sources: Record<string, string>, maintained?: string[]) {
 
 async function compare(project: ReturnType<typeof fixture>) {
   const reference = analyzeSource(project.root, project.files, 'bindings.ts')
-  const native = await snapshot(project.root, project.config, false, undefined, undefined, 'rust')
+  const native = await snapshot(project.root, project.config, false)
   assert.equal(native.analysis?.engine, 'rust')
   assert.equal(native.evidence, undefined, 'Source comparison must not manufacture evidence')
   assert.deepEqual(canonicalSource(native.source), canonicalSource(reference))
@@ -70,22 +71,38 @@ async function compare(project: ReturnType<typeof fixture>) {
 
 function cli(
   project: ReturnType<typeof fixture>,
-  engine: 'typescript' | 'rust',
+  engine: 'rust' | undefined,
   env: NodeJS.ProcessEnv = {},
 ) {
   writeFileSync(join(project.root, 'bonsai.json'), JSON.stringify(project.config))
-  const result = runCli(['check', '--root', project.root, '--engine', engine, '--json'], {
-    cwd: project.root,
-    env: cliEnvironment({
-      BONSAI_NATIVE_BINARY: undefined,
-      FORCE_COLOR: process.env.FORCE_COLOR,
-      ...env,
-    }),
-    timeout: 30000,
-    maxBuffer: 32 * 1024 * 1024,
-  })
+  const result = runCli(
+    ['check', '--root', project.root, ...(engine ? ['--engine', engine] : []), '--json'],
+    {
+      cwd: project.root,
+      env: cliEnvironment({
+        BONSAI_NATIVE_BINARY: undefined,
+        FORCE_COLOR: process.env.FORCE_COLOR,
+        ...env,
+      }),
+      timeout: 30000,
+      maxBuffer: 32 * 1024 * 1024,
+    },
+  )
   assert.equal(result.error, undefined, String(result.error))
   return { ...result, report: result.stdout ? JSON.parse(result.stdout) : undefined }
+}
+
+function referenceInDirectory(project: ReturnType<typeof fixture>): Source {
+  const result = spawnSync(
+    process.execPath,
+    [
+      '--eval',
+      `import { analyzeSource } from ${JSON.stringify(new URL('./reference.ts', import.meta.url).href)}; process.stdout.write(JSON.stringify(analyzeSource(${JSON.stringify(project.root)}, ${JSON.stringify(project.files)}, 'bindings.ts')))`,
+    ],
+    { cwd: project.root, encoding: 'utf8', timeout: 30000 },
+  )
+  assert.equal(result.status, 0, result.stderr)
+  return JSON.parse(result.stdout)
 }
 
 test('native semantics preserve interpolation, regular expressions, and Unicode source facts', {
@@ -214,7 +231,7 @@ test('native syntax errors block verification even when no compatible lexical gr
       "export function unfinished(\nexport function handle() { return { status: 'ok' } }\n",
   })
   try {
-    const native = await snapshot(project.root, project.config, true, undefined, undefined, 'rust')
+    const native = await snapshot(project.root, project.config, true)
     assert.ok(native.source.problems.some((problem) => /handler\.ts:\d+:.*expected/.test(problem)))
     assert.equal(evaluate(undefined, native, project.config.policy).status, 'incomplete')
     assert.equal(native.evidence, undefined)
@@ -256,10 +273,9 @@ test('native checks block unsupported default-library directives before verifica
     try {
       // Launch outside the checkout so its Node typings cannot restore the libraries.
       const candidate = { ...project, root: isolated }
-      const reference = cli(candidate, 'typescript')
+      const reference = referenceInDirectory(candidate)
       const native = cli(candidate, 'rust')
-      assert.equal(reference.status, 2)
-      assert.match(reference.report.snapshot.source.problems.join('\n'), /Cannot find global type/)
+      assert.match(reference.problems.join('\n'), /Cannot find global type/)
       assert.equal(native.status, 2, native.stderr || native.stdout)
       const file = imported ? join('node_modules', 'library', 'index.d.ts') : 'globals.d.ts'
       assert.deepEqual(native.report.snapshot.source.problems, [
@@ -267,7 +283,7 @@ test('native checks block unsupported default-library directives before verifica
       ])
       assert.deepEqual(
         canonicalSource({ ...native.report.snapshot.source, problems: [] }),
-        canonicalSource({ ...reference.report.snapshot.source, problems: [] }),
+        canonicalSource({ ...reference, problems: [] }),
       )
       assert.equal(native.report.snapshot.evidence, undefined)
     } finally {
@@ -304,19 +320,25 @@ test('native checks preserve real evidence and reject invalid behavior, ancestry
       project.config.policy.hardLimit = 1
     }
     try {
-      const reference = await snapshot(project.root, project.config)
-      rmSync(marker, { force: true })
-      const native = await snapshot(
-        project.root,
-        project.config,
-        true,
-        undefined,
-        undefined,
-        'rust',
+      const native = await snapshot(project.root, project.config)
+      const reference = buildSnapshot(
+        native.fingerprint,
+        native.contracts,
+        analyzeSource(project.root, project.files, project.config.bindings),
       )
+      if (!reference.source.problems.length && !reference.contracts.problems.length)
+        reference.evidence = await runEvidence(
+          project.root,
+          project.config,
+          reference.contracts,
+          reference.fingerprint,
+          project.config.policy.maxFeedbackMs,
+        )
+      rmSync(marker, { force: true })
+      const repeated = await snapshot(project.root, project.config, true)
       assert.deepEqual(canonicalSource(native.source), canonicalSource(reference.source))
       const expected = evaluate(undefined, reference, project.config.policy)
-      const actual = evaluate(undefined, native, project.config.policy)
+      const actual = evaluate(undefined, repeated, project.config.policy)
       assert.deepEqual(actual, expected)
       assert.equal(
         actual.status,
@@ -407,13 +429,9 @@ test('native CLI discovers ambient packages and refreshes changed declarations',
     ]) {
       if (content === undefined) rmSync(declarations, { recursive: true })
       else writeFileSync(declaration, content)
-      const reference = cli(project, 'typescript')
+      const reference = referenceInDirectory(project)
       const native = cli(project, 'rust')
-      assert.equal(native.status, reference.status, native.stderr || native.stdout)
-      assert.deepEqual(
-        canonicalSource(native.report.snapshot.source),
-        canonicalSource(reference.report.snapshot.source),
-      )
+      assert.deepEqual(canonicalSource(native.report.snapshot.source), canonicalSource(reference))
       if (content?.includes('string')) {
         assert.equal(native.status, 0)
         assert.equal(native.report.snapshot.evidence.complete, true)
@@ -530,19 +548,12 @@ test('native binding-loader provenance follows exact archived implementations', 
     project.config.maintained = project.files
     project.config.bindings = 'bonsai.bindings.ts'
     const reference = analyzeSource(project.root, project.files, project.config.bindings)
-    const native = await snapshot(project.root, project.config, false, undefined, undefined, 'rust')
+    const native = await snapshot(project.root, project.config, false)
     assert.deepEqual(canonicalSource(native.source), canonicalSource(reference))
     assert.equal(native.source.bindingImports?.length, 1)
     const target = join(project.root, 'src/binding-target.ts')
     writeFileSync(target, readFileSync(target, 'utf8').replace('Object.freeze', 'Object.seal'))
-    const modified = await snapshot(
-      project.root,
-      project.config,
-      false,
-      undefined,
-      undefined,
-      'rust',
-    )
+    const modified = await snapshot(project.root, project.config, false)
     assert.equal(modified.source.bindingImports, undefined)
     assert.ok(
       modified.source.problems.some((problem) =>

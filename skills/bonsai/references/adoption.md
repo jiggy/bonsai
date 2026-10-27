@@ -18,9 +18,11 @@ add contracts merely to hide an unsupported connection.
 
 ## 2. Establish a reproducible checker
 
-Reuse the project's installed checker when available. Otherwise obtain a separate checkout of `https://github.com/jiggy/bonsai`, select a reviewed commit, and install its locked dependencies with `bun install --frozen-lockfile`. The alpha package can also be installed with `bun add --global @jigging/bonsai@alpha` after a release is published; it requires Bun.
+Reuse the project's installed checker when available. Otherwise obtain a separate checkout of `https://github.com/jiggy/bonsai`, select a reviewed commit, and install its locked dependencies with `bun install --frozen-lockfile`. After the native release is published, `bunx --bun @jigging/bonsai@alpha check` can run it directly, or install globally with `bun add --global @jigging/bonsai@alpha`. Select an exact published version for CI. The old alpha.0 package predates native analysis; preparing a newer version in Git does not publish it. Users need Bun and a supported prebuilt platform, not Cargo or a Rust compiler.
 
 Set `BONSAI_DIR` to that checkout's absolute path and `PROJECT_DIR` to the consuming project's absolute root. Invoke through `bun run --cwd "$BONSAI_DIR" --silent bonsai …` so the checker's loader and dependencies resolve from its own checkout. Confirm the Bun requirement from its `package.json`, run `--help`, and record the selected revision for reproduction.
+
+Bonsai uses native Rust source analysis by default. Existing `--engine rust` commands work; remove `--engine typescript`. Missing native packages must be repaired rather than bypassed with a different engine. Read the installed platform matrix before adopting the gate.
 
 **Done:** the checker runs independently of the consuming project's package scripts and its revision is recorded.
 
