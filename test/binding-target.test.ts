@@ -177,7 +177,7 @@ test('a supported loader boundary requires the matching binding import receipt',
     ]
     candidate.evidence = {
       fingerprint: candidate.fingerprint,
-      profile: 'in-process-v1',
+      profile: 'isolated-scenarios-v1',
       complete: true,
       elapsedMs: 1,
       bindingImport: {

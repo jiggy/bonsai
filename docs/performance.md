@@ -34,9 +34,10 @@ observations present in that revision under its 15-second policy.
 The query-pruning pass below profiles that work and removes unused symbol requests.
 The following verification pass removes redundant contract-compiler initialization.
 Further verification work should target measured startup or transport costs while
-preserving every handler call and fresh compiler programs. Sequential scenario
-semantics remain the default. The explicit isolated profile below changes
-cross-scenario state semantics and is measured separately; it is not result caching.
+preserving every handler call and fresh compiler programs. Concurrent isolated
+scenarios are the default; `--serial` selects ordered scenarios with shared
+application state. The execution profile is recorded separately from project
+settings, and neither mode caches results.
 
 ## Prune unused semantic requests
 
@@ -148,25 +149,31 @@ fresh-process lifecycle; this pass removes redundant dependency initialization.
 
 ## Execute independent scenarios concurrently
 
-The optional `verification: { profile: "isolated-scenarios-v1", workers: 2 }`
-configuration runs independent scenarios concurrently. The default remains one
-fresh execution process with shared application modules and sequential scenarios.
-The isolated profile creates a fresh application process per scenario, preserves
-step order within it, and restores original observation order in the report.
-Projects must ensure that scenarios do not interfere through external resources.
+`check` runs independent scenarios concurrently by default. The worker count is
+`min(availableParallelism(), scenarioCount)`, with one worker for an empty contract
+set's validation path. The runtime reports CPU capacity available to this process;
+Bonsai does not use the machine-wide CPU inventory or a fixed four-worker limit.
+Each scenario gets a fresh application process, preserves its step order, and
+retains its original observation order in the report. External resources remain
+shared. `check --serial` uses one fresh process with application modules shared
+across ordered scenarios. Execution mode belongs to the invocation, with no
+`verification` block in `bonsai.json`.
 
 Each scheduling lane owns a separate native broker, avoiding busy-worker fallback
 between lanes while amortizing lexical initialization. Every native request still
 creates a fresh compiler program. Every scenario still invokes its handlers;
 there is no application, source-fact, or evidence cache. The scheduler validates
 every shard's exact check IDs, complete report, fingerprint, and binding receipt
-before producing evidence for the requested profile. One shared deadline includes
-queueing, startup, execution, and broker cleanup. Infrastructure failures stop
+before producing evidence for the selected runtime profile. One shared deadline
+includes queueing, startup, execution, and broker cleanup. Infrastructure failures stop
 queued scenarios and cancel peers; ordinary Unix descendants receive bounded
 graceful shutdown followed by forced process-group cleanup.
 
+The historical comparison below predates automatic concurrency and `--serial`.
+It used an explicit verification configuration, which has since been removed.
 On 2026-10-27, fresh Bun 1.4.3 processes compared profiles on one updated working
-tree on Linux x64 with an Intel Xeon Platinum 8573C and five available CPUs.
+tree on Linux x64 with an Intel Xeon Platinum 8573C and five CPUs in its
+affinity mask.
 The initial sequence alternated sequential and two-worker checks; follow-up
 four-worker samples included a two-worker control. Filesystem caches were not
 flushed. Every sample measured the same 98 maintained files, 28 scenarios, and
@@ -174,7 +181,7 @@ flushed. Every sample measured the same 98 maintained files, 28 scenarios, and
 
 | Execution profile | Samples | Verification | Complete command wall time |
 | --- | ---: | ---: | ---: |
-| Sequential default | 3 | 6,064 ms | 9,467 ms |
+| Then-default sequential profile | 3 | 6,064 ms | 9,467 ms |
 | Isolated, two workers | 4 | 4,472 ms | 7,195 ms |
 | Isolated, four workers | 3 | 3,051 ms | 5,424 ms |
 
@@ -183,7 +190,7 @@ and policy decisions matched; profile metadata and configuration fingerprints
 intentionally differed. Every run correctly rejected the same real retained-size
 and ancestry violations. These profiles therefore establish equivalent outcomes
 for this audited independent suite, not interchangeable state semantics for other
-projects. The new isolation feature adds eight observations, so the earlier
+projects. That isolation revision added eight observations, so the earlier
 116-observation benchmark is not an equal-workload control.
 
 Four workers reduced median verification by about 50% and command wall time by
@@ -193,15 +200,17 @@ took 9.38 seconds in verification: fresh per-scenario processes have a cost, and
 parallel execution need not benefit every project or CPU allocation. These small
 samples are workload-specific measurements, not a general speedup guarantee.
 
-Bonsai's root explicitly selects four workers after auditing its actions: mutable
-actions own separate temporary projects; discovery commands only read metadata.
-The benchmark preceded final documentation, root opt-in edits, and the incoming
-native-installation recovery change. No feedback
+That revision explicitly selected four workers for Bonsai's independent suite:
+mutable actions own separate temporary projects; discovery commands only read
+metadata. The benchmark preceded final documentation, root opt-in edits, and the
+native-installation recovery change. Current checks derive concurrency from CPU
+capacity and scenario count; these fixed-worker samples do not establish a
+universal optimal worker count or measure the later automatic default. No feedback
 limit, size coefficient, maintained scope, or required observation was relaxed.
 
-A subsequent actual-root stress check restricted the CLI and all descendants to
-one CPU. All 124 observations passed with four workers in 11,019 ms of feedback
-against the saved 15,000 ms ceiling. This verifies that local constrained workload,
+A subsequent stress check of that historical root restricted the CLI and all
+descendants to one CPU. All 124 observations passed with four workers in
+11,019 ms of feedback against the saved 15,000 ms ceiling. This verifies that local constrained workload,
 not a hardware-independent deadline guarantee.
 
 ## Historical compiler profile

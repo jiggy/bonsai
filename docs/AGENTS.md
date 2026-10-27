@@ -14,7 +14,7 @@ Document fixed subprocess entry-point syntax separately from runtime coverage. C
 
 Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
 
-Document isolated scenario verification as an explicit execution profile with bounded workers, fresh application processes, sequential steps, and one overall deadline. Omitted settings preserve shared-state sequential execution. Process separation does not isolate external resources; independently audited scenarios must own their shared-resource setup. Compare profiles on identical inventories and obligations, distinguishing intentional profile/fingerprint differences from changed outcomes.
+Document concurrent isolated verification as the default, with runtime CPU-sized workers bounded by scenario count, fresh application processes, sequential steps, and one overall deadline. `check --serial` preserves shared application modules across ordered scenarios. Execution mode is an invocation choice, not project configuration. Process separation does not isolate external resources. Compare profiles on identical inventories and obligations; label historical configuration/fingerprint differences separately from current runtime metadata and changed outcomes.
 
 Keep native semantic conformance, lexical accounting, and runtime evidence distinct. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. Rust is the sole production engine, and authored Rust stays measured with explicit unsupported analysis until an adapter exists.
 

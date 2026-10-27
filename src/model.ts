@@ -48,17 +48,16 @@ export type Policy = {
   hardLimit: number
   maxFeedbackMs: number
 }
-export type Verification = { profile: 'isolated-scenarios-v1'; workers: number }
+export type Verification = { profile: 'in-process-v1' | 'isolated-scenarios-v1'; workers: number }
 export type Config = {
   maintained: string[]
   exclude?: string[]
   bindings: string
   policy: Policy
-  verification?: Verification
 }
 export type Evidence = {
   fingerprint: string
-  profile: 'in-process-v1' | Verification['profile']
+  profile: Verification['profile']
   complete: boolean
   elapsedMs: number
   bindingImport?: { adapter: 'project-bindings-v1'; file: string; fingerprint: string }

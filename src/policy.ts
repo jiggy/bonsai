@@ -6,15 +6,14 @@ export function validateVerification(verification: Verification | undefined): vo
     !verification ||
     typeof verification !== 'object' ||
     Array.isArray(verification) ||
-    verification.profile !== 'isolated-scenarios-v1' ||
-    !Number.isInteger(verification.workers) ||
+    (verification.profile !== 'isolated-scenarios-v1' &&
+      verification.profile !== 'in-process-v1') ||
+    !Number.isSafeInteger(verification.workers) ||
     verification.workers < 1 ||
-    verification.workers > 8 ||
+    (verification.profile === 'in-process-v1' && verification.workers !== 1) ||
     Object.keys(verification).some((key) => key !== 'profile' && key !== 'workers')
   )
-    throw new Error(
-      'Configuration verification requires profile "isolated-scenarios-v1" and workers from 1 to 8',
-    )
+    throw new Error('Invalid verification execution profile or worker count')
 }
 
 export function validatePolicy(policy: Policy): void {
@@ -67,14 +66,14 @@ export function evaluate(
   try {
     validateVerification(candidate.verification)
   } catch {
-    missing('Verification configuration is invalid')
+    missing('Verification execution metadata is invalid')
   }
   const evidence = candidate.evidence
   if (
     !evidence ||
     !evidence.complete ||
     evidence.fingerprint !== candidate.fingerprint ||
-    evidence.profile !== (candidate.verification?.profile ?? 'in-process-v1')
+    evidence.profile !== (candidate.verification?.profile ?? 'isolated-scenarios-v1')
   ) {
     missing('Required evidence is missing, incomplete, or belongs to another candidate')
   } else {

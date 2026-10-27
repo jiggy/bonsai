@@ -12,6 +12,7 @@ import {
 } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { availableParallelism } from 'node:os'
 import { compileContracts } from '../src/contracts.ts'
 import { readConfig } from '../src/project.ts'
 import { inventory } from '../src/source.ts'
@@ -109,8 +110,11 @@ function fulfilled(
   }
   const evidence = candidate.evidence
   assert.ok(evidence, report.stderr)
-  assert.deepEqual(candidate.verification, config.verification)
-  assert.equal(evidence.profile, config.verification?.profile ?? 'in-process-v1')
+  assert.deepEqual(candidate.verification, {
+    profile: 'isolated-scenarios-v1',
+    workers: Math.min(availableParallelism(), Math.max(1, required.cases.length)),
+  })
+  assert.equal(evidence.profile, 'isolated-scenarios-v1')
   assert.equal(evidence.complete, true)
   assert.equal(evidence.fingerprint, candidate.fingerprint)
   assert.deepEqual(evidence.bindingImport, {

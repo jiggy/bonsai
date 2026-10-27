@@ -356,6 +356,8 @@ async function main(): Promise<void> {
     command === 'help' ||
     (command === 'config' && !operands.length)
   if (enabled('version') && !helpRequest) command = 'version'
+  if (helpRequest && enabled('serial') && helpTarget !== 'check')
+    throw new CliError('--serial only applies to check', 'USAGE', 'bonsai help check')
   if (!helpRequest && !Object.hasOwn(commands, command))
     throw new CliError(
       `Unknown command '${command}'`,
@@ -653,7 +655,10 @@ async function main(): Promise<void> {
       text('engine') !== undefined && (words[0] === 'check' || words[0] === 'explain')
         ? ['--engine', engine]
         : []
-    return ['bonsai', ...positional, ...context, ...selection].map(shellWord).join(' ')
+    const execution = words[0] === 'check' && enabled('serial') ? ['--serial'] : []
+    return ['bonsai', ...positional, ...context, ...selection, ...execution]
+      .map(shellWord)
+      .join(' ')
   }
   if (prompted)
     write(`Next ${symbol('→', '->')} ${invocation(['explain', operands[0]])}`, process.stderr)
@@ -746,12 +751,6 @@ async function main(): Promise<void> {
         `root\t${root}`,
         `policy\t${configFile}`,
         `bindings\t${config.bindings}`,
-        ...(config.verification
-          ? [
-              `verification.profile\t${config.verification.profile}`,
-              `verification.workers\t${config.verification.workers}`,
-            ]
-          : []),
         ...config.maintained.map((path) => `maintained\t${path}`),
         ...(config.exclude ?? []).map((pattern) => `exclude\t${pattern}`),
         ...Object.entries(result.origin).map(([key, value]) => `origin.${key}\t${value}`),
@@ -764,11 +763,6 @@ async function main(): Promise<void> {
         `Maintained: ${config.maintained.join(', ')}`,
         `Exclusions: ${config.exclude?.length ?? 0} saved patterns (use --json to inspect)`,
         `Bindings: ${config.bindings}`,
-        ...(config.verification
-          ? [
-              `Verification: isolated scenarios (${config.verification.workers} ${config.verification.workers === 1 ? 'worker' : 'workers'})`,
-            ]
-          : []),
         ...Object.entries(config.policy).map(([key, value]) => `${key}: ${value}`),
       ],
     )
@@ -810,6 +804,7 @@ async function main(): Promise<void> {
     command === 'check',
     cancellation.signal,
     candidateTimer,
+    { serial: enabled('serial') },
   )
   candidateTiming = candidate.timing
   if (stopping) return

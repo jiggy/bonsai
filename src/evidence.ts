@@ -1,7 +1,18 @@
 import { deepStrictEqual } from 'node:assert'
+import { availableParallelism } from 'node:os'
 import { projectBindingTarget } from './binding-target.ts'
 import { validateVerification } from './policy.ts'
-import type { Config, Contracts, Evidence } from './model.ts'
+import type { Config, Contracts, Evidence, Verification } from './model.ts'
+
+/** Use runtime CPU capacity, bounded by the number of scenarios that can execute. */
+export function verificationPlan(contracts: Contracts, serial = false): Verification {
+  return serial
+    ? { profile: 'in-process-v1', workers: 1 }
+    : {
+        profile: 'isolated-scenarios-v1',
+        workers: Math.min(availableParallelism(), Math.max(1, contracts.cases.length)),
+      }
+}
 
 function observe(response: unknown, selector: string): unknown {
   let value = response
@@ -82,12 +93,21 @@ export async function runEvidence(
   fingerprint: string,
   timeoutMs: number,
   signal?: AbortSignal,
+  verification = verificationPlan(contracts),
 ): Promise<Evidence> {
-  validateVerification(config.verification)
+  validateVerification(verification)
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
-  if (config.verification)
-    return isolatedEvidence(root, config, contracts, fingerprint, timeoutMs, signal)
+  if (verification.profile === 'isolated-scenarios-v1')
+    return isolatedEvidence(
+      root,
+      config,
+      contracts,
+      fingerprint,
+      verification.workers,
+      timeoutMs,
+      signal,
+    )
   const began = performance.now()
   const { openNativeSession } = await import('./native-session.ts')
   const session = await openNativeSession()
@@ -112,6 +132,7 @@ async function isolatedEvidence(
   config: Config,
   contracts: Contracts,
   fingerprint: string,
+  workers: number,
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<Evidence> {
@@ -151,41 +172,38 @@ async function isolatedEvidence(
   try {
     if (signal?.aborted) abort()
     const { openNativeSession } = await import('./native-session.ts')
-    const lanes = Array.from(
-      { length: Math.min(config.verification!.workers, shards.length) },
-      async () => {
-        let session: Awaited<ReturnType<typeof openNativeSession>> | undefined
-        try {
+    const lanes = Array.from({ length: Math.min(workers, shards.length) }, async () => {
+      let session: Awaited<ReturnType<typeof openNativeSession>> | undefined
+      try {
+        remaining()
+        session = await openNativeSession({ inherit: false })
+        while (next < shards.length) {
           remaining()
-          session = await openNativeSession({ inherit: false })
-          while (next < shards.length) {
-            remaining()
-            const index = next++
-            const shard = shards[index]!
-            const evidence = await forkEvidence(
-              root,
-              config,
-              shard,
-              fingerprint,
-              remaining(),
-              cancellation.signal,
-              session.value,
-              true,
-            )
-            validateScenarioEvidence(evidence, shard, config, fingerprint)
-            results[index] = evidence
-          }
+          const index = next++
+          const shard = shards[index]!
+          const evidence = await forkEvidence(
+            root,
+            config,
+            shard,
+            fingerprint,
+            remaining(),
+            cancellation.signal,
+            session.value,
+            true,
+          )
+          validateScenarioEvidence(evidence, shard, config, fingerprint)
+          results[index] = evidence
+        }
+      } catch (error) {
+        fail(error)
+      } finally {
+        try {
+          await session?.close()
         } catch (error) {
           fail(error)
-        } finally {
-          try {
-            await session?.close()
-          } catch (error) {
-            fail(error)
-          }
         }
-      },
-    )
+      }
+    })
     await Promise.all(lanes)
     remaining()
     const reported = results.flatMap((result) => result.checks)

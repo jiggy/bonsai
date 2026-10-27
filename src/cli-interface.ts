@@ -29,6 +29,11 @@ export const flags = {
     choices: ['rust'],
     scope: ['check', 'explain'],
   },
+  serial: {
+    type: 'boolean',
+    description: 'run scenarios in order with shared application state',
+    scope: ['check'],
+  },
   timeout: {
     type: 'string',
     description: 'command deadline in seconds (default none)',
@@ -94,11 +99,11 @@ export const commands = {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
     description:
-      'Runs the project’s named handlers in a worker and checks source with the native Rust TypeScript checker. A rejected or incomplete gate blocks acceptance. Reports elapsed time, with phase timings in --verbose and --json.',
+      'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Phase timings appear in --verbose and --json.',
     examples: [
       'bonsai check',
       'bonsai check --root examples/checkout --json',
-      'bonsai check --root examples/checkout --verbose',
+      'bonsai check --root examples/checkout --serial',
     ],
   },
   explain: {

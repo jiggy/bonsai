@@ -16,6 +16,8 @@ Feature: Discover and initialize Bonsai's development loop
     And response "flags.engine.choices[0]" equals "rust"
     And response "flags.engine.scope[0]" equals "check"
     And response "flags.engine.scope[1]" equals "explain"
+    And response "flags.serial.type" equals "boolean"
+    And response "flags.serial.scope[0]" equals "check"
 
   Scenario Outline: Generate completions for a supported shell
     When I invoke "completion" with {"shell": "<shell>"}

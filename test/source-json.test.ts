@@ -44,7 +44,7 @@ function complete(candidate: Snapshot): Snapshot {
     ...candidate,
     evidence: {
       fingerprint: candidate.fingerprint,
-      profile: 'in-process-v1',
+      profile: 'isolated-scenarios-v1',
       complete: true,
       elapsedMs: 1,
       checks: candidate.contracts.checks.map((check) => ({ id: check.id, status: 'passed' })),

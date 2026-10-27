@@ -16,7 +16,7 @@ Assert actual CLI reports, exit codes, and filesystem outcomes. Keep every requi
 
 Cover both successful behavior and blocking outcomes. Native checking is the default; the removed TypeScript engine choice is not an executable obligation. Keep unsupported self-analysis visible rather than manufacturing a passing gate.
 
-The isolated verification contract invokes the real CLI with explicit `isolated-scenarios-v1` settings. Require fresh state between scenarios, ordered actions within a scenario, and every observation; this profile never changes the sequential default.
+The default verification contract requires fresh state between scenarios, ordered steps within a scenario, automatic CPU-sized concurrency, and every observation. The `--serial` contract requires shared state across ordered scenarios through the real CLI. Discovery exposes `--serial` as a check-only flag; neither profile uses project execution settings.
 
 ## Verification
 

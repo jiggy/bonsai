@@ -139,37 +139,33 @@ Expired commands cannot report success. Signals stop active
 verification workers and remove temporary base archives. Candidate handlers still
 run with the caller's privileges, as described under Limits.
 
-### Run independent scenarios concurrently
+### Concurrent and serial verification
 
-By default, verification runs scenarios sequentially in one fresh subprocess,
-sharing loaded application modules for that run. Keep this default when scenarios
-depend on earlier scenarios' state.
+`bonsai check` runs scenarios concurrently by default. It selects one worker per
+available CPU using the runtime's `availableParallelism()`, bounded by the number
+of scenarios. Each scenario gets fresh application modules in its own subprocess;
+steps within that scenario execute in order. Result ordering follows the contracts.
 
-For independent scenarios, add `verification` to the existing `bonsai.json`:
+Use `--serial` when scenarios depend on earlier scenarios' state or share external
+resources that cannot run concurrently:
 
-```json
-{
-  "verification": {
-    "profile": "isolated-scenarios-v1",
-    "workers": 2
-  }
-}
+```sh
+bonsai check --serial --verbose
 ```
 
-`workers` must be an integer from 1 to 8. Each scenario runs in a fresh subprocess
-with fresh application modules; its steps execute in order. Up to `workers`
-scenarios can run concurrently. Processes still share external resources such as
-files, databases, and services: ensure scenarios cannot interfere through them.
-This profile changes scenario state semantics even with one worker.
+Serial mode runs scenarios in contract order in one fresh subprocess, sharing
+application modules for that run. Concurrent processes still share files,
+databases, and services, so independent scenarios must not interfere through them.
+A one-CPU concurrent run still isolates application state between scenarios;
+`--serial` explicitly selects shared state.
 
-The command stays `bonsai check --verbose`. Inspect the effective setting with
-`bonsai config show --json`. Every observation remains required, and all workers
-share the existing feedback deadline, including startup and cleanup. Each execution
-lane can reuse lexical initialization for nested checks; every analysis still
-creates a fresh native compiler process and program. The effective configuration,
-including this profile and worker count, enters the content fingerprint; evidence
-must match the selected execution profile. Base/trusted policy selection applies
-to this setting too.
+Execution mode is a command choice, not a `bonsai.json` setting. Remove the old
+`verification` block if present. JSON check reports expose the selected profile
+and worker count in `snapshot.verification`; evidence must match that profile.
+Every observation remains required, and all workers share the saved feedback
+deadline, including startup and cleanup. Each execution lane can reuse lexical
+initialization for nested checks; every analysis still creates a fresh native
+compiler process and program.
 
 ### Exit codes
 
@@ -334,9 +330,9 @@ tests do not replace native product coverage.
 without an engine speedup ratio. Standard JSON configs keep TypeScript out of the
 CLI parent; JSONC and malformed configs retain the established parser diagnostics.
 Nested checks may share lexical initialization within one verification invocation,
-while every request creates a fresh native compiler process and program. The default
-verification profile preserves scenario order and its fresh process boundary;
-the optional isolated profile uses a fresh application process for each scenario.
+while every request creates a fresh native compiler process and program. Default
+verification uses a fresh application process for each scenario; `--serial` keeps
+scenario order and shared application modules within one fresh process.
 
 ## Bonsai's own executable contracts
 
@@ -533,7 +529,7 @@ The base is read from an archive without running its code. Its `bonsai.json` sup
 - Contracted handlers root production dependencies through TypeScript symbol references, including imports, aliases, and type references.
 - A unit test can inherit ancestry from retained production subjects. It cannot root another production subject or a dead dependency cycle.
 - Tests are identified by `test/`, `tests/`, `.test.`, or `.spec.` paths. This is static subject association, **not evidence that the unit tests passed**.
-- Verification runs in a fresh subprocess with a deadline, so stale module caches and nonterminating handlers cannot silently pass. Feedback time includes candidate collection and execution, excluding optional base analysis and final report formatting.
+- Verification runs in fresh subprocesses with a shared deadline, so stale module caches and nonterminating handlers cannot silently pass. Feedback time includes candidate collection and execution, excluding optional base analysis and final report formatting.
 - Evidence is bound to the maintained content and effective configuration. Changes during verification, missing obligations, failed assertions, and mismatched evidence block acceptance.
 
 ## Limits and next steps

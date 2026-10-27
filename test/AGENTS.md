@@ -16,7 +16,7 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs.
 
-Isolated verification regressions use actual evidence processes and CLI contracts. Preserve shared scenario state in the sequential default, fresh processes per isolated scenario, sequential steps, bounded overlap of synchronous handlers, deterministic check order, and every observation after assertion failures. Prove shared deadlines, peer cancellation, descendant shutdown, invalid shard rejection, and unscheduled queued work after infrastructure failure. Profile/configuration mismatches must remain incomplete. Independent lane brokers must not close inherited owners or each other.
+Isolated verification regressions use actual evidence processes and CLI contracts. Preserve shared scenario state with explicit `--serial`, fresh processes per default isolated scenario, sequential steps, bounded overlap of synchronous handlers, deterministic check order, and every observation after assertion failures. Verify automatic worker selection from available CPU capacity and scenario count. Prove shared deadlines, peer cancellation, descendant shutdown, invalid shard rejection, and unscheduled queued work after infrastructure failure. Runtime profile mismatches must remain incomplete; execution settings must not enter project configuration. Independent lane brokers must not close inherited owners or each other.
 
 Contract compilation regressions preserve every outline row and exact observation IDs/source lines when features are duplicated or split. Use the production Gherkin path; generated AST IDs stay local to each feature file.
 

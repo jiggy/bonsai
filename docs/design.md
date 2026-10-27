@@ -52,21 +52,23 @@ or new nested project markers cannot silently narrow a trusted base inventory.
 
 ## Verification execution profiles
 
-With `config.verification` omitted, `in-process-v1` runs all scenarios in order in
-one fresh application subprocess, retaining module state within that run.
-The explicit `verification: { profile: "isolated-scenarios-v1", workers: 2 }`
-configuration declares independent scenarios. Workers must be an integer from 1
-to 8. Each scenario gets a fresh application subprocess and module cache; its
-steps remain sequential. Scenarios may overlap across workers, and external
-resources remain shared. Selecting this profile changes cross-scenario state
-semantics even with one worker.
+`check` defaults to `isolated-scenarios-v1`: independent scenarios may overlap,
+with one worker per runtime-reported available CPU, bounded by the scenario count.
+Each scenario gets a fresh application subprocess and module cache; its steps
+remain sequential. Files, databases, and services are still shared resources.
+
+`check --serial` selects `in-process-v1`: all scenarios run in contract order in
+one fresh application subprocess, retaining module state within that run. This
+is an invocation choice; project configuration contains no execution-mode or
+worker-count setting. Even a one-worker concurrent plan keeps per-scenario
+isolation, so shared-state suites must explicitly use `--serial`.
 
 Both profiles require every observation and retain deterministic result ordering.
 All workers use one feedback deadline, including startup and cleanup; an
-interrupted or incomplete worker cannot produce accepted evidence. Expected
-execution metadata comes from the effective configuration, including a selected
-base or trusted policy. That configuration enters the content fingerprint, and
-the evaluator requires evidence with the matching execution profile.
+interrupted or incomplete worker cannot produce accepted evidence. Snapshots
+record the selected runtime profile and worker count, and the evaluator requires
+evidence with that profile. The maintained content and effective project policy
+remain fingerprinted independently of the invocation's execution mode.
 
 ## Timing boundaries
 
@@ -90,9 +92,9 @@ including partial failures.
 ## Self-verification
 
 Root `.feature` files specify observable Bonsai behavior; executable bindings run
-the real CLI against isolated projects. The root opts into four isolated scenario
-workers after auditing those actions for independence; other projects keep the
-sequential default. The native root check measures the complete
+the real CLI against isolated projects. The root uses the same automatic concurrent
+execution as consuming projects; its actions own separate temporary projects.
+The native root check measures the complete
 committed inventory and requires every observation under the saved feedback
 policy. Nested check/explain commands use the same sole native engine. A copied
 archive fixture checks the same full inventory under the saved 15-second window.
@@ -141,7 +143,8 @@ The native CLI parent defers compiler dependencies to its semantic worker.
 Standard JSON configuration objects use equivalent native parsing; JSONC,
 malformed input, and unusual property keys retain the reference parser and exact
 diagnostics. Contract compilation loads inside its measured phase. These startup
-changes do not cache action results or alter the default sequential execution.
+changes do not cache action results. Concurrent verification isolates scenarios;
+`--serial` preserves ordered scenarios with shared modules in a fresh process.
 
 Native verification opens a private local broker scoped to that invocation.
 The isolated profile owns a broker per execution lane, avoiding contention between

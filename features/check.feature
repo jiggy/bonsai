@@ -134,12 +134,23 @@ Feature: Admit only supported implementations of required behavior
     And response "verificationTiming.status" equals "skipped"
 
   Scenario: Independent scenarios keep fresh state and ordered steps
-    When I invoke "verify-isolated-scenarios" with {"workers": 2}
+    When I invoke "verify-isolated-scenarios" with {}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
     And response "snapshot.verification.profile" equals "isolated-scenarios-v1"
-    And response "snapshot.verification.workers" equals 2
+    And response "cpuPlanMatches" equals true
     And response "snapshot.evidence.profile" equals "isolated-scenarios-v1"
+    And response "snapshot.evidence.complete" equals true
+    And response "snapshot.evidence.checks.length" equals 4
+    And response "observations" equals ["passed", "passed", "passed", "passed"]
+
+  Scenario: Serial verification preserves state between ordered scenarios
+    When I invoke "verify-isolated-scenarios" with {"serial": true}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+    And response "snapshot.verification.profile" equals "in-process-v1"
+    And response "snapshot.verification.workers" equals 1
+    And response "snapshot.evidence.profile" equals "in-process-v1"
     And response "snapshot.evidence.complete" equals true
     And response "snapshot.evidence.checks.length" equals 4
     And response "observations" equals ["passed", "passed", "passed", "passed"]

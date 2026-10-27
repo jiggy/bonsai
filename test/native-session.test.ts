@@ -130,7 +130,7 @@ async function cli(root: string, value: string, extra: NodeJS.ProcessEnv = {}, c
     (done, reject) => {
       const child = spawn(
         process.execPath,
-        [executable, 'check', '--root', root, '--engine', 'rust', '--json'],
+        [executable, 'check', '--root', root, '--engine', 'rust', '--serial', '--json'],
         {
           cwd,
           env: {

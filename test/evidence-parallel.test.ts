@@ -2,12 +2,13 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { availableParallelism } from 'node:os'
 import { setTimeout as delay } from 'node:timers/promises'
 import { compileContracts } from '../src/contracts.ts'
 import { runEvidence } from '../src/evidence.ts'
 import { fingerprint, inventory } from '../src/inventory.ts'
 import { readConfig } from '../src/project.ts'
-import type { Config, Contracts, Evidence } from '../src/model.ts'
+import type { Config, Contracts, Evidence, Verification } from '../src/model.ts'
 import { createProject } from './project.ts'
 
 async function until(predicate: () => boolean, description: string) {
@@ -30,11 +31,11 @@ function fulfilled(evidence: Evidence, contracts: Contracts) {
   )
 }
 
-function independent(config: Config, workers = 2): Config {
-  return { ...config, verification: { profile: 'isolated-scenarios-v1', workers } }
+function isolated(workers = 2): Verification {
+  return { profile: 'isolated-scenarios-v1', workers }
 }
 
-test('sequential verification shares scenario state; isolated scenarios retain step order with fresh modules', async () => {
+test('serial verification shares scenario state; default isolated scenarios retain step order with fresh modules', async () => {
   const fixture = createProject({
     'package.json': '{"type":"module"}',
     'handler.ts': 'let count = 0\nexport function increment() { return { count: ++count } }',
@@ -65,32 +66,42 @@ Scenario: Another scenario
         required,
         identity(fixture.root, config),
         15000,
+        undefined,
+        { profile: 'in-process-v1', workers: 1 },
       )
       assert.equal(evidence.profile, 'in-process-v1')
       fulfilled(evidence, required)
     }
-    for (const workers of [1, 2]) {
-      const selected = independent(config, workers)
+    for (const workers of [undefined, 1, 2]) {
       const required = contracts(1)
-      const hash = identity(fixture.root, selected)
-      const evidence = await runEvidence(fixture.root, selected, required, hash, 15000)
+      const hash = identity(fixture.root, config)
+      const evidence = await runEvidence(
+        fixture.root,
+        config,
+        required,
+        hash,
+        15000,
+        undefined,
+        workers === undefined ? undefined : isolated(workers),
+      )
       assert.equal(evidence.profile, 'isolated-scenarios-v1')
       fulfilled(evidence, required)
       assert.equal(evidence.fingerprint, hash)
       assert.deepEqual(evidence.bindingImport, {
         adapter: 'project-bindings-v1',
-        file: selected.bindings,
+        file: config.bindings,
         fingerprint: hash,
       })
     }
-    const selected = independent(config, 1)
     const required = contracts(1, 99)
     const failed = await runEvidence(
       fixture.root,
-      selected,
+      config,
       required,
-      identity(fixture.root, selected),
+      identity(fixture.root, config),
       15000,
+      undefined,
+      isolated(1),
     )
     assert.equal(failed.complete, true)
     assert.deepEqual(
@@ -140,7 +151,7 @@ while (true) Atomics.wait(wait, 0, 0, 1000)
     'concurrent.feature': text,
   })
   const contracts = compileContracts([{ file: 'concurrent.feature', text }])
-  const config = independent(readConfig(fixture.root))
+  const config = readConfig(fixture.root)
   const started = () => readdirSync(fixture.root).filter((name) => name.startsWith('started-'))
   const stopped = () => {
     for (const file of started()) {
@@ -150,6 +161,43 @@ while (true) Atomics.wait(wait, 0, 0, 1000)
   }
   return { ...fixture, contracts, config, started, stopped }
 }
+
+test('default verification uses available CPU capacity and never starts more workers than scenarios', async () => {
+  const count = Math.min(6, availableParallelism() + 1)
+  const active = Math.min(availableParallelism(), count)
+  const fixture = blockingProject(count)
+  const cancellation = new AbortController()
+  const pending = runEvidence(
+    fixture.root,
+    fixture.config,
+    fixture.contracts,
+    identity(fixture.root, fixture.config),
+    15000,
+    cancellation.signal,
+  )
+  void pending.catch(() => {})
+  try {
+    await until(
+      () => fixture.started().length === active,
+      'The default must fill its CPU-sized scenario pool',
+    )
+    assert.deepEqual(
+      fixture.started().sort(),
+      Array.from({ length: active }, (_, id) => `started-${id}`).sort(),
+    )
+    for (let id = 0; id < count; id++) writeFileSync(join(fixture.root, `release-${id}`), 'go')
+    const evidence = await pending
+    fulfilled(evidence, fixture.contracts)
+    assert.equal(evidence.profile, 'isolated-scenarios-v1')
+    const pids = fixture.started().map((file) => readFileSync(join(fixture.root, file), 'utf8'))
+    assert.equal(new Set(pids).size, count)
+    fixture.stopped()
+  } finally {
+    cancellation.abort()
+    await pending.catch(() => {})
+    fixture.dispose()
+  }
+})
 
 test('isolated verification overlaps synchronous actions, bounds workers, and reports contract order', async () => {
   const fixture = blockingProject()
@@ -161,6 +209,7 @@ test('isolated verification overlaps synchronous actions, bounds workers, and re
     identity(fixture.root, fixture.config),
     15000,
     cancellation.signal,
+    isolated(),
   )
   void pending.catch(() => {})
   try {
@@ -209,6 +258,7 @@ test('isolated verification stops every worker on the shared deadline or cancell
       identity(fixture.root, fixture.config),
       mode === 'deadline' ? 1500 : 15000,
       cancellation.signal,
+      isolated(),
     )
     void pending.catch(() => {})
     try {
@@ -236,6 +286,8 @@ test('a crashed isolated worker aborts its peer and leaves queued scenarios unst
         fixture.contracts,
         identity(fixture.root, fixture.config),
         15000,
+        undefined,
+        isolated(),
       ),
       /worker exited|complete report/i,
     )
@@ -276,6 +328,7 @@ test('isolated cancellation and deadlines stop descendants of synchronous handle
       identity(fixture.root, fixture.config),
       mode === 'deadline' ? 1500 : 15000,
       cancellation.signal,
+      isolated(),
     )
     void pending.catch(() => {})
     try {
@@ -341,7 +394,7 @@ export const actions = { forge, later }
     'protocol.feature': '',
   })
   try {
-    const config = independent(readConfig(fixture.root), 1)
+    const config = readConfig(fixture.root)
     for (const mode of [
       'incomplete',
       'profile',
@@ -363,7 +416,15 @@ Scenario: Queued scenario
       writeFileSync(join(fixture.root, 'protocol.feature'), text)
       const contracts = compileContracts([{ file: 'protocol.feature', text }])
       await assert.rejects(
-        runEvidence(fixture.root, config, contracts, identity(fixture.root, config), 15000),
+        runEvidence(
+          fixture.root,
+          config,
+          contracts,
+          identity(fixture.root, config),
+          15000,
+          undefined,
+          isolated(1),
+        ),
         /Invalid isolated scenario evidence|Invalid or duplicate isolated scenario check|Missing isolated scenario checks/,
         mode,
       )

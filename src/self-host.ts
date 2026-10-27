@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { availableParallelism, tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -223,7 +223,7 @@ export function generateCompletion(input: { shell: string }) {
   return invoke(['completion', input.shell])
 }
 
-export function verifyIsolatedScenarios(input: { workers: number }) {
+export function verifyIsolatedScenarios(input: { serial?: boolean }) {
   const { root } = project()
   try {
     writeFileSync(
@@ -240,22 +240,21 @@ export function verifyIsolatedScenarios(input: { workers: number }) {
         'Feature: Independent counters',
         '  Scenario Outline: Keep steps ordered within a fresh scenario',
         '    When I invoke "advance" with {}',
-        '    Then response "count" equals 1',
+        '    Then response "count" equals <first>',
         '    When I invoke "advance" with {}',
-        '    Then response "count" equals 2',
+        '    Then response "count" equals <second>',
         '    Examples:',
-        '      | scenario |',
-        '      | first |',
-        '      | second |',
+        '      | first | second |',
+        '      | 1 | 2 |',
+        `      | ${input.serial ? 3 : 1} | ${input.serial ? 4 : 2} |`,
         '',
       ].join('\n'),
     )
-    const config = JSON.parse(readFileSync(join(root, 'bonsai.json'), 'utf8'))
-    config.verification = { profile: 'isolated-scenarios-v1', workers: input.workers }
-    writeFileSync(join(root, 'bonsai.json'), JSON.stringify(config))
-    const report = invoke(['check', '--root', root])
+    const report = invoke(['check', '--root', root, ...(input.serial ? ['--serial'] : [])])
     return {
       ...report,
+      cpuPlanMatches:
+        report.snapshot?.verification?.workers === Math.min(availableParallelism(), 2),
       observations: report.snapshot?.evidence?.checks.map(
         (check: { status: string }) => check.status,
       ),

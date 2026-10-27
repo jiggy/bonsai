@@ -46,6 +46,7 @@ Scenario: Keep inventory independent of the compiler
     }
     const hash = fingerprint(root, inventory(root, config.maintained), config)
     const evidence = await runEvidence(root, config, contracts, hash, config.policy.maxFeedbackMs)
+    assert.equal(evidence.profile, 'isolated-scenarios-v1')
     assert.equal(evidence.complete, true)
     assert.equal(evidence.checks.length, 1)
     assert.deepEqual(

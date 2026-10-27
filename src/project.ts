@@ -3,8 +3,8 @@ import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { inventory, fingerprint } from './inventory.ts'
 import { buildSnapshot } from './retention.ts'
-import { runEvidence } from './evidence.ts'
-import { validatePolicy, validateVerification } from './policy.ts'
+import { runEvidence, verificationPlan } from './evidence.ts'
+import { validatePolicy } from './policy.ts'
 import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
 import { collectRustSource } from './collector.ts'
@@ -63,7 +63,10 @@ export function readConfig(
   )
     throw new Error('Configuration exclude must be an array of non-empty ignore patterns')
   validatePolicy(config.policy)
-  validateVerification(config.verification)
+  if (Object.hasOwn(config, 'verification'))
+    throw new Error(
+      'Remove verification from bonsai.json; checks now run concurrently by default. Use --serial for sequential verification',
+    )
   return config
 }
 
@@ -73,6 +76,7 @@ export async function snapshot(
   execute = true,
   signal?: AbortSignal,
   timer = new Timer(),
+  options: { serial?: boolean } = {},
 ): Promise<Snapshot> {
   const started = performance.now()
   try {
@@ -103,7 +107,7 @@ export async function snapshot(
     if (collected.interrupted) timer.finish('interrupted')
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
-    if (config.verification) result.verification = { ...config.verification }
+    if (execute) result.verification = verificationPlan(contracts, options.serial)
     result.analysis = collected.analysis
     let feedbackElapsed = execute ? performance.now() - started : undefined
     if (execute && !contracts.problems.length && !source.problems.length) {
@@ -116,6 +120,7 @@ export async function snapshot(
           hash,
           config.policy.maxFeedbackMs - (performance.now() - started),
           signal,
+          result.verification,
         )
         timer.finish()
       } catch (error) {

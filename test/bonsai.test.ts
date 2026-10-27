@@ -96,6 +96,7 @@ test('checkout runs every assertion and produces passing candidate-bound evidenc
   const result = await snapshot(example, readConfig(example))
   assert.deepEqual(result.source.problems, [])
   assert.deepEqual(result.unrooted, [])
+  assert.equal(result.evidence?.profile, 'isolated-scenarios-v1')
   assert.equal(result.evidence?.checks.length, 3)
   assert.ok(result.evidence?.checks.every((check) => check.status === 'passed'))
   assert.equal(evaluate(undefined, result, readConfig(example).policy).status, 'pass')
