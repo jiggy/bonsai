@@ -292,6 +292,10 @@ program in production. The reference compiler lives in development-only
 `test/reference.ts` and `test/compiler.ts`, outside the published package.
 
 `bun run native:compare` compares native source facts with that independent oracle.
+Source-analysis and CLI regressions use the same native collector and CLI as users;
+pure-module tests call their corresponding production functions directly. The oracle
+adds an independent check of diagnostics and graph facts; its own compiler/session
+tests do not replace native product coverage.
 `bun run native:bench` measures repeated fresh native commands and their evidence,
 without an engine speedup ratio. Standard JSON configs keep TypeScript out of the
 CLI parent; JSONC and malformed configs retain the established parser diagnostics.

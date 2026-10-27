@@ -262,6 +262,17 @@ export async function createTsrsProgram(
       visitRemote(remote)
       const spans: Span = new Map()
       const queries: { local: ts.Node; native: NativeNode }[] = []
+      const declarationNames = new Set<ts.Node>()
+      for (const statement of ast.statements) {
+        if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) continue
+        const declarations = ts.isVariableStatement(statement)
+          ? [...statement.declarationList.declarations]
+          : [statement]
+        for (const declaration of declarations) {
+          const name = (declaration as ts.NamedDeclaration).name
+          if (name) declarationNames.add(name)
+        }
+      }
       const visit = (node: ts.Node): void => {
         // Primitive adapters compare uses with the imported binding's identity;
         // no external value declaration needs to be materialized for that check.
@@ -279,10 +290,27 @@ export async function createTsrsProgram(
         if (node.parent === ast && ts.isExportDeclaration(node)) return
         const key = nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind])
         spans.set(key, node)
+        const parent = node.parent
+        const importSpecifier =
+          parent !== undefined &&
+          ts.isCallExpression(parent) &&
+          parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
+          parent.arguments[0] === node
+        const importTarget =
+          parent !== undefined &&
+          ts.isPropertyAccessExpression(parent) &&
+          parent.expression === node &&
+          parent.name.text === 'url' &&
+          ts.isCallExpression(parent.parent) &&
+          parent.parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
+          parent.parent.arguments[0] === parent
+        // References use property-name identifiers, not whole accesses or ordinary
+        // strings. Keep the loader's target/callee expressions and module names.
         if (
           ts.isIdentifier(node) ||
-          ts.isStringLiteralLike(node) ||
-          ts.isPropertyAccessExpression(node)
+          (ts.isStringLiteralLike(node) && (importSpecifier || declarationNames.has(node))) ||
+          (ts.isPropertyAccessExpression(node) &&
+            (importTarget || (ts.isCallExpression(parent) && parent.expression === node)))
         ) {
           const matching = remoteNodes.get(key)
           if (!matching)
@@ -332,13 +360,16 @@ export async function createTsrsProgram(
     )
 
     const moduleExports = new Map<string, readonly NativeSymbol[]>()
+    const importModules = new Map<string, NativeSymbol>()
+    for (const specifier of importSpecifiers) {
+      const symbol = locations.get(specifier)
+      if (symbol) importModules.set(symbolKey(symbol), symbol)
+    }
     await Promise.all(
-      importSpecifiers.map(async (specifier) => {
-        const symbol = locations.get(specifier)
-        if (!symbol || moduleExports.has(symbolKey(symbol))) return
+      [...importModules].map(async ([key, symbol]) => {
         const entries = await checker.getExportsOfModule(symbol)
         entries.forEach(add)
-        moduleExports.set(symbolKey(symbol), entries)
+        moduleExports.set(key, entries)
       }),
     )
 

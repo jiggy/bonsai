@@ -31,12 +31,68 @@ The source total included 1.28 seconds in graph transfer, 340 ms of worker overh
 must not be added to their enclosing source total. The run completed all 117
 observations present in that revision under its 15-second policy.
 
-Profile nested verification work and native graph subphases/query counts next.
-The adapter currently requests symbols for many ordinary strings and complete
-property-access expressions that the graph may not consume. Reducing those queries
-is a concrete candidate after full source/ancestry/decision conformance checks.
-Keep every handler call, sequential scenario semantics, and fresh compiler programs;
-result caching or parallel verification would change the workload.
+The query-pruning pass below profiles that work and removes unused symbol requests.
+Further verification work should target measured startup or transport costs while
+preserving every handler call, sequential scenario semantics, and fresh compiler
+programs. Result caching or parallel verification would change the workload.
+
+## Prune unused semantic requests
+
+On 2026-10-27, an external development preload observed native SDK requests and
+nested CLI reports without modifying handlers or the published reporting format.
+In the baseline root check, 28 nested CLIs accounted for 4.64 seconds of the
+5.06-second verification phase, about 92%. One initial lexical worker and one
+shared worker served a total of 20 fresh native programs. Across the 19 nested
+programs, snapshot creation took 826 ms; symbol-query windows totaled 166 ms.
+The root program's symbol-query window was 639 ms of its 1,483 ms graph phase.
+Concurrent request waits overlap and must not be added as elapsed phases.
+
+The adapter now requests symbols for identifiers, literal dynamic-import module
+names, component declaration names, and conservative binding-loader target/callee
+expressions. Ordinary strings and whole property expressions are not needed for
+normal graph references; their property-name identifiers remain queried.
+Repeated imports are grouped by module identity before asynchronous export
+lookups, preventing duplicate requests within one analysis. No result survives
+into another analysis.
+
+Observed root symbol locations fell from 40,240 to 30,966, including the added
+regression fixture; identical nested fixture workloads fell from 513 to 357.
+Diagnostics, metadata requests, worker counts, and all 116 root observations were
+preserved. The observer adds overhead: its after-run also slowed unrelated
+contract compilation and file transfer, so those traced elapsed samples do not
+establish a speedup or regression.
+
+Uninstrumented measurements alternated fresh processes using baseline `906f6bf`
+and the updated implementation, on Linux x64, Bun 1.4.3, and an Intel Xeon Platinum
+8573C. Filesystem caches were not flushed. Median durations:
+
+| Workload or phase | Samples per revision | Before | After |
+| --- | ---: | ---: | ---: |
+| Complete checkout check | 5 | 554 ms | 548 ms |
+| Complete root check | 3 | 7,158 ms | 6,955 ms |
+| Root source analysis | 3 | 2,098 ms | 1,830 ms |
+| Root graph transfer, within source analysis | 3 | 1,529 ms | 1,261 ms |
+| Root verification | 3 | 4,922 ms | 4,909 ms |
+
+The unchanged checkout input had identical complete source facts, decisions,
+ancestry, contracts, and evidence. Each root revision measured all 94 of its
+maintained files, including its own implementation and tests; their contents
+therefore differ. Contracts and all executed observation results matched, and
+every root run completed under the unchanged saved 15-second feedback policy.
+Both roots correctly rejected retained-size and ancestry violations.
+
+A separate source-only comparison used one identical frozen root through the
+baseline Rust collector, optimized Rust collector, and independent TypeScript
+oracle. All source facts, derived ancestry, and policy results matched across
+94 files, 530 components, and 1,245 relationships. No handlers ran or evidence
+was created in that comparison; it establishes source conformance, not acceptance.
+
+Graph time fell about 18%, but complete-check medians improved only about 3%.
+Root wall-time ranges overlapped: 7.07–14.13 seconds before and 6.63–7.25 seconds
+after. The checkout difference is small relative to sample variation. These
+measurements establish reduced requests and a smaller graph phase on this
+workload, not a guaranteed user-visible speedup. Verification remains the larger
+target; its fresh native programs and required CLI executions still run.
 
 The measurements below describe earlier revisions, including the removed public
 TypeScript engine and comparison-only 60-second fixture windows. Their historical

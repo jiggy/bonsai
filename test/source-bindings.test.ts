@@ -4,8 +4,6 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { snapshot, readConfig } from '../src/project.ts'
-import { inventory } from '../src/source.ts'
-import { analyzeSource } from './reference.ts'
 import type { Config } from '../src/model.ts'
 
 function fixture(registry: string) {
@@ -79,11 +77,7 @@ test('computed keys, spreads, and inline handlers remain unsupported registry fo
 test('Bonsai recognizes every action in its formatter-produced own registry', async () => {
   const root = resolve('.')
   const config = readConfig(root)
-  const source = analyzeSource(
-    root,
-    inventory(root, config.maintained, config.exclude),
-    config.bindings,
-  )
+  const { source } = await snapshot(root, config, false)
   const { actions } = await import('../bonsai.bindings.ts')
   assert.deepEqual(Object.keys(source.actions).sort(), Object.keys(actions).sort())
   assert.equal(Object.keys(source.actions).length, 6)

@@ -16,6 +16,8 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs.
 
+Source-analysis and CLI regressions must exercise the production Rust collector or actual CLI; pure-module tests call the corresponding production functions directly. Use the independent TypeScript oracle as an additional comparison, never as the only execution path for a source behavior. Reference-only compiler/session tests may verify the oracle itself. Source conformance includes repeated literal imports, dot and quoted selections, ordinary strings/property references, and unused-export ancestry.
+
 `package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled, then exercises `bunx` and missing-dependency recovery. Only this explicit release check uses the package registry.
 
 `subprocess-ancestry.test.ts` compares complete native source facts with the development oracle and exercises real child execution plus read-only explain. Preserve unused-export, uncontracted launch, test-to-production, builtin/global shadowing, launch-option, and missing-inventory regressions. Test-helper subject discovery must handle chains and cycles without propagating inherited support ancestry into unrelated tests or dead production.

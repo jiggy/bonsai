@@ -155,6 +155,34 @@ test('native semantics trace literal dynamic selections without retaining unused
   }
 })
 
+test('repeated native imports preserve selected exports and ordinary property references', async () => {
+  const project = fixture({
+    'handler.ts': `const options = { status: 'ok', module: './format.ts', selected: 'unused' }
+export async function handle() {
+  const direct = await import('./format.ts')
+  const quoted = await import('./format.ts')
+  const { alternate: render } = await import('./format.ts')
+  const results = [direct.format(), quoted['format'](), render()]
+  return { status: results.every(result => result.status === options.status) ? 'ok' : 'unexpected' }
+}
+`,
+    'format.ts': `export function format() { return { status: 'ok' } }
+export function alternate() { return { status: 'ok' } }
+export function unused() { return 42 }
+`,
+  })
+  try {
+    const native = await compare(project)
+    assert.deepEqual(native.source.problems, [])
+    assert.equal(native.source.actions.handle, 'handler.ts#handle')
+    for (const selected of ['handler.ts#options', 'format.ts#format', 'format.ts#alternate'])
+      assert.ok(native.ancestry[selected]?.length, `Missing selected dependency: ${selected}`)
+    assert.ok(native.unrooted.includes('format.ts#unused'))
+  } finally {
+    project.dispose()
+  }
+})
+
 test('native semantics keep computed namespace selections incomplete', async () => {
   const project = fixture({
     'handler.ts':
