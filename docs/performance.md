@@ -32,6 +32,7 @@ must not be added to their enclosing source total. The run completed all 117
 observations present in that revision under its 15-second policy.
 
 The query-pruning pass below profiles that work and removes unused symbol requests.
+The following verification pass removes redundant contract-compiler initialization.
 Further verification work should target measured startup or transport costs while
 preserving every handler call, sequential scenario semantics, and fresh compiler
 programs. Result caching or parallel verification would change the workload.
@@ -93,6 +94,56 @@ after. The checkout difference is small relative to sample variation. These
 measurements establish reduced requests and a smaller graph phase on this
 workload, not a guaranteed user-visible speedup. Verification remains the larger
 target; its fresh native programs and required CLI executions still run.
+
+## Reduce repeated contract compiler startup
+
+The verification profile also attributed 538 ms to contract compilation across
+18 nested checks. Each CLI loaded Gherkin's Messages 31 schema package and Bonsai's
+separate Messages 32 schema package. Bonsai used the latter only for
+`IdGenerator.incrementing()`, a small callback factory.
+
+Contract compilation now supplies an equivalent local incrementing callback to
+Gherkin's public AstBuilder and pickle compiler. Both receive the same callback,
+reset once per feature file. Gherkin's parser, matcher, outline expansion, and
+compiler remain unchanged. Removing the direct Messages dependency leaves only
+Gherkin's compatible transitive version. Contract outputs, IDs, locations, example
+rows, and unsupported-input diagnostics are preserved. No compiler, application,
+or verification results are cached.
+
+On 2026-10-27, alternating fresh Bun 1.4.3 processes compared baseline `cbd4ecf`
+with this change on Linux x64 and an Intel Xeon Platinum 8573C. The baseline used
+its own dependency copy so reinstalling the optimized dependencies could not
+change the baseline workload. Filesystem caches were not flushed. Median times:
+
+| Workload or phase | Samples per revision | Before | After |
+| --- | ---: | ---: | ---: |
+| Complete root check | 3 | 8,850 ms | 8,085 ms |
+| Root verification | 3 | 6,056 ms | 5,296 ms |
+| Root source analysis | 3 | 2,296 ms | 2,069 ms |
+| Complete checkout check | 5 | 752 ms | 820 ms |
+| Checkout contract compilation | 5 | 56 ms | 39 ms |
+
+Root verification improved about 13% in these samples; total time improved about
+9%. Each revision measured its own complete 94-file inventory using its own
+installed dependencies, with identical contracts and all 116 observation results. Every sample completed
+under the unchanged saved 15-second feedback limit and correctly rejected the
+root's retained-size and ancestry violations. Nested commands and handler calls
+still execute sequentially with fresh application modules and native programs.
+
+The unchanged checkout input retained identical source facts, ancestry, contracts,
+decisions, and evidence. Its full-check median was slower despite less contract
+compilation work; ranges overlapped widely: 579–1,251 ms before and 574–1,493 ms
+after. Root ranges were 8.40–9.98 seconds before and 7.20–8.25 seconds after.
+Microbenchmarks of dependency loading also showed substantial scheduling/CPU
+variation. These are workload-specific measurements, not a general speedup
+guarantee or proof of a checkout regression.
+
+A separate Rust-server reuse probe compared 31 edits to source, declarations,
+imports, package resolution, ambient types, and project roots. Fresh independent
+snapshots with full filesystem-cache invalidation matched fresh-process facts.
+However, fresh program creation still dominated: the observed startup savings
+were small and noisy, around 10 ms per analysis. Production retains its existing
+fresh-process lifecycle; this pass removes redundant dependency initialization.
 
 The measurements below describe earlier revisions, including the removed public
 TypeScript engine and comparison-only 60-second fixture windows. Their historical

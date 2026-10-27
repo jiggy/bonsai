@@ -16,6 +16,8 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs.
 
+Contract compilation regressions preserve every outline row and exact observation IDs/source lines when features are duplicated or split. Use the production Gherkin path; generated AST IDs stay local to each feature file.
+
 Source-analysis and CLI regressions must exercise the production Rust collector or actual CLI; pure-module tests call the corresponding production functions directly. Use the independent TypeScript oracle as an additional comparison, never as the only execution path for a source behavior. Reference-only compiler/session tests may verify the oracle itself. Source conformance includes repeated literal imports, dot and quoted selections, ordinary strings/property references, and unused-export ancestry.
 
 `package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled, then exercises `bunx` and missing-dependency recovery. Only this explicit release check uses the package registry.

@@ -31,6 +31,12 @@ test('outline rows and duplicated or split files cannot earn extra allowance', (
   assert.deepEqual(duplicate.pairs, single.pairs)
   assert.equal(duplicate.checks.length, 6)
   assert.equal(new Set(duplicate.checks.map((check) => check.id)).size, 6)
+  assert.deepEqual(
+    duplicate.checks.map(({ id, file, line }) => ({ id, file, line })),
+    ['a.feature', 'b.feature'].flatMap((file) =>
+      [0, 1, 2].map((row) => ({ id: `${file}:${row}:1`, file, line: 4 })),
+    ),
+  )
 })
 
 test('collection positions normalize without combining different actions or values', () => {

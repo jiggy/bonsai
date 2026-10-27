@@ -14,6 +14,8 @@ Keep project orchestration independent of eager compiler and Gherkin imports. St
 
 `compiler-options.ts` owns the exact compiler options shared with the development oracle. `source.ts` supplies lexical accounting and graph collection without a JavaScript compiler program. The independent compiler session and analyzer live in `test/compiler.ts` and `test/reference.ts`; production imports must never reach them.
 
+`contracts.ts` uses Gherkin's public parser/compiler API with one local incrementing ID callback per feature file, shared by its AstBuilder and pickle compiler. Preserve IDs and source locations across outline rows and split files. Avoid loading the separate Cucumber Messages schema barrel solely for its trivial ID generator; Gherkin supplies its own compatible transitive Messages dependency.
+
 ## Local Contracts
 
 Preserve the published check/explain JSON keys and 0 pass, 1 reject, 2 incomplete gate codes. Help and version never load projects or run handlers. Keep diagnostics on stderr and machine data on stdout. Candidate code must not run during explain or config inspection. Formatting remains CI automation, not an agent invocation requirement.

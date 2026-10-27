@@ -1,5 +1,4 @@
 import { Parser, AstBuilder, GherkinClassicTokenMatcher, compile } from '@cucumber/gherkin'
-import { IdGenerator } from '@cucumber/messages'
 import type { Contracts, Step, Check } from './model.ts'
 
 export const normalizeSelector = (selector: string) => selector.replace(/\[\d+\]/g, '[*]')
@@ -12,7 +11,8 @@ export function compileContracts(files: { file: string; text: string }[]): Contr
   const pairs = new Set<string>()
   for (const { file, text } of files) {
     try {
-      const nextId = IdGenerator.incrementing()
+      let next = 0
+      const nextId = () => (next++).toString()
       const document = new Parser(new AstBuilder(nextId), new GherkinClassicTokenMatcher()).parse(
         text,
       )
