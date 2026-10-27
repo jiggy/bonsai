@@ -37,6 +37,7 @@ Feature: Admit only supported implementations of required behavior
     When I invoke "check" with {"missingNative": true}
     Then response "exitCode" equals 1
     And response "code" equals "RUST_COLLECTOR"
+    And response "run" equals "export BONSAI_NATIVE_BINARY=/absolute/path/to/tsrs"
     And response "handlerExecuted" equals false
 
   Scenario: Verify behavior with the Rust TypeScript checker

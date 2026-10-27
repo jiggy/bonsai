@@ -36,8 +36,10 @@ test('native distribution selects prebuilt platforms and keeps unsupported platf
       () => nativePackage(platform!, arch!, true),
       (error: unknown) => {
         assert.ok(error instanceof NativeInstallError)
-        assert.match(error.message, /This release supports Linux x64\/arm64 and macOS arm64/)
-        assert.match(error.run, /^https:\/\//)
+        assert.ok(error.message.includes(`No packaged Rust checker for ${platform}-${arch}`))
+        assert.ok(error.message.includes(`tsrs@${manifest.dependencies.tsrs}`))
+        assert.ok(error.message.includes(`/tree/v${manifest.dependencies.tsrs.split('-ts')[0]}`))
+        assert.equal(error.run, 'export BONSAI_NATIVE_BINARY=/absolute/path/to/tsrs')
         return true
       },
     )

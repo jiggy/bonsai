@@ -10,15 +10,14 @@ const manifest = require('../package.json') as {
   version: string
   dependencies: { tsrs: string }
 }
+const localBinaryRepair = 'export BONSAI_NATIVE_BINARY=/absolute/path/to/tsrs'
 const quote = (value: string) => "'" + value.replaceAll("'", "'\\''") + "'"
 
 export function nativeRepair(): string {
   const command = existsSync(join(checkout, 'bun.lock'))
     ? `cd ${quote(checkout)} && bun install --frozen-lockfile`
     : `bun add --global ${manifest.name}@${manifest.version} --force`
-  return process.env.BONSAI_NATIVE_BINARY === undefined
-    ? command
-    : `unset BONSAI_NATIVE_BINARY && ${command}`
+  return process.env.BONSAI_NATIVE_BINARY === undefined ? command : localBinaryRepair
 }
 
 export class NativeInstallError extends Error {
@@ -36,9 +35,11 @@ export function nativePackage(platform: string, arch: string, gnuLoader: boolean
   if (platform === 'linux' && (arch === 'x64' || arch === 'arm64'))
     return `@tsrs/linux-${arch}-${gnuLoader ? 'gnu' : 'musl'}`
   if (platform === 'darwin' && arch === 'arm64') return '@tsrs/darwin-arm64'
+  const version = manifest.dependencies.tsrs
+  const source = `https://github.com/oxc-project/tsrs/tree/v${version.split('-ts')[0]}`
   throw new NativeInstallError(
-    `Rust checker isn't available for ${platform}/${arch}. This release supports Linux x64/arm64 and macOS arm64`,
-    'https://github.com/jiggy/bonsai/blob/main/docs/native-prototype.md#install-and-run',
+    `No packaged Rust checker for ${platform}-${arch} in tsrs@${version}\nBuild matching tsrs from ${source} and select it with BONSAI_NATIVE_BINARY`,
+    localBinaryRepair,
   )
 }
 
@@ -69,7 +70,7 @@ export function nativeBinary(): string {
     directory = dirname(createRequire(compiler).resolve(`${selected}/package.json`))
   } catch {
     throw new NativeInstallError(
-      `Prebuilt Rust checker ${selected} isn't installed. Reinstall Bonsai with optional dependencies enabled`,
+      `Prebuilt Rust checker ${selected} isn't installed for tsrs@${manifest.dependencies.tsrs}. Reinstall Bonsai with optional dependencies enabled`,
     )
   }
   const binary = join(directory, 'tsrs')

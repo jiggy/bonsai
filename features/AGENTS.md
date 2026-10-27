@@ -6,6 +6,8 @@ Define Bonsai's externally observable behavior as executable Gherkin contracts.
 
 `check.feature` covers admission, source and verification timing, native Rust checker evidence, unsupported native tracing, and missing native-server failures. Its subprocess scenarios require real child execution and preserve unused exports, uncontracted launches, measured inventory, and missing-entry blocking. `inspect.feature` covers read-only inspection; `discover.feature` covers initialization and CLI discovery, including the Rust compatibility option without starting a compiler. Root `bonsai.bindings.ts` connects these actions to `src/self-host.ts`, which invokes the real CLI against isolated projects.
 
+The missing native-server contract requires an actionable `BONSAI_NATIVE_BINARY` repair without running handlers.
+
 ## Local Contracts
 
 Assert actual CLI reports, exit codes, and filesystem outcomes. Keep every required example executable. Surface deduplication must preserve the individual checks. Fixture behavior belongs in executable support; product requirements belong in `.feature` scenarios.
