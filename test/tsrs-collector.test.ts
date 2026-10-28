@@ -155,14 +155,16 @@ test('native semantics trace literal dynamic selections without retaining unused
   }
 })
 
-test('repeated native imports preserve selected exports and ordinary property references', async () => {
+test('native imports preserve property-call references in initializers and nested expressions', async () => {
   const project = fixture({
-    'handler.ts': `const options = { status: 'ok', module: './format.ts', selected: 'unused' }
+    'handler.ts': `import * as fixed from './format.ts'
+const options = { status: 'ok', module: './format.ts', selected: 'unused' }
 export async function handle() {
   const direct = await import('./format.ts')
   const quoted = await import('./format.ts')
   const { alternate: render } = await import('./format.ts')
-  const results = [direct.format(), quoted['format'](), render()]
+  const initialized = fixed.format()
+  const results = [initialized, direct.format(), quoted['format'](), render()]
   return { status: results.every(result => result.status === options.status) ? 'ok' : 'unexpected' }
 }
 `,

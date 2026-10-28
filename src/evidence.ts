@@ -167,6 +167,14 @@ async function isolatedEvidence(
         }
       })
     : [contracts]
+  // Start larger independent journeys first so a long tail does not idle lanes.
+  const queue = shards
+    .map((_, index) => index)
+    .sort(
+      (left, right) =>
+        (shards[right]!.cases[0]?.steps.length ?? 0) -
+          (shards[left]!.cases[0]?.steps.length ?? 0) || left - right,
+    )
   const results: Evidence[] = []
   let next = 0
   try {
@@ -179,7 +187,7 @@ async function isolatedEvidence(
         session = await openNativeSession({ inherit: false })
         while (next < shards.length) {
           remaining()
-          const index = next++
+          const index = queue[next++]!
           const shard = shards[index]!
           const evidence = await forkEvidence(
             root,

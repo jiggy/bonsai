@@ -47,7 +47,25 @@ Use the checker's `examples/checkout/features/checkout.feature` and `examples/ch
 
 The literal `actions` registry serves both static resolution and runtime execution. Keep action identifiers and response selectors explicit. Put cases and expected outcomes in `.feature` files; Bonsai expands each example and owns the response assertions. Read the installed README before introducing other Gherkin forms.
 
-Choose stable external operation names and observable product outcomes. Reuse them across fixture contexts and example rows; naming another fixture or wrapping the same response under another alias must not manufacture allowance. The executable action–observation surface supplies one global ceiling, while all concrete observations remain mandatory. Lower-level test counts and structural ancestry do not prove complete behavioral specification.
+First discover the stakeholder’s rule, relevant context, and observable consequence. Choose minimal examples that distinguish it and its important boundaries. For a checkout owner, a rule might be: only positive whole quantities can place an order. These examples cover acceptance, the zero boundary, and fractional input:
+
+```gherkin
+Feature: Place orders only for valid quantities
+  Scenario Outline: Decide whether an order quantity is valid
+    When I invoke "place-order" with {"quantity": <quantity>}
+    Then response "status" equals "<status>"
+    Examples:
+      | quantity | status   |
+      | 1        | accepted |
+      | 0        | rejected |
+      | 1.5      | rejected |
+```
+
+Register `place-order` to the actual application handler. Context belongs in explanatory prose and inputs; arbitrary domain `Given` steps are not supported by this DSL. The same product rule should survive a replacement implementation. Running application code, asserting public JSON, or putting a test in Gherkin does not by itself meet that bar.
+
+Choose canonical external operation names and domain observations. Reuse them across fixture contexts and examples; do not relabel technical bookkeeping as product facts or introduce an opaque `scenarioPassed` flag. These examples earn one `place-order`/`status` pair while retaining every concrete obligation. The engine counts literal normalized pairs, so review every pair for product significance; semantic eligibility is not automatically enforced. Technical proofs and helper aliases must not create headroom.
+
+Keep incidental schema layout, backend identities, exact compiler diagnostics, and similar proofs in technical tests. Preserve those regression assertions when moving them out of features, with recorded destinations and verified results. Public compatibility, safety, and rejection promises can warrant features when users depend on them. Report any resulting allowance reduction separately from actual code savings; all maintained tests and support still consume retained space.
 
 For a new behavior, demonstrate its intended failing acceptance example before implementation. For existing behavior being adopted, begin with a green control and show a controlled violation is rejected. Keep that retrospective evidence distinct from a spec-first red step. Arrange data and invoke real handlers in bindings; leave expected outcomes and assertions in the contracts.
 
@@ -76,7 +94,7 @@ Add a project command that preserves the checker's exit status and an agent-inst
 
 Use the installed skill's actual location and the real command. Copy this entire skill directory, including `references/`, into the agent system's skill location when installing it; the reference link must remain valid.
 
-State the governing BDD rule in the project's agent instructions: reviewed executable product promises determine the allowance; supporting test counts do not. Require examples before implementing new behavior, meaningful failure evidence, full verification after refactoring, and explicit reporting of contract-surface changes. Keep all existing promises unless the task authorizes their change. A failing budget is a constraint to resolve through code reduction, not a reason to invent additional promises.
+State the governing BDD rule in the project's agent instructions: discover stakeholder rules and implementation-independent examples before implementation; reviewed product promises determine the allowance. Test mechanics and supporting test counts do not qualify promises. Require meaningful failure evidence, preservation of technical regressions in the appropriate tests, full verification after refactoring, and separate reporting of allowance changes and code savings. Keep existing product promises unless the task authorizes their change. A failing budget calls for code reduction, not invented promises.
 
 For initial adoption, run without `--base` until the base revision contains the project-root configuration and contracts. Subsequently, `--base <revision>` requires `--root` to be the Git repository root and uses the base's policy and inventory by default. Ensure that revision is available in local and CI checkouts. Treat additions to the maintained inventory as explicit scope changes; a candidate edit alone does not change the base inventory.
 

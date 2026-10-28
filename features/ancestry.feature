@@ -1,53 +1,38 @@
 Feature: Retain production code only through declared product behavior
-  Unit tests support contracted production subjects. They cannot create product
-  scope, and a candidate cannot silently weaken reviewed base rules or inventory.
+  A maintainer needs code justified by reviewed product promises, rather than
+  by unit-test activity or candidate changes to the admission rules.
 
-  Scenario Outline: Testing production code does not create contract ancestry
-    When I invoke "check" with {"fixture": "ancestry", "case": "<case>"}
+  Scenario: Testing production code does not create contract ancestry
+    The contract exercises app.ts#live successfully. The unit test exercises
+    both live and dead, but dead.ts#dead has no product contract.
+    When I invoke "check" with {"fixture": "ancestry", "case": "mixed-test"}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks[0].status" equals "passed"
-    And response "snapshot.source.problems" equals []
-    And response "deadHasAncestry" equals false
-    Examples:
-      | case                       |
-      | test-only                  |
-      | mixed-test                 |
+    And response "handlerExecuted" equals true
 
   Scenario: Registration without a contract does not justify a production handler
+    Both live and dead are registered actions, but only live has a contract.
+    The declared behavior succeeds; merely registering dead cannot justify it.
     When I invoke "check" with {"fixture": "ancestry", "case": "uncontracted-registration"}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks[0].status" equals "passed"
-    And response "snapshot.source.problems" equals []
-    And response "deadHasAncestry" equals false
-
-  Scenario: A shared test helper cannot lend ancestry to an unrelated subject
-    When I invoke "check" with {"fixture": "ancestry", "case": "shared-helper"}
-    Then response "exitCode" equals 1
-    And response "decision.status" equals "reject"
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks[0].status" equals "passed"
-    And response "sharedHelperHasAncestry" equals true
-    And response "deadHasAncestry" equals false
-    And response "deadTestHasAncestry" equals false
+    And response "handlerExecuted" equals true
 
   Scenario: An imported local dependency outside the maintained inventory blocks verification
+    The declared handler imports dead.ts, but the policy does not measure that file.
+    Its potentially successful result cannot justify running unmeasured code.
     When I invoke "check" with {"fixture": "ancestry", "case": "missing-inventory"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
-    And response "verificationTiming.status" equals "skipped"
+    And response "handlerExecuted" equals false
 
-  Scenario: Raising candidate policy does not increase the base-derived allowance
+  Scenario: Raising candidate policy does not increase the reviewed allowance
+    The reviewed base permits 400 tokens. The candidate raises its own limit to
+    100000 and adds retained material without adding product behavior.
     When I invoke "check" with {"fixture": "ancestry", "case": "trusted-budget"}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "decision.ceiling" equals 400
-    And response "decision.base.additionalCapacity" equals 0
-    And response "snapshot.unrooted" equals []
-    And response "snapshot.evidence.complete" equals true
     And response "handlerExecuted" equals true
     When I invoke "config-show" with {"fixture": "ancestry", "case": "trusted-budget"}
     Then response "exitCode" equals 0
@@ -55,91 +40,27 @@ Feature: Retain production code only through declared product behavior
     And response "config.policy.bootstrap" equals 400
     And response "handlerExecuted" equals false
 
-  Scenario: Candidate exclusions and nested project markers cannot hide base-maintained source
+  Scenario: Candidate exclusions and nested project markers cannot hide reviewed source
+    The base maintains all of src. The candidate narrows its maintained paths,
+    edits exclusions and .gitignore, and adds a nested Bonsai project marker.
+    Its two new uncontracted functions must still prevent acceptance.
     When I invoke "check" with {"fixture": "ancestry", "case": "trusted-scope"}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
-    And response "snapshot.source.files[6].file" equals "src/dead.ts"
-    And response "snapshot.source.files[7].file" equals "src/nested/bonsai.json"
-    And response "snapshot.source.files[8].file" equals "src/nested/hidden.ts"
-    When I invoke "config-show" with {"fixture": "ancestry", "case": "trusted-scope"}
-    Then response "exitCode" equals 0
-    And response "origin.policy" equals "base"
-    And response "config.maintained[0]" equals "src"
-    And response "config.exclude" equals ["*.generated.ts"]
-    And response "handlerExecuted" equals false
+    And response "snapshot.unrooted" equals ["src/dead.ts#dead", "src/nested/hidden.ts#hidden"]
 
-  Scenario: An explicit policy selects its rules without executing handlers during inspection
+  Scenario: An explicit policy deliberately selects different admission rules
+    The reviewed base permits 400 tokens, while the explicitly selected policy
+    permits 100000. The maintainer deliberately selects those rules for this check.
     When I invoke "check" with {"fixture": "ancestry", "case": "explicit-policy"}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
     And response "decision.ceiling" equals 100000
-    And response "snapshot.evidence.complete" equals true
-    When I invoke "config-show" with {"fixture": "ancestry", "case": "explicit-policy"}
-    Then response "exitCode" equals 0
-    And response "origin.policy" equals "--policy"
-    And response "config.policy.bootstrap" equals 100000
-    And response "handlerExecuted" equals false
 
-  Scenario: A literal dynamic import justifies its selected export while keeping unused siblings unrooted
-    When I invoke "check" with {"fixture": "ancestry", "case": "literal-import"}
-    Then response "exitCode" equals 1
-    And response "decision.status" equals "reject"
-    And response "snapshot.source.problems" equals []
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks[0].status" equals "passed"
-    And response "snapshot.unrooted" equals ["format.ts#unused"]
-    And response "handlerExecuted" equals true
-
-  Scenario: Unsupported maintained source remains measured and blocks application execution
-    When I invoke "check" with {"fixture": "ancestry", "case": "unsupported-language"}
-    Then response "exitCode" equals 2
-    And response "decision.status" equals "incomplete"
-    And response "snapshot.source.problems" equals ["Unsupported source language: unsupported.rs"]
-    And response "snapshot.source.files[5].file" equals "unsupported.rs"
-    And response "snapshot.source.files[5].tokens" equals 7
-    And response "verificationTiming.status" equals "skipped"
-    And response "handlerExecuted" equals false
-
-  Scenario: A native type error blocks application execution even when the contract result would match
+  Scenario: A type error prevents execution even when the declared result would match
+    The handler would return the expected status, but its source assigns text to
+    a numeric variable. A successful response cannot replace valid source analysis.
     When I invoke "check" with {"fixture": "ancestry", "case": "type-error"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
-    And response "snapshot.source.problems.length" equals 1
-    And response "snapshot.analysis.backend" equals "tsrs"
-    And response "verificationTiming.status" equals "skipped"
     And response "handlerExecuted" equals false
-
-  Scenario: A known native default-library gap blocks execution for case-insensitive directives
-    When I invoke "check" with {"fixture": "ancestry", "case": "default-library-directive"}
-    Then response "exitCode" equals 2
-    And response "decision.status" equals "incomplete"
-    And response "snapshot.source.problems" equals ["Rust checker unsupported: globals.d.ts disables default libraries with no-default-lib; tsrs does not preserve this directive's diagnostics"]
-    And response "snapshot.source.files[3].file" equals "globals.d.ts"
-    And response "snapshot.source.files[3].tokens" equals 16
-    And response "snapshot.analysis.status" equals "unsupported"
-    And response "verificationTiming.status" equals "skipped"
-    And response "handlerExecuted" equals false
-
-  Scenario Outline: Registrations needing an adapter cannot silently execute as supported handlers
-    When I invoke "check" with {"fixture": "ancestry", "case": "<case>"}
-    Then response "exitCode" equals 2
-    And response "decision.status" equals "incomplete"
-    And response "snapshot.source.problems[0]" equals "Each action binding must be a literal key and named handler"
-    And response "verificationTiming.status" equals "skipped"
-    And response "handlerExecuted" equals false
-    Examples:
-      | case                   |
-      | computed-registration  |
-      | spread-registration    |
-      | inline-registration    |
-
-  Scenario: A maintained JSON dependency supplies real handler output and consumes retained space
-    When I invoke "check" with {"fixture": "ancestry", "case": "json-dependency"}
-    Then response "exitCode" equals 0
-    And response "decision.status" equals "pass"
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks[0].status" equals "passed"
-    And response "snapshot.source.files[5].file" equals "settings.json"
-    And response "snapshot.source.files[5].tokens" equals 9
-    And response "handlerExecuted" equals true

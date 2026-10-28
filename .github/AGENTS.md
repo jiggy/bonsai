@@ -1,12 +1,14 @@
 # Purpose
 
-Automate formatting, verify proposed changes, and publish the landing page.
+Guide pull request review, automate formatting, verify proposed changes, and publish the landing page.
 
 ## Ownership
 
-`workflows/ci.yml` and `workflows/pages.yml`.
+`pull_request_template.md`, `workflows/ci.yml`, and `workflows/pages.yml`.
 
 ## Local Contracts
+
+The PR template distinguishes stakeholder behavior from technical regression details. Refactors can preserve existing promises without adding BDD scenarios. Require explicit destinations for moved assertions, meaningful failure evidence, and separate contract-surface, ceiling, retained-size, and gate-verdict reporting. These are review prompts, not automated semantic eligibility checks.
 
 Formatting and candidate validation have read-only tokens with no persisted credentials. Only isolated jobs apply patches, push branch updates, report check results, or deploy Pages. PR validation checks the merge result. The normal test step includes Bonsai’s executable feature contracts; a passing suite does not claim the root retained-code gate passes.
 

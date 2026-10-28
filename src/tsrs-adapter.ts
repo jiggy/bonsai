@@ -304,13 +304,18 @@ export async function createTsrsProgram(
           ts.isCallExpression(parent.parent) &&
           parent.parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
           parent.parent.arguments[0] === parent
+        const initializerCallee =
+          parent !== undefined &&
+          ts.isCallExpression(parent) &&
+          parent.expression === node &&
+          ts.isVariableDeclaration(parent.parent) &&
+          parent.parent.initializer === parent
         // References use property-name identifiers, not whole accesses or ordinary
-        // strings. Keep the loader's target/callee expressions and module names.
+        // strings. Loader primitives can be a direct variable-initializer callee.
         if (
           ts.isIdentifier(node) ||
           (ts.isStringLiteralLike(node) && (importSpecifier || declarationNames.has(node))) ||
-          (ts.isPropertyAccessExpression(node) &&
-            (importTarget || (ts.isCallExpression(parent) && parent.expression === node)))
+          (ts.isPropertyAccessExpression(node) && (importTarget || initializerCallee))
         ) {
           const matching = remoteNodes.get(key)
           if (!matching)

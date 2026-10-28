@@ -18,14 +18,17 @@ Work on a topic branch and open a pull request against `main` for repository cha
 
 ## BDD and the code allowance
 
-Read [the BDD workflow](docs/bdd.md) before changing product behavior or its contracts. Bonsai's executable product specifications govern its code allowance: the deduplicated external action–observation surface supplies one global ceiling. Test counts, scenario counts, example rows, file splits, and fixture names earn no additional allowance. Every individual observation remains required, and all maintained code and support consume their full retained cost.
+Read [the BDD workflow](docs/bdd.md) before changing product behavior or its contracts. BDD starts by discovering and agreeing on stakeholder rules through examples. Red/green/refactor is implementation discipline; real CLI execution, Gherkin, public JSON, and fault sensitivity alone do not qualify a test as a product specification.
 
-- Start from the requested product promise and concrete positive, negative, and boundary examples. Keep action identities aligned with public commands; use fixture inputs for different contexts. Do not invent promises, action aliases, or response aliases to justify existing code or enlarge the ceiling.
+- State whose problem the rule solves, its meaningful context, and its observable consequence. Choose the fewest examples that distinguish the rule and its important boundaries. A specification should survive a replacement implementation that preserves the product promise. User-important rejection, safety, and recovery cases belong in BDD.
+- Keep action identities aligned with public commands and observations aligned with domain facts. Explain fixture context in the feature; an opaque case name cannot carry the requirement. Do not rename technical bookkeeping into friendly aliases, create an opaque `scenarioPassed` oracle, or invent promises to justify existing code.
 - For new behavior, write the executable example first and observe a failure caused by the missing product behavior. A broken fixture, missing binding, compiler error, or unavailable tool is not that evidence. Implement the smallest change, make the example pass, then refactor while preserving its obligations.
 - For already implemented behavior missing a specification, establish a green real-CLI example and demonstrate that a controlled product fault or rejection probe makes the intended observation fail. Record this as retrospective coverage, not a spec-first red step.
-- Keep expected product outcomes in `.feature` files. Support arranges isolated inputs, invokes the real CLI, and returns reports or independently observed effects; it must not duplicate the decision algorithm or manufacture passed observations.
-- Use unit, protocol, compiler, presentation, and performance tests for detailed regressions. They add confidence but grant no allowance and cannot root unsupported production code. Ancestry is a structural connection, not proof of behavioral completeness.
-- Preserve existing promises and every verification obligation unless the requested product change authorizes their removal. Review contract-surface changes against that scope and report their allowance effect separately from implementation savings.
+- Keep expected product outcomes in `.feature` files. Support arranges inputs, invokes the real CLI, and returns reports or independently observed facts; it must not duplicate the decision algorithm, hide expected outcomes, or manufacture passed observations.
+- Keep implementation identities, exact schema layout, compiler diagnostics, ANSI codes, worker protocols, and detailed performance regressions in the appropriate tests. A public compatibility promise can justify a feature; visibility of a field alone cannot. Technical tests grant no product allowance and cannot root unsupported production code. Ancestry is structural, not proof of behavioral completeness.
+- Preserve product promises and regression coverage. During a BDD migration, move lower-level assertions into technical tests with explicit destinations and verification; do not simply delete them or keep them in features to retain headroom. Removing a product promise still requires an authorized scope change.
+- For a refactor or technical regression with no product behavior change, say so and use the appropriate tests; do not invent a new feature to justify the work.
+- Review every added action–selector pair against its stakeholder rule. The engine counts literal normalized pairs and cannot assess semantic eligibility. Test counts, examples, fixture names, aliases, and technical proof artifacts must not manufacture allowance. Keep one global ceiling without a second ledger; report changes to allowance separately from actual retained-code savings. All maintained specifications, support, tests, and documentation remain charged.
 
 The normal suite executes `features/*.feature` against the real CLI. Use the focused specification command for the red/green loop and `bun run test:features` for the complete self-verification. Keep passing feature evidence distinct from the root retained-code verdict; never change its scope, coefficients, or deadline merely to obtain a pass.
 
@@ -128,5 +131,5 @@ The root owns package metadata, runtime dependencies, environment setup, and rep
 - [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture
 - [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai adoption skill
 - [.agents/skills/AGENTS.md](.agents/skills/AGENTS.md): installed CLI design and review skills
-- [.github/AGENTS.md](.github/AGENTS.md): CI formatting, validation, permissions, and website deployment
+- [.github/AGENTS.md](.github/AGENTS.md): pull request review guidance, CI formatting, validation, permissions, and website deployment
 - [website/AGENTS.md](website/AGENTS.md): landing page, static assets, and GitHub Pages artifact

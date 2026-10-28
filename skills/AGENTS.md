@@ -14,7 +14,7 @@ Keep the complete skill directory together and match CLI invocations and guarant
 
 Keep example commands usable from a separate checker checkout.
 
-Teach behavior-first development and the actual allowance input: reviewed executable action–observation surface, with every example required. Supporting test counts and fixture aliases cannot earn allowance. Keep new-behavior red/green evidence distinct from rejection probes for already implemented behavior, and never weaken contracts or policy to claim acceptance.
+Teach BDD as discovery and agreement on stakeholder rules with examples that survive an implementation rewrite. Distinguish it from test mechanics and red/green discipline. Document the literal action–selector counter and the human review needed to prevent technical proof artifacts or aliases from earning allowance. Preserve regression assertions in technical tests when migrating features; keep user promises and policy intact. Keep new-behavior red/green evidence distinct from retrospective control/probe evidence, and report allowance changes separately from code savings. Adoption examples must use the supported invocation/response DSL rather than imply arbitrary domain steps execute.
 
 ## Verification
 

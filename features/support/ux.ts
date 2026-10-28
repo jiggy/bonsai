@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { existsSync, renameSync, rmSync } from 'node:fs'
+import { existsSync, readFileSync, renameSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { environment, invoke, runCli } from './cli.ts'
@@ -42,7 +42,7 @@ function styledCharacters(text: string) {
 }
 
 export function checkUx(input: { case: string }) {
-  if (input.case === 'completion') {
+  if (input.case === 'completion' || input.case === 'command-completion') {
     const fixture = project({ 'bindings.ts': 'export const actions = {}\n' })
     try {
       const report = invoke(['completion', 'bash'])
@@ -56,12 +56,12 @@ export function checkUx(input: { case: string }) {
           `
 source "$1"
 type _bonsai >/dev/null || exit 9
-COMP_WORDS=(bonsai check --ser)
-COMP_CWORD=2
+COMP_WORDS=(${input.case === 'command-completion' ? 'bonsai ch' : 'bonsai check --ser'})
+COMP_CWORD=${input.case === 'command-completion' ? 1 : 2}
 _bonsai
 printf '%s\\n' "\${COMPREPLY[*]}"
-COMP_WORDS=(bonsai explain --ser)
-COMP_CWORD=2
+COMP_WORDS=(${input.case === 'command-completion' ? 'bonsai e' : 'bonsai explain --ser'})
+COMP_CWORD=${input.case === 'command-completion' ? 1 : 2}
 _bonsai
 printf '%s\\n' "\${COMPREPLY[*]}"
 `,
@@ -89,8 +89,23 @@ printf '%s\\n' "\${COMPREPLY[*]}"
   const fixture = blockedProject()
   const { root } = fixture
   try {
+    if (input.case === 'included-child') {
+      write(
+        root,
+        'missing-child.ts',
+        "import { writeFileSync } from 'node:fs'\nwriteFileSync(new URL('./child-ran', import.meta.url), 'ran')\n",
+      )
+      const config = JSON.parse(readFileSync(join(root, 'bonsai.json'), 'utf8'))
+      config.maintained.push('missing-child.ts')
+      write(root, 'bonsai.json', JSON.stringify(config))
+      return {
+        ...invoke(['check', '--root', root]),
+        handlerExecuted: existsSync(join(root, 'must-not-run')),
+        childExecuted: existsSync(join(root, 'child-ran')),
+      }
+    }
     if (input.case === 'human-blocker') {
-      const human = runCli(['check', '--root', root, '--output', 'human'], {
+      const human = runCli(['check', '--root', root, '--output', 'human', '--verbose'], {
         NO_COLOR: '',
         BONSAI_NO_COLOR: '',
         FORCE_COLOR: '1',
@@ -142,7 +157,10 @@ printf '%s\\n' "\${COMPREPLY[*]}"
         titleDimmed: titleCharacters.some((character) => character.dim),
         titleWrapped: title.includes('\n'),
         hasSourceLocation: /handler\.ts:\d+/.test(plain),
-        hasFix: /Fix:/.test(plain),
+        missingEntryVisible: plain.includes('missing-child.ts'),
+        hasFix: /Fix:[^\S\r\n]*\S/.test(plain),
+        hasTimings:
+          /^Timing$/m.test(plain) && /^Feedback window:/m.test(plain) && /\belapsed\b/.test(plain),
         recoveryExitCode: retried?.status ?? null,
         recoveryDecision,
         handlerExecuted: existsSync(join(root, 'must-not-run')),
@@ -166,7 +184,7 @@ printf '%s\\n' "\${COMPREPLY[*]}"
           exitCode: quiet.status,
           stdout: quiet.stdout,
           hasBlocker: /Can't trace/.test(quiet.stderr),
-          hasFix: /Fix:/.test(quiet.stderr),
+          hasFix: /Fix:[^\S\r\n]*\S/.test(quiet.stderr),
           hasProgress: /Checking contracts/.test(quiet.stderr),
           hasMeasurements: /Inventory measurements|Retained:/.test(quiet.stderr),
         },
