@@ -22,8 +22,8 @@
     "test:package": "BONSAI_PACKAGE_SMOKE=1 bun test --timeout 180000 test/package-install.test.ts",
     "website:build": "bun website/build.mjs",
     "website:check": "bun website/check.mjs",
-    "native:compare": "bun native/tools/compare.ts",
-    "native:bench": "bun native/tools/bench.ts"
+    "native:compare": "bun test/native/compare.ts",
+    "native:bench": "bun test/native/bench.ts"
   },
   "dependencies": {
     "@cucumber/gherkin": "^37.0.0",

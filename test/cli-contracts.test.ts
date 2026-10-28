@@ -320,22 +320,15 @@ test('a deadline expiring during report serialization cannot emit successful out
         '',
       ].join('\n'),
     )
-    const result = spawnSync(
-      process.execPath,
-      [
-        '--preload',
-        preload,
-        executable,
-        'config',
-        'show',
-        '--root',
-        root,
-        '--timeout',
-        '60',
-        '--json',
-      ],
-      { encoding: 'utf8', timeout: 15000, env: environment },
-    )
+    const result = runCli(['config', 'show', '--root', root, '--timeout', '60', '--json'], {
+      cwd: root,
+      env: {
+        ...environment,
+        BUN_OPTIONS: [environment.BUN_OPTIONS, '--preload ./serialization-clock.js']
+          .filter(Boolean)
+          .join(' '),
+      },
+    })
     assert.equal(result.status, 1, result.stderr || result.stdout)
     assert.equal(result.stdout, '')
     assert.equal(JSON.parse(result.stderr).code, 'TIMEOUT')

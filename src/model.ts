@@ -61,7 +61,12 @@ export type Evidence = {
   complete: boolean
   elapsedMs: number
   bindingImport?: { adapter: 'project-bindings-v1'; file: string; fingerprint: string }
-  checks: { id: string; status: 'passed' | 'failed' | 'missing'; error?: string }[]
+  checks: {
+    id: string
+    status: 'passed' | 'failed' | 'missing'
+    error?: string
+    response?: string
+  }[]
 }
 export type TimingStage = {
   name: string

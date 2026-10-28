@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "test", "examples", "native/tools"]
+  "include": ["src", "test", "examples"]
 }

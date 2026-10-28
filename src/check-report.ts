@@ -127,16 +127,54 @@ export function checkReport(candidate: Snapshot, decision: Decision, options: Op
     }
     const failed = candidate.evidence?.checks.filter((check) => check.status === 'failed') ?? []
     if (failed.length) {
+      const actions = new Map<string, string>()
+      for (const scenario of candidate.contracts.cases) {
+        let action = scenario.id
+        scenario.steps.forEach((step, index) => {
+          if (step.kind === 'action') action = `${scenario.id}:${index}`
+          else actions.set(step.check.id, action)
+        })
+      }
+      const shown = bounded(failed, limit)
+      const groups = new Map<string, typeof failed>()
+      for (const result of shown) {
+        const action = actions.get(result.id) ?? result.id
+        const group = groups.get(action) ?? []
+        group.push(result)
+        groups.set(action, group)
+      }
+      const observation = (result: (typeof failed)[number]) => {
+        const check = candidate.contracts.checks.find((check) => check.id === result.id)!
+        return `${check.file}:${check.line} — ${check.action} → response.${check.selector} — expected ${JSON.stringify(check.expected)}`
+      }
       diagnostics.push({
         title: `${failed.length} required ${failed.length === 1 ? 'observation failed' : 'observations failed'}`,
-        detail: bounded(failed, limit).flatMap((result) => {
-          const check = candidate.contracts.checks.find((check) => check.id === result.id)!
-          return [
-            `${check.file}:${check.line} — ${check.action} → response.${check.selector} — expected ${JSON.stringify(check.expected)}`,
-            ...(verbose && result.error ? result.error.split('\n').filter(Boolean) : []),
-          ]
-        }),
-        fix: 'Restore the required handler behavior at the listed contract observations',
+        detail: [
+          ...[...groups.values()].flatMap((group) => {
+            const first = group[0]!
+            return [
+              observation(first) +
+                (group.length > 1 ? ` (${group.length} failed observations)` : ''),
+              ...(first.response
+                ? [`Returned: ${first.response}`]
+                : !verbose && first.error
+                  ? [`Failure: ${first.error.split('\n')[0]}`]
+                  : []),
+              ...(verbose
+                ? group.flatMap((result, index) => [
+                    ...(index ? [observation(result)] : []),
+                    ...(result.error?.split('\n').filter(Boolean) ?? []),
+                  ])
+                : []),
+            ]
+          }),
+          ...(shown.length < failed.length
+            ? [
+                `${failed.length - shown.length} more failed observations. Use --limit 0 to show all`,
+              ]
+            : []),
+        ],
+        fix: 'Inspect the returned response or action error, fix its cause, then rerun the check',
       })
       failed.forEach((result) =>
         accounted.add(`Failed check: ${result.id}: ${result.error ?? 'assertion failed'}`),

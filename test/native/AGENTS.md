@@ -4,7 +4,7 @@ Compare native source analysis with a development TypeScript oracle and measure 
 
 ## Ownership
 
-Bun development tools in `tools/`: shared differential fixtures, canonical source facts, development-oracle comparisons, and fresh-process native CLI benchmarks. The production native collector lives under `src/` at the repository root and uses the pinned tsrs package; this directory contains no Cargo crate or native implementation.
+Bun development tools in this directory: shared differential fixtures, canonical source facts, development-oracle comparisons, and fresh-process native CLI benchmarks. These are test support, outside the published package. Their actual references to contracted production subjects establish test ancestry; they cannot justify otherwise uncontracted production. The production native collector lives under `src/` at the repository root and uses the pinned tsrs package.
 
 ## Local Contracts
 

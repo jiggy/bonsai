@@ -1,5 +1,6 @@
 import { deepStrictEqual } from 'node:assert'
 import { availableParallelism } from 'node:os'
+import { inspect, types } from 'node:util'
 import { projectBindingTarget } from './binding-target.ts'
 import { validateVerification } from './policy.ts'
 import type { Config, Contracts, Evidence, Verification } from './model.ts'
@@ -22,6 +23,70 @@ function observe(response: unknown, selector: string): unknown {
     value = (value as Record<string, unknown>)[key]
   }
   return value
+}
+
+/** A failed observation needs its returned context, without running inspection hooks. */
+function responsePreview(response: unknown): string {
+  let remaining = 32
+  let truncated = false
+  const seen = new WeakSet<object>()
+  const bounded = (value: unknown, depth: number): unknown => {
+    if (typeof value === 'string') {
+      if (value.length <= 256) return value
+      truncated = true
+      return value.slice(0, 256).replace(/[\uD800-\uDBFF]$/, '') + '…'
+    }
+    if (typeof value === 'function') return '[Function]'
+    if (typeof value === 'symbol') return '[Symbol]'
+    if (typeof value === 'bigint') return '[BigInt]'
+    if (value === null || typeof value !== 'object') return value
+    if (types.isProxy(value)) return '[Proxy]'
+    if (types.isTypedArray(value)) return '[TypedArray]'
+    if (seen.has(value)) return '[Reference]'
+    if (!depth || remaining <= 0) {
+      truncated = true
+      return Array.isArray(value) ? '[Array]' : '[Object]'
+    }
+    seen.add(value)
+    const array = Array.isArray(value)
+    const names = array ? [] : Object.keys(value)
+    if (array ? value.length > 5 : names.length > 8) truncated = true
+    const keys = array
+      ? Array.from({ length: Math.min(value.length, 5) }, (_, index) => String(index))
+      : names.slice(0, 8)
+    const entries: [string, unknown][] = []
+    for (const key of keys) {
+      if (remaining <= 0) {
+        truncated = true
+        break
+      }
+      remaining--
+      const property = Object.getOwnPropertyDescriptor(value, key)
+      if (key.length > 64) truncated = true
+      const label = key.length > 64 ? key.slice(0, 64).replace(/[\uD800-\uDBFF]$/, '') + '…' : key
+      entries.push([
+        label,
+        property && 'value' in property ? bounded(property.value, depth - 1) : '[Accessor]',
+      ])
+    }
+    return array ? entries.map(([, item]) => item) : Object.fromEntries(entries)
+  }
+  try {
+    const preview = bounded(response, 2)
+    const text = inspect(preview, {
+      customInspect: false,
+      getters: false,
+      colors: false,
+      depth: 3,
+      compact: true,
+      breakLength: Infinity,
+    })
+    const marked = text + (truncated ? ' …' : '')
+    const points = Array.from(marked)
+    return points.length > 512 ? points.slice(0, 511).join('') + '…' : marked
+  } catch {
+    return '[Response preview unavailable]'
+  }
 }
 
 /** Trusted local execution: assertions are owned by Bonsai, not the action binding. */
@@ -52,9 +117,12 @@ export async function collectEvidence(
     for (const scenario of contracts.cases) {
       let response: unknown
       let actionError: string | undefined
+      let responseText: string | undefined
       for (const step of scenario.steps) {
         if (step.kind === 'action') {
           actionError = undefined
+          response = undefined
+          responseText = undefined
           try {
             if (
               !Object.hasOwn(module.actions, step.action) ||
@@ -74,6 +142,7 @@ export async function collectEvidence(
           } catch (error) {
             record.status = 'failed'
             record.error = String(error)
+            if (!actionError) record.response = responseText ??= responsePreview(response)
           }
         }
       }
@@ -263,7 +332,11 @@ function validateScenarioEvidence(
       !expected.has(check.id) ||
       seen.has(check.id) ||
       (check.status !== 'passed' && check.status !== 'failed') ||
-      (check.error !== undefined && typeof check.error !== 'string')
+      (check.error !== undefined && typeof check.error !== 'string') ||
+      (check.response !== undefined &&
+        (check.status !== 'failed' ||
+          typeof check.response !== 'string' ||
+          Buffer.byteLength(check.response) > 2048))
     )
       throw new Error('Invalid or duplicate isolated scenario check')
     seen.add(check.id)

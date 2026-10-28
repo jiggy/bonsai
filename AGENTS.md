@@ -118,15 +118,15 @@ Default section order:
 
 - Use all applicable CLI skills in `.agents/skills/` for CLI behavior, help, errors, and terminal presentation; verify semantic colors and wrapped alert text, rather than merely checking for ANSI output.
 - Keep automated formatting in CI rather than adding formatting instructions to agent context.
+- During stabilization, report the repository's retained-size overage but defer its remediation. Preserve the gate's measurements and policy while fixing other failures.
 
 ## Child DOX Index
 
-The root owns package metadata, runtime dependencies, environment setup, and repository-wide contracts.
+The root owns package metadata, runtime dependencies, environment setup, repository-wide contracts, and the legacy `native/README.md` migration note.
 
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
-- [native/AGENTS.md](native/AGENTS.md): native semantic comparisons and fresh-command benchmarks
 - [features/AGENTS.md](features/AGENTS.md): executable contracts for Bonsai’s own observable behavior
-- [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests
+- [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests, native comparisons, and benchmark tooling
 - [docs/AGENTS.md](docs/AGENTS.md): design, roadmap, and CLI reference
 - [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture
 - [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai adoption skill

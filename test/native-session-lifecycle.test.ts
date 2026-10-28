@@ -4,14 +4,14 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createRequire } from 'node:module'
 import { collectRustSource, CollectorError } from '../src/collector.ts'
 import { openNativeSession } from '../src/native-session.ts'
 
 const repository = resolve('.')
 const sessionModule = pathToFileURL(resolve('src/native-session.ts')).href
-const collectorModule = pathToFileURL(resolve('src/collector.ts')).href
+const ownerEntry = fileURLToPath(new URL('./native-session-owner.ts', import.meta.url))
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-session-lifecycle-'))
@@ -43,19 +43,24 @@ function fixture() {
 }
 
 function run(script: string, environment: NodeJS.ProcessEnv = {}, args: string[] = []) {
-  const child = spawn(process.execPath, [script, ...args], {
-    cwd: repository,
-    env: { ...process.env, ...environment },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  return capture(
+    spawn(process.execPath, [script, ...args], {
+      cwd: repository,
+      env: { ...process.env, ...environment },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }),
+  )
+}
+
+function capture(child: ReturnType<typeof spawn>) {
   const completion = new Promise<{ status: number | null; stdout: string; stderr: string }>(
     (done, reject) => {
       let stdout = ''
       let stderr = ''
-      child.stdout.on('data', (chunk) => {
+      child.stdout!.on('data', (chunk) => {
         stdout += chunk
       })
-      child.stderr.on('data', (chunk) => {
+      child.stderr!.on('data', (chunk) => {
         stderr += chunk
       })
       child.once('error', reject)
@@ -413,23 +418,22 @@ test('hard owner death aborts an active compiler and cleans a warm session scope
       `#!${process.execPath}\nimport { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(nativePid)}, String(process.pid))\nsetInterval(() => {}, 1000)\n`,
       { mode: 0o755 },
     )
-    const script = join(project.root, 'owner.mjs')
-    writeFileSync(
-      script,
-      `import { openNativeSession } from ${JSON.stringify(sessionModule)}
-import { collectRustSource } from ${JSON.stringify(collectorModule)}
-import { writeFileSync } from 'node:fs'
-const session = await openNativeSession()
-writeFileSync(${JSON.stringify(descriptor)}, session.value)
-process.env.BONSAI_NATIVE_SESSION = session.value
-await collectRustSource(${JSON.stringify(project.root)}, ${JSON.stringify(project.files)}, 'bindings.ts', undefined, 30000)
-`,
+    owner = capture(
+      spawn(
+        process.execPath,
+        [ownerEntry, project.root, JSON.stringify(project.files), descriptor],
+        {
+          cwd: repository,
+          env: {
+            ...process.env,
+            BONSAI_NATIVE_SESSION: undefined,
+            BONSAI_NATIVE_BINARY: binary,
+            BUN_OPTIONS: preload(project.root, ''),
+          },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        },
+      ),
     )
-    owner = run(script, {
-      BONSAI_NATIVE_SESSION: undefined,
-      BONSAI_NATIVE_BINARY: binary,
-      BUN_OPTIONS: preload(project.root, ''),
-    })
     await until(() => existsSync(nativePid), 'Compiler must be active before owner death')
     const compiler = Number(readFileSync(nativePid, 'utf8'))
     const worker = Number(readFileSync(join(project.root, 'worker-pids'), 'utf8').trim())

@@ -23,6 +23,8 @@ Keep technical-only fixtures and assertions in `test/`; acceptance support must 
 
 State the arranged context in feature prose, not only a fixture identifier. Keep each canonical action limited to its named public operation; another command's result must not be nested under it to create more surface.
 
+The trusted-budget example accesses its Git checkout through a symlink, exercising real root-identity validation on every host. Keep the alias outside the target tree, clean up both paths, and let the CLI resolve identity rather than canonicalizing away the example's context.
+
 ## Verification
 
 `bun run test:specs -- --scenario NAME` provides focused authored-example feedback. `bun run test:features` executes all product contracts through the full root gate and archived checker. `bun run test:spec-sensitivity` proves selected authored observations reject controlled product faults in disposable copies. See [the BDD guide](../../docs/bdd.md).
