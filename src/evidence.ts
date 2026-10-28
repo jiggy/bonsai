@@ -2,7 +2,7 @@ import { deepStrictEqual } from 'node:assert'
 import { availableParallelism } from 'node:os'
 import { inspect, types } from 'node:util'
 import { projectBindingTarget } from './binding-target.ts'
-import { validateVerification } from './policy.ts'
+import { validateVerification, validEvidence } from './policy.ts'
 import type { Config, Contracts, Evidence, Verification } from './model.ts'
 
 /** Use runtime CPU capacity, bounded by the number of scenarios that can execute. */
@@ -98,6 +98,7 @@ export async function collectEvidence(
 ): Promise<Evidence> {
   const started = performance.now()
   const evidence: Evidence = {
+    schema: 'bonsai-evidence-v1',
     fingerprint,
     profile: 'in-process-v1',
     complete: false,
@@ -293,6 +294,7 @@ async function isolatedEvidence(
       throw new Error('Isolated verification did not report every required check exactly once')
     remaining()
     return {
+      schema: 'bonsai-evidence-v1',
       fingerprint,
       profile: 'isolated-scenarios-v1',
       complete: true,
@@ -313,6 +315,7 @@ function validateScenarioEvidence(
   fingerprint: string,
 ): void {
   if (
+    !validEvidence(evidence) ||
     evidence.complete !== true ||
     evidence.profile !== 'in-process-v1' ||
     evidence.fingerprint !== fingerprint ||
@@ -416,8 +419,15 @@ async function forkEvidence(
     )
     child.once('message', (message) => {
       const result = message as { evidence?: Evidence; error?: string }
-      if (result.evidence) finish(undefined, result.evidence)
-      else finish(new Error(result.error ?? 'Invalid worker report'))
+      if (validEvidence(result?.evidence)) finish(undefined, result.evidence)
+      else
+        finish(
+          new Error(
+            typeof result?.error === 'string'
+              ? result.error
+              : 'Invalid worker report: invalid evidence schema',
+          ),
+        )
     })
     child.send({ root, config, contracts, fingerprint })
     if (signal?.aborted) abort()

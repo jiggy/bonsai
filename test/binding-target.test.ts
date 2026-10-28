@@ -176,6 +176,7 @@ test('a supported loader boundary requires the matching binding import receipt',
       },
     ]
     candidate.evidence = {
+      schema: 'bonsai-evidence-v1',
       fingerprint: candidate.fingerprint,
       profile: 'isolated-scenarios-v1',
       complete: true,

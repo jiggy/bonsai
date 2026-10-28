@@ -420,6 +420,7 @@ import { fileURLToPath } from 'node:url'
 const fingerprint = new URL(import.meta.url).searchParams.get('snapshot')
 function forge(input: { mode: string }) {
   const evidence: any = {
+    schema: 'bonsai-evidence-v1',
     fingerprint,
     profile: 'in-process-v1',
     complete: true,
@@ -428,6 +429,9 @@ function forge(input: { mode: string }) {
     checks: [{ id: 'protocol.feature:0:1', status: 'passed' }],
   }
   switch (input.mode) {
+    case 'schema': evidence.schema = 'unknown'; break
+    case 'shape': evidence.checks = null; break
+    case 'truthy': evidence.complete = 'true'; break
     case 'incomplete': evidence.complete = false; break
     case 'profile': evidence.profile = 'isolated-scenarios-v1'; break
     case 'fingerprint': evidence.fingerprint = 'another-candidate'; break
@@ -455,6 +459,9 @@ export const actions = { forge, later }
   try {
     const config = readConfig(fixture.root)
     for (const mode of [
+      'schema',
+      'shape',
+      'truthy',
       'incomplete',
       'profile',
       'fingerprint',
@@ -487,7 +494,7 @@ Scenario: Queued scenario
           undefined,
           isolated(1),
         ),
-        /Invalid isolated scenario evidence|Invalid or duplicate isolated scenario check|Missing isolated scenario checks/,
+        /Invalid isolated scenario evidence|Invalid or duplicate isolated scenario check|Missing isolated scenario checks|Invalid worker report/,
         mode,
       )
       assert.equal(existsSync(join(fixture.root, 'later')), false, mode)

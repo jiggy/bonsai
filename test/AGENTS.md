@@ -16,7 +16,7 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 ## Work Guidance
 
-Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs.
+Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs. `verification-policy.test.ts` checks schema and malformed serialized evidence rejection; `fingerprint.test.ts` checks excluded root lockfile presence, content, and removal as evidence inputs.
 
 `cli-base-paths.test.ts` exercises real Git roots and aliases through config, check, and explain, including worktrees and actual-subdirectory rejection. Preserve the caller's root spelling and invocation-relative policy paths. The macOS native platform job runs this file with installation regressions so canonical-path bugs stay covered beyond Linux.
 
@@ -33,6 +33,11 @@ Isolated verification regressions use actual evidence processes and CLI contract
 Contract compilation regressions preserve every outline row and exact observation IDs/source lines when features are duplicated or split. Use the production Gherkin path; generated AST IDs stay local to each feature file.
 
 Source-analysis and CLI regressions must exercise the production Rust collector or actual CLI; pure-module tests call the corresponding production functions directly. Use the independent TypeScript oracle as an additional comparison, never as the only execution path for a source behavior. Reference-only compiler/session tests may verify the oracle itself. Source conformance includes repeated literal imports, dot and quoted selections, ordinary strings/property references, and unused-export ancestry.
+
+Explanation regressions cover actual reference paths, cycles, registry boundaries,
+test subject discovery, and inherited support without granting ancestry to
+unrelated tests. Pair pure graph tests with real CLI JSON and read-only checks;
+structural explanation facts never claim test execution.
 
 `package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled, then exercises `bunx` and missing-dependency recovery. Only this explicit release check uses the package registry.
 
