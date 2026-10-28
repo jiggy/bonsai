@@ -12,6 +12,10 @@ Preserve these invariants:
 
 Use Bun by default for dependency installation and package scripts. Install with `bun install --frozen-lockfile`; keep `bun.lock` current and do not generate npm lockfiles. Bun also runs the CLI, tests, and verification workers.
 
+## Change delivery
+
+Work on a topic branch and open a pull request against `main` for repository changes. Do not push directly to `main`. Leave merging to the user unless explicitly requested.
+
 ## BDD and the code allowance
 
 Read [the BDD workflow](docs/bdd.md) before changing product behavior or its contracts. Bonsai's executable product specifications govern its code allowance: the deduplicated external action–observation surface supplies one global ceiling. Test counts, scenario counts, example rows, file splits, and fixture names earn no additional allowance. Every individual observation remains required, and all maintained code and support consume their full retained cost.
