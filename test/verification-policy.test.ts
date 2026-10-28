@@ -143,6 +143,11 @@ test('serialized evidence requires its supported schema and well-typed facts', (
 test('evidence shape validation rejects malformed records without reading unsafe contents', () => {
   const good = candidate().evidence!
   assert.equal(validEvidence(good), true)
+  assert.equal(
+    validEvidence({ ...good, checks: [{ ...good.checks[0], response: 'returned value' }] }),
+    true,
+  )
+  assert.equal(validEvidence({ ...good, checks: [{ ...good.checks[0], response: {} }] }), false)
   for (const value of [
     null,
     [],

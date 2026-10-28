@@ -630,7 +630,10 @@ if (process.argv[1]?.endsWith('tsrs-worker.ts')) {
       assert.equal(malformed.stdout, '')
       const error = JSON.parse(malformed.stderr)
       assert.equal(error.code, 'RUST_COLLECTOR')
-      assert.match(error.message, /Invalid native (symbol|type) batch/)
+      assert.match(
+        error.error,
+        mode.startsWith('symbols') ? /Invalid native symbol batch/ : /Invalid native type batch/,
+      )
     }
   } finally {
     project.dispose()

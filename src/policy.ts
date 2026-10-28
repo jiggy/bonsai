@@ -53,7 +53,8 @@ export function validEvidence(value: unknown): value is Evidence {
       typeof check.id === 'string' &&
       check.id.length > 0 &&
       (check.status === 'passed' || check.status === 'failed' || check.status === 'missing') &&
-      (check.error === undefined || typeof check.error === 'string'),
+      (check.error === undefined || typeof check.error === 'string') &&
+      (check.response === undefined || typeof check.response === 'string'),
   )
 }
 
