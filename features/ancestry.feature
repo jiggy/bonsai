@@ -29,6 +29,7 @@ Feature: Retain production code only through declared product behavior
   Scenario: Raising candidate policy does not increase the reviewed allowance
     The reviewed base permits 400 tokens. The candidate raises its own limit to
     100000 and adds retained material without adding product behavior.
+    The maintainer accesses the checkout through a symbolic directory alias.
     When I invoke "check" with {"fixture": "ancestry", "case": "trusted-budget"}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"

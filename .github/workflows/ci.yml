@@ -174,7 +174,7 @@ jobs:
         env:
           TSRS_TS_VERSION: 7.1.0-dev.20260930.4
         run: cargo build --locked --profile ci -p tsrs_cli --bin tsrs
-      - name: Test native installation failures and a working explicit override
+      - name: Test native installation and Git root aliases
         env:
           NATIVE_PLATFORM: ${{ matrix.platform }}
         run: |
@@ -184,7 +184,7 @@ jobs:
             export BONSAI_NATIVE_BINARY="$(bun -e "import getExePath from './node_modules/tsrs/lib/getExePath.js'; console.log(getExePath())")"
           fi
           test -x "$BONSAI_NATIVE_BINARY"
-          bun test --isolate --timeout 30000 test/native-installation.test.ts
+          bun test --isolate --timeout 30000 test/native-installation.test.ts test/cli-base-paths.test.ts
 
   report-formatting-check:
     needs: [apply-formatting, verify, native-platforms]

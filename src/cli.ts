@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { parseArgs } from 'node:util'
 import { resolve, join, relative, sep } from 'node:path'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
 import { createInterface } from 'node:readline/promises'
@@ -695,7 +695,7 @@ async function main(): Promise<void> {
   if (baseValue) {
     checkTimer?.start('base-archive')
     const repository = await git(root, ['rev-parse', '--show-toplevel'])
-    if (resolve(repository) !== root)
+    if (realpathSync(repository) !== realpathSync(root))
       throw new CliError(
         '--base needs the Git repository root',
         'USAGE',

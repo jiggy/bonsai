@@ -123,6 +123,15 @@ archive fixture checks the same full inventory under the saved 15-second window.
 Both preserve the budget and must reject genuine retained-size violations. The retired prototype was deleted, without exclusions or a claim of
 Rust source ancestry support.
 
+The root's size overage is deferred during stabilization. Both regressions require
+ancestry for every retained component and allow only that budget violation.
+Development comparison and benchmark tools live under `test/native/`: their
+actual references to already-contracted production establish test ancestry,
+without allowing tests to justify unrelated production code. Maintained test
+subprocess entries expose their real dependencies to the same graph collector.
+The maintained `native/README.md` migration note preserves the directory selected
+by historical policies while the tools remain measured under `test/`.
+
 Literal dynamic imports resolve selected exports without retaining unused siblings.
 The internal binding-loader adapter recognizes only this checker's collector and
 target implementations, matching module contents and symbol linkage even in archived

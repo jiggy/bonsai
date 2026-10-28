@@ -5,7 +5,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { createRequire } from 'node:module'
 import { dirname, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { canonicalSource } from '../native/tools/client.ts'
+import { canonicalSource } from './native/client.ts'
 import { collectRustSource } from '../src/collector.ts'
 import { openNativeSession } from '../src/native-session.ts'
 import { analyzeSource } from './reference.ts'

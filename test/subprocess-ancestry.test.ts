@@ -8,7 +8,7 @@ import { collectRustSource } from '../src/collector.ts'
 import { compileContracts } from '../src/contracts.ts'
 import { buildSnapshot } from '../src/retention.ts'
 import type { Config, Source } from '../src/model.ts'
-import { canonicalSource } from '../native/tools/client.ts'
+import { canonicalSource } from './native/client.ts'
 import { runCli } from './cli.ts'
 
 const repository = resolve('.')

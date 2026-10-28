@@ -22,6 +22,8 @@ Formatting covers Biome-managed files. Read-only validation installs the pinned 
 
 `test:package` explicitly downloads production dependencies into an isolated consumer and fresh Bun cache. It packs the actual release files, disables install scripts, and runs `bunx` without Node, Cargo, or a native override on PATH. Keep this network-dependent release check in the read-only validation job; the ordinary test suite remains network-free.
 
+The native platform job also runs `test/cli-base-paths.test.ts` on both macOS architectures. Preserve coverage of physical and symlinked Git roots, worktrees, read-only inspection, invocation-relative policy paths, and rejection of actual subdirectories. Its real native checks use the same selected compiler override as installation regressions.
+
 The normal test step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temporary directory. The native root regression saves its actual decision, snapshot, and command timings before assertions. Always upload that report as `bonsai-self-check` when available, retaining failures as well as successes for 14 days. This records existing verification, without another full check or changed deadline.
 
 ## Work Guidance

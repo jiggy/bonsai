@@ -432,6 +432,9 @@ function forge(input: { mode: string }) {
     case 'duplicate': evidence.checks.push(evidence.checks[0]); break
     case 'missing': evidence.checks = []; break
     case 'status': evidence.checks[0].status = 'missing'; break
+    case 'response-type': evidence.checks[0].status = 'failed'; evidence.checks[0].response = {}; break
+    case 'response-size': evidence.checks[0].status = 'failed'; evidence.checks[0].response = 'x'.repeat(2049); break
+    case 'passed-response': evidence.checks[0].response = 'unrelated response'; break
   }
   // Exercise the local worker protocol validator, not a hostile-code boundary.
   process.send?.({ evidence })
@@ -456,6 +459,9 @@ export const actions = { forge, later }
       'duplicate',
       'missing',
       'status',
+      'response-type',
+      'response-size',
+      'passed-response',
     ]) {
       const text = `Feature: Worker reports
 Scenario: Invalid shard

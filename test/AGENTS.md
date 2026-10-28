@@ -8,6 +8,8 @@ Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which checks the
 
 `cli.ts` supplies fixed-entry CLI launches and environment defaults. `runCli` returns raw results; an explicit `env` replaces defaults. `project.ts` writes provided fixture sources and policy. `terminal.ts` supplies PTY probing, quoting, and ANSI state. Keep specialized async, copied-checker, and PTY lifecycle handling local.
 
+`native/` owns development-only comparison and benchmark tools. Keep their real production dependencies traceable; test classification does not grant ancestry to unrelated production. `native-session-owner.ts` is the maintained child entry for owner-death tests, taking the consuming root, JSON file list, and descriptor destination as arguments. Its real collector/session imports stay visible to the source graph rather than embedded in generated script strings.
+
 ## Local Contracts
 
 Assert outputs, streams, exit codes, and candidate behavior. Check presentation regressions use real PTYs and inspect ANSI foreground/dim state on meaningful text, including wrapped continuations and independently redirected streams. Use isolated fixtures and remove them in cleanup. CLI tests must exercise the executable rather than duplicate its parser.
@@ -15,6 +17,10 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 ## Work Guidance
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs.
+
+`cli-base-paths.test.ts` exercises real Git roots and aliases through config, check, and explain, including worktrees and actual-subdirectory rejection. Preserve the caller's root spelling and invocation-relative policy paths. The macOS native platform job runs this file with installation regressions so canonical-path bugs stay covered beyond Linux.
+
+`observation-diagnostics.test.ts` preserves actual returned failure context without changing application error semantics. Cover a real nested CLI failure, grouped human details, bounded safe previews and visible truncation, expected error-valued responses, and thrown actions. Isolated evidence regressions validate the optional diagnostic field and continue accepting legacy records without it.
 
 Product promises belong in executable `features/*.feature` contracts when they meet the stakeholder, context, observable-consequence, and redesign-stability bar in the root BDD workflow. Detailed technical assertions stay here even when they exercise the real CLI. A refactor or technical regression does not require a new BDD scenario. When reclassifying an assertion, preserve its regression and record the destination; test counts and internal report fields do not establish additional product allowance.
 
@@ -40,7 +46,7 @@ Native CLI regressions compare default commands with the `--engine rust` compati
 
 Timing regressions exercise real CLI work and delayed handlers, retained measurements after feedback/command timeouts, skipped verification, and base analysis outside candidate feedback. Check nested source measurement, compiler setup, diagnostics, and graph phases recursively against their enclosing duration. Assert finite nonnegative durations and tolerant relationships to wall time rather than exact timings. Normalize only elapsed values when comparing presentation across separate runs; verify primary compiler and command duration colors, muted structure, and semantic interruption states through PTYs.
 
-The native root regression measures the full committed inventory and verifies every declared observation through the actual CLI under the saved feedback policy; complete behavior still rejects real budget/ancestry violations. Both root regressions require exact observation IDs, fingerprints, loader receipts, the CLI/evidence/native-worker entry-point relationships, and ancestry for every `src/` implementation component. CI sets the test-only `BONSAI_SELF_CHECK_REPORT` path to save the real native report before assertions, including failed assertions' data; it is not a CLI configuration option. A copied archive fixture selects the same complete inventory and uses the same saved 15-second native deadline, with the checker's installed dependencies linked locally outside the authored inventory. Neither exclusions nor fabricated evidence may hide authored code. Separate consuming-project fixtures keep unsupported Rust measured and incomplete after the obsolete prototype's deletion.
+The native root regression measures the full committed inventory and verifies every declared observation through the actual CLI under the saved feedback policy. Both root regressions require exact observation IDs, fingerprints, loader receipts, the CLI/evidence/native-worker entry-point relationships, and ancestry for every retained component. During stabilization the root may reject only its deferred size overage; a failed observation, missing ancestry, or incomplete analysis must fail the regression. CI sets the test-only `BONSAI_SELF_CHECK_REPORT` path to save the real native report before assertions, including failed assertions' data; it is not a CLI configuration option. A copied archive fixture selects the same complete inventory and uses the same saved 15-second native deadline, with the checker's installed dependencies linked locally outside the authored inventory. Neither exclusions nor fabricated evidence may hide authored code. Separate consuming-project fixtures keep unsupported Rust measured and incomplete after the obsolete prototype's deletion.
 
 Native runtime guards trap JS compiler factories while permitting lexical parsing/scanning. Require all diagnostic categories. Known native default-library directive gaps must produce a specific incomplete result for owned and imported declarations, never a missing-diagnostic pass. Preserve full fact parity for supported valid syntax; malformed lexical ASTs may be provisional only with blocking diagnostics and no evidence.
 
@@ -58,4 +64,4 @@ Use asynchronous child invocations while a test owns the broker, so its event lo
 
 ## Child DOX Index
 
-None. This file owns the full subtree.
+- [native/AGENTS.md](native/AGENTS.md): development-only native comparisons, fixtures, and fresh-command benchmarks.

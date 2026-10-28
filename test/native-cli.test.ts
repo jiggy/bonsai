@@ -20,14 +20,17 @@ import { characters, hasPty, quote } from './terminal.ts'
 
 const repository = resolve('.')
 const require = createRequire(import.meta.url)
-let native: string | undefined
-try {
-  const manifest = require.resolve('tsrs/package.json')
-  const getExePath = require(join(dirname(manifest), 'lib/getExePath.js')).default
-  native = getExePath()
-} catch {
-  // Unsupported platforms can still exercise enum/help and mocked runtime failures.
+function installedNative(): string | undefined {
+  try {
+    const manifest = require.resolve('tsrs/package.json')
+    const getExePath = require(join(dirname(manifest), 'lib/getExePath.js')).default
+    return getExePath()
+  } catch {
+    // Unsupported platforms can still exercise enum/help and mocked runtime failures.
+    return undefined
+  }
 }
+const native = installedNative()
 const hasNative = native !== undefined && existsSync(native)
 const canRunMocks = process.platform !== 'win32'
 

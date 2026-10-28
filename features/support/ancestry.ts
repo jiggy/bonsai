@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, symlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { invoke } from './cli.ts'
 import { project, write } from './project.ts'
@@ -88,6 +88,7 @@ export function live() {
       exclude: ['*.generated.ts'],
     },
   )
+  let alias: string | undefined
   try {
     history(fixture.root)
     const candidate = structuredClone(fixture.config)
@@ -115,7 +116,12 @@ export function live() {
       )
     }
     write(fixture.root, 'bonsai.json', JSON.stringify(candidate))
-    const options = ['--root', fixture.root, '--base', 'HEAD']
+    if (kind === 'trusted-budget') {
+      const link = fixture.root + ' checkout alias'
+      symlinkSync(fixture.root, link, 'dir')
+      alias = link
+    }
+    const options = ['--root', alias ?? fixture.root, '--base', 'HEAD']
     if (kind === 'explicit-policy') options.push('--policy', join(fixture.root, 'bonsai.json'))
     const command = operation === 'check' ? ['check'] : ['config', 'show']
     const report = invoke([...command, ...options])
@@ -124,6 +130,7 @@ export function live() {
       handlerExecuted: existsSync(join(fixture.root, 'handler-ran')),
     }
   } finally {
+    if (alias) rmSync(alias, { force: true })
     fixture.dispose()
   }
 }

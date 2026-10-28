@@ -187,6 +187,8 @@ JSON gate reports retain `decision` and `snapshot`; explanation reports retain
 `retryable` metadata on stderr. Stack traces require `--debug`.
 Check snapshots may add `source.bindingImports` and `evidence.bindingImport` for
 the validated internal loader boundary; existing fields remain available.
+Failed observation records may add a bounded diagnostic `response` string showing
+what the action returned. Passing records retain their existing shape.
 Check reports also include additive `timing` and `snapshot.timing` measurements.
 Static child launches add relationships with `kind: "entry-point"`, retaining
 the launch location in `sourceRef`.
@@ -213,6 +215,12 @@ assertion details, and provisional ancestry; `--limit N` bounds displayed entrie
 (default 20), and `--limit 0` requests every entry. Machine reports always retain
 all facts. `--quiet` preserves errors and repairs while suppressing metrics,
 progress, and retry hints.
+
+When several assertions fail on one returned response, the human report shows
+that response once for the affected call. This exposes a nested command's error
+alongside the failed requirements. Its diagnostic preview is limited to 2 KiB
+and marks truncation; verbose output retains individual assertion failures.
+An expected application error response can still satisfy its contract.
 
 Each blocker now includes its impact and a concrete fix. For example, a commented
 initialization starter reports its `.feature` path, explains that commented scenarios
@@ -385,14 +393,20 @@ CI saves the native regression's actual report as the `bonsai-self-check` artifa
 including its decision, evidence, inventory, and phase timings. Inspect completion
 and observation counts alongside timings when comparing workflow runs.
 
+During stabilization, remediation of the root's size overage is deferred. The
+regressions require complete passing behavior and contract ancestry for every
+retained component; the size overage remains visible in the real gate verdict.
+Development comparisons and benchmarks live in `test/native/`, stay measured,
+and inherit ancestry through their actual contracted production subjects.
+
 `bun run bonsai check` inspects the committed root inventory and
 policy. Owned source, tests, contracts, documentation, and configuration remain
 measured; installed third-party CLI skills and the separate checkout example stay
 outside that scope. The root policy keeps its 20,000-token bootstrap, 30,000-token
 hard limit, and 15-second feedback ceiling. Fixed entry-point relationships now
 connect its CLI and both workers. The current inventory still exceeds the allowance,
-and development tools and unsupported test connections retain ancestry findings.
-Complete feature evidence therefore still produces a genuine rejection.
+while all retained components have contract ancestry. Complete feature evidence
+therefore still produces a genuine rejection for the deferred size overage.
 
 The unused Oxc prototype was deleted when tsrs replaced it. Its Cargo files and
 Rust sources were removed rather than excluded. Authored Rust in consuming
@@ -550,7 +564,7 @@ For a Git repository configured at its root:
 bun run bonsai check --root /path/to/project --base origin/main --json
 ```
 
-The base is read from an archive without running its code. Its `bonsai.json` supplies the candidate's rules and inventory by default, so changing the candidate's policy does not enlarge its allowance. Base reporting compares retained size and contract surface; it does not claim that the historical base passed verification. `--policy /trusted/bonsai.json` explicitly overrides this configuration. A trusted CI deployment must control that argument and the checker executable. `--base` requires `--root` to be the Git repository root; the nested checkout example uses standalone checks.
+The base is read from an archive without running its code. Its `bonsai.json` supplies the candidate's rules and inventory by default, so changing the candidate's policy does not enlarge its allowance. Base reporting compares retained size and contract surface; it does not claim that the historical base passed verification. `--policy /trusted/bonsai.json` explicitly overrides this configuration. A trusted CI deployment must control that argument and the checker executable. `--base` requires `--root` to be the Git repository root; the nested checkout example uses standalone checks. Git comparisons accept a symlink to that root, including macOS temporary-directory aliases. Reports retain the selected root spelling, and explicit relative policy paths still resolve from the invocation directory.
 
 ## What the prototype establishes
 

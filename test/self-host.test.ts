@@ -81,11 +81,7 @@ function fulfilled(
     files,
   )
   assert.deepEqual(candidate.source.problems, [], report.stderr)
-  assert.deepEqual(
-    candidate.unrooted.filter((id) => id.startsWith('src/')),
-    [],
-    'Every implementation component needs contract ancestry',
-  )
+  assert.deepEqual(candidate.unrooted, [], 'Every retained component needs contract ancestry')
   assert.deepEqual(candidate.contracts, required)
   assert.equal(candidate.source.bindingImports?.length, 1)
   assert.equal(candidate.source.bindingImports[0]!.from, 'src/evidence.ts#collectEvidence')
@@ -142,6 +138,11 @@ function fulfilled(
   assert.ok(
     report.decision.requiredReduction > 0,
     'Passing behavior must not erase the retained-size overage',
+  )
+  assert.deepEqual(
+    report.decision.violations,
+    [`Retained size exceeds ceiling by ${report.decision.requiredReduction} tokens`],
+    'Only the deferred size overage may reject the root',
   )
 }
 
