@@ -11,7 +11,7 @@ export function order() { return middle() }`,
     'helper.ts': `export function middle() { return subject() }
 export function subject() { return { status: 'ok' } }`,
     'bindings.ts': `import { order } from './handler.ts'
-export const actions = { order }`,
+export const actions = { order: order }`,
     'orders.feature': `Feature: Orders
 Scenario: Place an order
  When I invoke "order" with {}
@@ -20,7 +20,7 @@ Scenario: Place an order
   })
   try {
     const result = runCli(['explain', 'helper.ts#subject', '--root', project.root, '--json'])
-    assert.equal(result.status, 0, result.stderr)
+    assert.equal(result.status, 0, result.stderr || result.stdout)
     assert.equal(result.stderr, '')
     const component = JSON.parse(result.stdout).components[0]
     assert.equal(component.checks.length, 1)
