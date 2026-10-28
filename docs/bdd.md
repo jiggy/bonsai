@@ -1,58 +1,180 @@
 # Behavior-driven development in Bonsai
 
-Bonsai's own repository is the reference for adopting Bonsai. Start with the
-product promise, express it as executable examples, and retain the smallest
-implementation that fulfills those examples within the governing allowance.
+Bonsai's specifications are a reference for its adopters. Use BDD to discover
+and agree on product rules through concrete examples, then build the smallest
+implementation that fulfills them. Use TDD's red/green/refactor discipline to
+implement those rules. Executable Gherkin and failing assertions support that
+work; they do not establish that a specification describes the right behavior.
 
-## What determines the allowance
+## Discover the rule before choosing the test
 
-The executable `.feature` contracts define the external action–observation
-surface. Bonsai deduplicates action names and normalized response selectors,
-then applies one project-wide ceiling to that surface. The configured bootstrap,
-growth, hard cap, and feedback deadline remain the policy; specifications do not
-override them.
+Start with the requester’s goal and existing product language. Identify who
+needs the behavior, why it matters, the relevant situation, and the observable
+consequence. Resolve uncertainty through examples and counterexamples before
+choosing response selectors or writing fixture code. Record that context in the
+feature’s prose and scenario names; an opaque fixture or case identifier cannot
+carry the requirement by itself.
 
-Every concrete observation remains a verification obligation. More outline rows,
-duplicate files, test functions, assertions, callers, or fixture names do not
-earn extra allowance. Lower-level tests add confidence and can inherit ancestry
-from already justified production subjects; they cannot justify otherwise
-unsupported production code. Every maintained file, including specification
-support, tests, and documentation, still consumes its full retained cost.
+Review a proposed specification against these questions:
 
-The current checker counts literal action–selector pairs. It cannot decide
-whether a newly named promise is legitimate. Keep bindings aligned with public
-operations, select arrangements through fixture inputs, and review new selectors
-against actual observable behavior. Creating action aliases or wrapping the same
-response under new names to enlarge the surface is budget gaming. Product scope
-comes from the requested behavior, never from the amount of code needing space.
+- Does it express a rule a user or maintainer can explain and contest?
+- Would the rule still hold after replacing the implementation while preserving
+  the product’s promised behavior?
+- Do the examples distinguish the rule, its meaningful alternatives, and the
+  important boundaries with minimal repetition?
+- Does each observation establish a product consequence rather than inspect
+  an implementation choice or the test harness?
 
-## New behavior: example, red, green, refactor
+For a developer tool, code and failure cases are often the domain. Rejecting
+unsupported source, preserving existing files, refusing false passes, and stopping
+work after cancellation are valid product promises. JSON can expose a domain
+fact, and a stable public schema can itself be a compatibility promise. A field’s
+visibility alone does not make its layout or value a separate capability.
 
-1. State the user-visible rule and the authorized scope change. Choose concrete
-   successful, rejected, and boundary examples. Use scenario names and fixture
-   context to explain why each outcome matters.
-2. Add the examples to the owning `.feature` file. A binding may arrange inputs,
-   launch the real CLI, and return its report or independently observed effects.
-   Keep expected product outcomes in the specification.
-3. Run the focused example before implementing the rule. Confirm that it fails
-   because the product behavior is missing or wrong. Missing fixtures, unbound
-   actions, invalid source, and unavailable tools require repair; they do not
-   demonstrate the intended red step.
-4. Implement the smallest change that makes the example pass. Add focused unit,
-   protocol, compiler, or race regressions where they explain technical edges.
-5. Refactor while retaining every required example and observation. Run complete
-   feature verification and the other required checks before claiming completion.
+## Put each assertion at the right level
 
-Use the compiled authored cases for focused feedback:
+| Product specification | Technical regression |
+| --- | --- |
+| Repeated examples strengthen verification without buying capacity | Compiler check IDs, parser objects, and report-array ordering |
+| Unit tests cannot justify unrelated production code | Shared assertion-helper chains and graph-propagation bookkeeping |
+| Incorrect behavior cannot pass; every required input executes | Worker messages and exact process scheduling details |
+| Initialization preserves the developer’s files | Exact generated scaffolding and serializer layout |
+| Errors explain the cause and remain readable | ANSI numeric codes and complete parser error strings |
+| Checks report useful timing and respect the feedback deadline | Internal phase names, backend identities, and benchmark distributions |
+
+Use `.feature` files for the reviewed product rules. Keep detailed assertions in
+the relevant `test/*.test.ts` integration, compiler, protocol, presentation, or
+performance tests. Both layers can exercise the real CLI. Neither layer is
+defined by its file extension or by whether it launches a subprocess.
+
+Bonsai nevertheless discovers executable contracts by the maintained `.feature`
+extension, not by directory name. Moving a technical `.feature` file into `test/`
+still makes it count. Keep technical cases as test-source data or generate them
+inside disposable consuming projects; the maintained technical tests and their
+support remain measured.
+
+When migrating a technical feature, preserve its assertions in technical tests,
+record their destinations in the change review, and run them. Preserve the product
+promise in a focused feature with meaningful examples. Do not merely reword
+internal selectors, delete regressions, or replace assertions with an opaque
+`scenarioPassed` flag. A migration changes test placement, not authorized scope.
+
+## Review what earns allowance
+
+Reviewed executable product contracts supply one global action–observation
+surface. Every authored product observation remains required. More test functions,
+example rows, files, callers, and fixture names do not independently earn capacity.
+Lower-level tests add confidence and can inherit established production ancestry;
+they cannot justify otherwise unsupported production code. All maintained files,
+including technical tests, specification support, and documentation, stay charged.
+
+The current engine counts literal action names paired with normalized response
+selectors. It does not recognize stakeholder significance, equivalent meanings,
+or technical proof artifacts. Eligibility is a human review obligation, not an
+implemented semantic counter. Review every added pair against its product rule.
+Use canonical public actions and established domain observations; do not create
+headroom through helper aliases, backend metadata, or renamed copies of reports.
+There is no second capability ledger or per-feature grant.
+
+Moving implementation assertions out of features may reduce the measured surface
+and allowance even when every regression is preserved. Report that effect
+separately from retained-code savings. Keep the actual root verdict visible; do
+not hide authored code, enlarge coefficients, or extend the feedback deadline to
+recover a pass. The configured bootstrap, growth, cap, and deadline still govern.
+
+## Worked Bonsai example
+
+This assertion pins a tool choice, rather than a reviewer’s reason to trust a
+check:
+
+```gherkin
+Scenario: Verify behavior with the Rust TypeScript checker
+  When I invoke "check" with {"examples": 2}
+  Then response "snapshot.analysis.backend" equals "tsrs"
+```
+
+Keep native-backend verification in the native integration tests. A product
+specification instead explains a rule reviewers rely on. For example, duplicating
+requirements must not buy code capacity or silently skip their execution. Here
+two files each contain the same positive and negative order examples; all four
+invocations observe the same public action and status, under a 1000-token
+bootstrap allowance:
+
+```gherkin
+Scenario: Duplicate requirements preserve capacity and every invocation
+  When I invoke "check" with {"fixture": "accounting", "case": "duplicate-contracts", "layout": "duplicate"}
+  Then response "decision.surface" equals 1
+  And response "decision.ceiling" equals 1000
+  And response "invocationCount" equals 4
+```
+
+Here the arrangement selects the stated contracts, and actual invocations are
+independently counted. Surface and ceiling are user-relevant budget decisions;
+their JSON representation does not disqualify them. A different analyzer can
+fulfill this same rule. This replaces an implementation claim with a product
+rule, not a friendly alias for `backend` or a computed test verdict.
+
+## An adopter’s example
+
+A checkout owner agrees that only positive whole quantities can place an order.
+The examples distinguish acceptance, the zero boundary, and fractional input.
+With `place-order` registered to the actual application handler:
+
+```gherkin
+Feature: Place orders only for valid quantities
+  Scenario Outline: Decide whether an order quantity is valid
+    When I invoke "place-order" with {"quantity": <quantity>}
+    Then response "status" equals "<status>"
+    Examples:
+      | quantity | status   |
+      | 1        | accepted |
+      | 0        | rejected |
+      | 1.5      | rejected |
+```
+
+This uses the supported invocation/response DSL. Context is explanatory prose,
+not an executable `Given` step; arbitrary domain steps need adapter support.
+The three examples retain one `place-order`/`status` pair and every concrete
+obligation. See [adoption](../skills/bonsai/references/adoption.md) for setup.
+
+## Implement and verify the agreed rule
+
+For new behavior, author the acceptance example before implementation. Observe
+failure caused by the missing or incorrect product behavior, make the smallest
+passing change, then refactor under the same rule. Missing bindings, broken
+fixtures, compiler crashes, and unavailable tools are setup failures, not the
+intended red evidence. Technical tests guide implementation details separately.
+
+For already implemented behavior gaining a specification, establish a green
+control, demonstrate that a controlled product fault or rejection probe violates
+its intended observation, then restore and rerun the control in disposable copies.
+Report this as retrospective coverage, not a spec-first red step. Selected fault
+checks prove sensitivity to those faults, not BDD quality, a general mutation
+score, or complete behavioral coverage.
+
+Use the authored specifications for focused feedback:
 
 ```sh
 bun run test:specs -- --list
 bun run test:specs -- --scenario 'part of a scenario name'
 ```
 
-A focused run is development feedback. It does not establish that the complete
-inventory has ancestry, all other observations passed, or the size budget fits.
-The complete checks remain:
+Support arranges inputs, executes actual public operations, and observes domain
+facts from reports or independent effects. It must not reimplement policy,
+calculate expected answers, catch failures as successes, or manufacture evidence.
+An observer can report actual file presence, unchanged bytes, displayed text, or
+recorded calls. These describe individual consequences; a combined
+`scenarioPassed` flag or a computed expected budget would conceal the assertions.
+Observe each public operation under its own canonical action instead of nesting
+another command’s report to mint selectors. Avoid hiding context in fixtures.
+
+Prove concurrent progress with synchronized observable work, not worker metadata
+alone or machine-specific speed thresholds. Default scenarios have fresh
+application processes; `--serial` shares module state across ordered scenarios.
+Own external resources independently in either mode.
+
+A focused run does not establish complete source analysis, ancestry, or budget
+acceptance. Run the complete specifications and relevant technical regressions:
 
 ```sh
 bun run test:features
@@ -62,78 +184,42 @@ bun run demo
 bun run bonsai check --json
 ```
 
-The final command reports the actual root verdict. Complete feature evidence is
-required even when the root still correctly rejects size or ancestry violations.
-Keep those violations visible; do not enlarge coefficients, exclude authored
-material, or extend the feedback deadline to turn the report green.
+The last command reports the actual root verdict. Passing product examples and
+technical tests do not erase size or ancestry violations. Structural ancestry
+does not prove necessity, runtime coverage, or specification completeness.
 
-## Existing behavior: a control and a meaningful counterexample
+## Navigate and review
 
-When an implemented rule lacks a specification, first establish a green example
-against the real product. Then show that a narrowly controlled product fault or
-rejection probe makes its intended observation fail. Restore the control and
-verify it again. Use disposable copies so the demonstration cannot contaminate
-the working implementation or another scenario.
-
-Record this as retrospective specification coverage. Do not describe an already
-passing example as a spec-first red step. A compiler crash or broken test setup
-also does not prove that an assertion detects the intended rule violation.
-Selected controlled-fault regressions protect important promises; they are not a
-general mutation score, complete coverage claim, or new allowance input.
-
-## Keep the executable boundary honest
-
-- Exercise actual commands, exit codes, reports, streams, and externally observed
-  effects. A marker or invocation log can establish execution independently of
-  the verifier's reported check count.
-- Keep helpers limited to arrangement, execution, and observation. They must not
-  reimplement the ceiling, ancestry, or admission algorithm to produce expected
-  answers, catch failures as successes, or fill in missing passing observations.
-- When a scenario exercises several public operations, invoke each under its own
-  action identity and observe its ordinary report. Nesting another command's
-  report under a new helper label must not create additional product surface.
-- Prove concurrent progress with synchronization and observations of running
-  work. Worker metadata alone cannot prove concurrency; machine-specific
-  stopwatch thresholds are not a substitute for a behavior contract.
-- Keep scenarios independent. The default uses CPU-sized concurrent workers and
-  fresh application modules per scenario; `--serial` explicitly tests shared
-  module state across ordered scenarios. External resources need independent
-  fixture ownership in either mode.
-- Preserve detailed technical regressions at the appropriate level. Compiler
-  conformance, protocol permutations, terminal styling, and process races do not
-  each need another public feature or action name.
-
-## Where product rules live
-
-This is a navigation map, not an allowance ledger or a second list of required
-checks. The executable feature files remain authoritative.
+The feature files are authoritative; this map is navigation, not another ledger.
+Technical tests preserve the detailed proofs beside the relevant implementation.
 
 | Product rule | Specification |
 | --- | --- |
 | Admission outcomes and supported analysis boundaries | `features/check.feature` |
 | Surface deduplication, budget boundaries, and full retained cost | `features/accounting.feature` |
-| Production/test ancestry, effective policy scope, and supported source boundaries | `features/ancestry.feature` |
-| Every required execution, freshness, deadlines, and worker lifecycle | `features/evidence.feature` |
+| Production/test ancestry and effective policy scope | `features/ancestry.feature` |
+| Required execution, freshness, deadlines, and cancellation | `features/evidence.feature` |
 | Safe initialization and project/configuration handling | `features/project.feature` |
-| Human diagnostics, automation output, and usable recovery guidance | `features/ux.feature` |
+| Human diagnostics, automation, and recovery guidance | `features/ux.feature` |
 | Help, version, and completion discovery | `features/discover.feature` |
 | Read-only inspection | `features/inspect.feature` |
 
-The normal test suite executes the product specifications through real command
-bindings. Network-dependent tarball installation and `bunx` acceptance remain in
-the explicit release check, `bun run test:package`; ordinary root verification
-does not acquire a network dependency. The compiler oracle and technical tests
-remain additional evidence outside the published runtime sources.
+The migrated accounting, source, check, project, and UX proofs live in
+`test/accounting-contracts.test.ts`, `test/source-contracts.test.ts`,
+`test/check-contracts.test.ts`, `test/project-contracts.test.ts`, and
+`test/ux-contracts.test.ts`. Worker protocol and scheduling regressions remain in
+`test/evidence-parallel.test.ts`. Consult [test ownership](../test/AGENTS.md) for
+the surrounding suites. Map assertions to their subject, not one technical test
+per feature or another runtime manifest.
 
-## Review and report
+Network-dependent tarball/`bunx` acceptance stays in the explicit release check,
+`bun run test:package`; ordinary root verification has no network dependency.
 
-For a behavior change, report the promise and examples, the red/green evidence
-or retrospective control/fault evidence, the final required checks, and the real
-Bonsai verdict. Inspect changes to action–selector surface separately from changes
-to retained size. Removing or weakening a promise requires authorization in the
-product task; changing policy is a separate governance change.
-
-A contract-to-component path establishes structural eligibility. It is not proof
-of necessity, runtime coverage, or complete specification. Keep the known adapter
-limits and trusted-merge admission gaps explicit while using the implemented gate
-consistently.
+Use [the pull request template](../.github/pull_request_template.md) to explain
+the stakeholder rule and examples, meaningful
+red/green or retrospective control/fault evidence, technical assertions moved and
+their destinations, surface/allowance change, retained-size change, and actual
+verification results. Product scope removal and policy changes need their own
+authorization. If there is no product behavior change, say so and describe the
+technical purpose; a new feature is not required for a refactor or regression.
+Keep known adapter and trusted-admission limits explicit.

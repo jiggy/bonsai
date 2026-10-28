@@ -1,16 +1,11 @@
+import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { invoke } from './cli.ts'
 import { project, write } from './project.ts'
 
 type AccountingInput = {
-  case:
-    | 'ceiling'
-    | 'duplicate-contracts'
-    | 'selectors'
-    | 'background'
-    | 'invalid-contract'
-    | 'compaction'
+  case: 'ceiling' | 'duplicate-contracts' | 'selectors' | 'background' | 'compaction'
   surface?: number
   layout?: 'duplicate' | 'split'
 }
@@ -42,23 +37,13 @@ function observations(root: string) {
         .split('\n')
         .map((line) => JSON.parse(line) as { value: number; pid: number })
     : []
-  const sequences = new Map<number, number[]>()
-  for (const input of inputs) {
-    const sequence = sequences.get(input.pid) ?? []
-    sequence.push(input.value)
-    sequences.set(input.pid, sequence)
-  }
   return {
     invocationCount: inputs.length,
     inputValues: inputs.map((input) => input.value).sort((a, b) => a - b),
-    invocationSequences: [...sequences.values()].sort((a, b) =>
-      JSON.stringify(a).localeCompare(JSON.stringify(b)),
-    ),
   }
 }
 
-export function checkAccounting(input: AccountingInput) {
-  if (input.case === 'compaction') return compactRetainedSource()
+export function accountingProject(input: AccountingInput) {
   let text = 'Feature: Observe the application\n' + scenario(1)
   let registry = bindings
   const sources: Record<string, string> = { 'handler.ts': handler, 'bindings.ts': registry }
@@ -106,42 +91,26 @@ export function checkAccounting(input: AccountingInput) {
     When I invoke "sample" with {"value": 2}
     Then response "status" equals "accepted"
 `
-  } else if (input.case === 'invalid-contract') {
-    const invalid = {
-      skipped: text.replace('  Scenario:', '  @skip\n  Scenario:'),
-      malformed: text.replace('{"value": 1}', '{invalid}'),
-      unobserved: text.replace(/    Then response.*\n/, ''),
-      unsupported: text.replace('Then response', 'Then maybe response'),
-      selector: text.replace('response "status"', 'response "items[*].price"'),
-      docstring: text.replace(
-        '    Then response',
-        '      """\n      unsupported argument\n      """\n    Then response',
-      ),
-      datatable: text.replace(
-        '    Then response',
-        '      | value |\n      | 1     |\n    Then response',
-      ),
-    }
-    for (const [kind, requirement] of Object.entries(invalid))
-      sources[`${kind}.feature`] = requirement
   }
-  if (input.case !== 'invalid-contract') sources['observations.feature'] = text
-  const fixture = project(sources, policy)
+  sources['observations.feature'] = text
+  return project(sources, policy)
+}
+
+export function checkAccounting(input: AccountingInput) {
+  if (input.case === 'compaction') return compactRetainedSource()
+  const fixture = accountingProject(input)
   try {
     const report = invoke(['check', '--root', fixture.root])
     return {
       ...report,
       ...observations(fixture.root),
-      verificationTiming: report.snapshot?.timing?.stages.find(
-        (stage: { name: string }) => stage.name === 'verification',
-      ),
     }
   } finally {
     fixture.dispose()
   }
 }
 
-function compactRetainedSource() {
+export function compactionProject() {
   const compact = `import { value } from './shared.ts'
 export function first() { return value() }
 export function second() { return value() }
@@ -166,23 +135,34 @@ export function second() { return value() }
     },
     { bootstrap: 213, hardLimit: 213 },
   )
+  return { ...fixture, compact }
+}
+
+function compactRetainedSource() {
+  const fixture = compactionProject()
   try {
-    const previous = invoke(['check', '--root', fixture.root])
-    write(fixture.root, 'handlers.ts', compact)
-    const report = invoke(['check', '--root', fixture.root])
-    return {
-      ...report,
-      previous,
-      retainedReduction: previous.decision.retained - report.decision.retained,
-      allowanceChange: report.decision.ceiling - previous.decision.ceiling,
-      wrapperCost: previous.snapshot.source.components.find(
-        (component: { id: string }) => component.id === 'handlers.ts#wrapper',
-      )?.tokens,
-      wrapperAncestryCount: previous.snapshot.ancestry['handlers.ts#wrapper']?.length,
-      sharedFileCopies: previous.snapshot.source.files.filter(
-        (file: { file: string }) => file.file === 'shared.ts',
-      ).length,
-    }
+    for (const args of [
+      ['init', '-b', 'main', fixture.root],
+      ['-C', fixture.root, 'add', '.'],
+      [
+        '-C',
+        fixture.root,
+        '-c',
+        'core.hooksPath=/dev/null',
+        '-c',
+        'commit.gpgSign=false',
+        '-c',
+        'user.name=Bonsai Specification',
+        '-c',
+        'user.email=specification@example.invalid',
+        'commit',
+        '-m',
+        'Retain the existing behavior and allowance',
+      ],
+    ])
+      execFileSync('git', args, { stdio: 'ignore' })
+    write(fixture.root, 'handlers.ts', fixture.compact)
+    return invoke(['check', '--root', fixture.root, '--base', 'HEAD'])
   } finally {
     fixture.dispose()
   }

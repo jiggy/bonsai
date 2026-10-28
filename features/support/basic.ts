@@ -1,5 +1,5 @@
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { availableParallelism, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { invoke } from './cli.ts'
 
@@ -133,20 +133,7 @@ export function checkBasicProject(input: ProjectInput) {
         : 0,
       ...(input.subprocess && {
         childExecuted: existsSync(childMarker),
-        childMeasured: report.snapshot?.source.files.some(
-          (file: { file: string }) => file.file === 'order-worker.ts',
-        ),
-        childHasAncestry: !!report.snapshot?.ancestry['order-worker.ts#evaluateOrder']?.length,
       }),
-      timingMeasured: [report.timing?.elapsedMs, report.snapshot?.timing?.elapsedMs].every(
-        (elapsed) => Number.isFinite(elapsed) && elapsed > 0,
-      ),
-      verificationTiming: report.snapshot?.timing?.stages.find(
-        (stage: { name: string }) => stage.name === 'verification',
-      ),
-      sourceTiming: report.snapshot?.timing?.stages.find(
-        (stage: { name: string }) => stage.name === 'source',
-      ),
     }
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -177,14 +164,24 @@ export function explainComponent(input: { target?: string }) {
 export function initializeProject() {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-self-init-'))
   try {
-    writeFileSync(join(root, 'app.ts'), 'export function app() { return 1 }\n')
+    const originalSource = 'export function app() { return 1 }\n'
+    writeFileSync(join(root, 'app.ts'), originalSource)
     const initialized = invoke(['init', '--root', root])
-    const config = JSON.parse(readFileSync(join(root, 'bonsai.json'), 'utf8'))
+    const configFile = join(root, 'bonsai.json')
+    const config = existsSync(configFile) ? JSON.parse(readFileSync(configFile, 'utf8')) : undefined
     return {
       ...initialized,
       savedConfig: config,
-      check: invoke(['check', '--root', root]),
       originalSource: readFileSync(join(root, 'app.ts'), 'utf8'),
+      sourceUnchanged: readFileSync(join(root, 'app.ts'), 'utf8') === originalSource,
+      configurationExists: existsSync(configFile),
+      bindingExists:
+        typeof config?.bindings === 'string' && existsSync(join(root, config.bindings)),
+      requirementsExist:
+        Array.isArray(initialized.created) &&
+        initialized.created.some(
+          (file: string) => file.endsWith('.feature') && existsSync(join(root, file)),
+        ),
     }
   } finally {
     rmSync(root, { recursive: true, force: true })
@@ -192,36 +189,42 @@ export function initializeProject() {
 }
 
 export function showHelp(input: { command?: string }) {
-  return invoke(['help', ...(input.command ? [input.command] : [])])
-}
-
-export function generateCompletion(input: { shell: string }) {
-  const report = invoke(['completion', input.shell])
-  return {
-    ...report,
-    scriptPresent: typeof report.script === 'string' && report.script.trim().length > 0,
-    checkCommandPresent: typeof report.script === 'string' && report.script.includes('check'),
-    serialOptionPresent:
-      typeof report.script === 'string' &&
-      (input.shell === 'fish'
-        ? /-l serial(?:\s|$)/m.test(report.script)
-        : report.script.includes('--serial')),
-  }
-}
-
-export function showVersion() {
-  return invoke(['version'], {
+  return invoke(['help', ...(input.command ? [input.command] : [])], {
     BONSAI_ROOT: '/missing-bonsai-project',
     BONSAI_NATIVE_BINARY: '/missing-bonsai-checker',
   })
 }
 
+export function generateCompletion(input: { shell: string }) {
+  return invoke(['completion', input.shell])
+}
+
+export function showVersion() {
+  const report = invoke(['version'], {
+    BONSAI_ROOT: '/missing-bonsai-project',
+    BONSAI_NATIVE_BINARY: '/missing-bonsai-checker',
+  })
+  return {
+    ...report,
+    versionPresent: typeof report.version === 'string' && report.version.trim().length > 0,
+  }
+}
+
 export function verifyIsolatedScenarios(input: { serial?: boolean }) {
-  const { root } = project()
+  const { root, marker } = project()
   try {
     writeFileSync(
       join(root, 'orders.ts'),
-      ['let count = 0', 'export function advance() { return { count: ++count } }', ''].join('\n'),
+      [
+        "import { appendFileSync } from 'node:fs'",
+        'let count = 0',
+        'export function advance() {',
+        '  count++',
+        `  appendFileSync(${JSON.stringify(marker)}, String(count) + '\\n')`,
+        '  return { count }',
+        '}',
+        '',
+      ].join('\n'),
     )
     writeFileSync(
       join(root, 'bindings.ts'),
@@ -246,11 +249,9 @@ export function verifyIsolatedScenarios(input: { serial?: boolean }) {
     const report = invoke(['check', '--root', root, ...(input.serial ? ['--serial'] : [])])
     return {
       ...report,
-      cpuPlanMatches:
-        report.snapshot?.verification?.workers === Math.min(availableParallelism(), 2),
-      observations: report.snapshot?.evidence?.checks.map(
-        (check: { status: string }) => check.status,
-      ),
+      invocationCount: existsSync(marker)
+        ? readFileSync(marker, 'utf8').trim().split('\n').length
+        : 0,
     }
   } finally {
     rmSync(root, { recursive: true, force: true })

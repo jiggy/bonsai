@@ -1,24 +1,26 @@
 # Purpose
 
-Define Bonsai's externally observable behavior as executable Gherkin contracts.
+Specify the developer outcomes and domain rules that make Bonsai useful, through executable Gherkin examples.
 
 ## Ownership
 
-`check.feature` covers admission, source and verification timing, native checker evidence, subprocess ancestry, and unsupported analysis. `accounting.feature` specifies the allowance, retained cost, contract grammar, and actual compaction. `ancestry.feature` specifies production/test boundaries, effective base policy, supported source and registration boundaries, and measured JSON dependencies. `evidence.feature` specifies actual execution, concurrency, freshness, and shutdown. `project.feature` covers safe adoption; `ux.feature` covers user-visible diagnostics and automation. `inspect.feature` covers read-only inspection; `discover.feature` covers help, version, and completion discovery. Root `bonsai.bindings.ts` connects stable public command identities to `support/actions.ts`.
+`check.feature` covers trustworthy admission and executable behavior. `accounting.feature` specifies allowance, required calls, and compaction under unchanged rules. `ancestry.feature` covers production justification and reviewed policy scope. `evidence.feature` specifies required execution, freshness, and shutdown. `project.feature` covers safe adoption; `ux.feature` covers useful diagnostics and automation. `inspect.feature` covers read-only answers; `discover.feature` covers help, version, and usable completion. Root `bonsai.bindings.ts` connects stable public command identities to `support/actions.ts`.
 
-The missing native-server contract requires an actionable `BONSAI_NATIVE_BINARY` repair without running handlers.
+Technical compiler, parser, protocol, schema, scheduling, and presentation regressions belong in `test/`. They preserve detailed proof without adding product allowance.
 
 ## Local Contracts
 
-Assert actual CLI reports, exit codes, and filesystem outcomes. Keep every required example executable. Surface deduplication must preserve the individual checks. Fixture behavior belongs in executable support; product requirements belong in `.feature` scenarios.
+Start with the stakeholder, meaningful context, rule, and observable consequence. A scenario must remain valid after an internal redesign preserving that promise. Use the minimum examples that distinguish the rule, including important user-facing failures and boundaries. Real CLI execution and Gherkin alone do not establish this bar.
 
-Reviewed external action–observation pairs govern the allowance. Cases, files, helpers, and aliases do not justify extra capacity. Keep command identities stable and express fixture differences in their inputs. Helpers must arrange, execute, and observe; they must not copy the policy evaluator or fabricate passing evidence. Follow [the BDD workflow](../docs/bdd.md), including meaningful red/green for new behavior and control/fault evidence for retrospective specifications.
+Assert actual public results or independently observed effects. Preserve product promises and technical regression coverage when moving assertions between layers; name the technical destinations in review. Do not retain an internal assertion in a feature merely because it used to be there. Surface deduplication must still preserve every observation declared by the qualifying contracts.
+
+Review every action–observation pair for product significance: the engine only counts literal names and normalized selectors. Public JSON visibility does not qualify a field automatically. Cases, files, technical proof artifacts, and aliases do not establish more product scope. Keep command identities stable and make fixture context understandable in the feature's prose. Helpers arrange, execute, and observe; they must not calculate expected verdicts, fabricate evidence, or hide internal assertions behind friendlier names. Follow [the BDD workflow](../docs/bdd.md).
 
 ## Work Guidance
 
-Cover both successful behavior and blocking outcomes. Native checking is the default; the removed TypeScript engine choice is not an executable obligation. Keep unsupported self-analysis visible rather than manufacturing a passing gate.
+Cover successful and blocking user outcomes. Backend identity, exact parser strings, incidental token goldens, ANSI numbers, report offsets, and exhaustive syntax permutations belong in technical regressions. Public domain facts such as the budget and a uniquely requested component remain legitimate observations. Keep actual unsupported analysis and root budget failures visible.
 
-The default verification contract requires fresh state between scenarios, ordered steps within a scenario, automatic CPU-sized concurrency, and every observation. The `--serial` contract requires shared state across ordered scenarios through the real CLI. Discovery exposes `--serial` as a check-only flag; neither profile uses project execution settings.
+Default verification keeps scenarios independent and completes every required observation; `--serial` preserves shared state across ordered scenarios. Actual completion and shutdown belong in product examples. CPU sizing, held-worker progress, shard identities, queue bounds, and protocol permutations retain direct scheduling regressions, including on a one-CPU machine.
 
 ## Verification
 

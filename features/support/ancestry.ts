@@ -17,11 +17,7 @@ type Input = {
     | 'literal-import'
     | 'unsupported-language'
     | 'type-error'
-    | 'computed-registration'
-    | 'spread-registration'
-    | 'inline-registration'
     | 'json-dependency'
-    | 'default-library-directive'
 }
 
 const behavior = `Feature: A supported operation
@@ -142,7 +138,7 @@ export function checkAncestry(input: Input) {
   if (['trusted-budget', 'trusted-scope', 'explicit-policy'].includes(input.case))
     return policyComparison(input.case, 'check')
   const sources: Record<string, string> = {
-    'app.ts': "export function live() { return { status: 'ok' } }\n",
+    'app.ts': observedHandler("return { status: 'ok' }"),
     'bindings.ts': "import { live } from './app.ts'\nexport const actions = { 'live': live }\n",
     'orders.feature': behavior,
     'dead.ts': 'export function dead() { return true }\n',
@@ -177,7 +173,8 @@ test('an uncontracted subject', deadCase)
       "import { live } from './app.ts'\nimport { dead } from './dead.ts'\nexport const actions = { 'live': live, 'dead': dead }\n"
   } else if (input.case === 'missing-inventory') {
     sources['app.ts'] =
-      "import { dead } from './dead.ts'\nexport function live() { return { status: dead() ? 'ok' : 'broken' } }\n"
+      "import { dead } from './dead.ts'\n" +
+      observedHandler("return { status: dead() ? 'ok' : 'broken' }")
   } else if (input.case === 'literal-import') {
     delete sources['dead.ts']
     sources['app.ts'] = observedHandler(
@@ -196,30 +193,12 @@ export function unused() { return 42 }
     sources['app.ts'] =
       "const invalid: number = 'wrong'\n" +
       observedHandler("return { status: 'ok', value: invalid }")
-  } else if (input.case === 'default-library-directive') {
-    delete sources['dead.ts']
-    sources['app.ts'] = observedHandler("return { status: 'ok' }")
-    sources['globals.d.ts'] = '/// <REFERENCE NO-DEFAULT-LIB="true"/>\n'
   } else if (input.case === 'json-dependency') {
     delete sources['dead.ts']
     sources['settings.json'] = '{"status":"ok"}\n'
     sources['app.ts'] =
       "import settings from './settings.json' with { type: 'json' }\n" +
       observedHandler('return { status: settings.status }')
-  } else if (
-    input.case === 'computed-registration' ||
-    input.case === 'spread-registration' ||
-    input.case === 'inline-registration'
-  ) {
-    delete sources['dead.ts']
-    sources['app.ts'] = observedHandler("return { status: 'ok' }")
-    const declaration = {
-      'computed-registration': "const key = 'live'; export const actions = { [key]: live }",
-      'spread-registration':
-        "const entries = { 'live': live }; export const actions = { ...entries }",
-      'inline-registration': "export const actions = { 'live': () => live() }",
-    }[input.case]
-    sources['bindings.ts'] = "import { live } from './app.ts'\n" + declaration + '\n'
   } else {
     throw new Error(`Unknown ancestry fixture: ${input.case}`)
   }
@@ -230,16 +209,9 @@ export function unused() { return 42 }
       write(fixture.root, 'bonsai.json', JSON.stringify(fixture.config))
     }
     const report = invoke(['check', '--root', fixture.root])
-    const ancestry = report.snapshot?.ancestry ?? {}
     return {
       ...report,
-      deadHasAncestry: !!ancestry['dead.ts#dead']?.length,
-      sharedHelperHasAncestry: !!ancestry['helpers.test.ts#common']?.length,
-      deadTestHasAncestry: !!ancestry['unit.test.ts#deadCase']?.length,
       handlerExecuted: existsSync(join(fixture.root, 'handler-ran')),
-      verificationTiming: report.snapshot?.timing?.stages.find(
-        (stage: { name: string }) => stage.name === 'verification',
-      ),
     }
   } finally {
     fixture.dispose()

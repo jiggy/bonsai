@@ -12,13 +12,15 @@ export function projectBehavior(input: { case: string }) {
   const { root } = fixture
   try {
     if (input.case === 'preserve-existing') {
-      write(root, 'bonsai.json', '// Keep the existing policy\n{"custom":true}\n')
+      const configuration = '// Keep the existing policy\n{"custom":true}\n'
+      write(root, 'bonsai.json', configuration)
       const report = invoke(['init', '--root', root])
       return {
         ...report,
-        configurationText: readFileSync(join(root, 'bonsai.json'), 'utf8'),
-        bindingText: readFileSync(join(root, 'bindings.ts'), 'utf8'),
-        featureText: readFileSync(join(root, 'features/existing.feature'), 'utf8'),
+        configurationUnchanged: readFileSync(join(root, 'bonsai.json'), 'utf8') === configuration,
+        bindingsUnchanged: readFileSync(join(root, 'bindings.ts'), 'utf8') === registry,
+        requirementsUnchanged:
+          readFileSync(join(root, 'features/existing.feature'), 'utf8') === existingFeature,
         handlerExecuted: existsSync(join(root, 'must-not-run')),
       }
     }
@@ -26,8 +28,9 @@ export function projectBehavior(input: { case: string }) {
       rmSync(join(root, 'bonsai.json'))
       return {
         ...invoke(['init', '--root', root]),
-        bindingText: readFileSync(join(root, 'bindings.ts'), 'utf8'),
-        featureText: readFileSync(join(root, 'features/existing.feature'), 'utf8'),
+        bindingsUnchanged: readFileSync(join(root, 'bindings.ts'), 'utf8') === registry,
+        requirementsUnchanged:
+          readFileSync(join(root, 'features/existing.feature'), 'utf8') === existingFeature,
         handlerExecuted: existsSync(join(root, 'must-not-run')),
       }
     }
@@ -44,9 +47,15 @@ export function projectBehavior(input: { case: string }) {
       write(root, 'src/later.ts', 'export const authored = true\n')
       write(root, '.gitignore', 'src/later.ts\n')
       const checked = invoke(['check', '--root', root])
+      const inventory: string[] = checked.snapshot.source.files.map(
+        (file: { file: string }) => file.file,
+      )
       return {
         ...report,
-        inventory: checked.snapshot.source.files.map((file: { file: string }) => file.file),
+        inventory,
+        authoredFileMeasured: inventory.includes('src/later.ts'),
+        generatedFileMeasured: inventory.includes('src/later.generated.ts'),
+        nestedProjectMeasured: inventory.some((file) => file.startsWith('examples/child/')),
         nestedConfigurationText: readFileSync(join(root, 'examples/child/bonsai.json'), 'utf8'),
       }
     }
@@ -59,7 +68,8 @@ export function projectBehavior(input: { case: string }) {
         ...invoke(['init', '--root', root]),
         configurationExists: existsSync(join(root, 'bonsai.json')),
         bindingExists: existsSync(join(root, 'bonsai.bindings.ts')),
-        featuresText: readFileSync(join(root, 'features'), 'utf8'),
+        requirementsUnchanged:
+          readFileSync(join(root, 'features'), 'utf8') === 'Keep the existing features file\n',
       }
     }
     if (input.case === 'config-precedence') {
@@ -86,7 +96,14 @@ export function projectBehavior(input: { case: string }) {
       selected.policy.bootstrap = 888
       const policy = '// A policy supplied through standard input\n' + JSON.stringify(selected)
       return {
-        ...invoke(['config', 'show', '--root', root, '--policy', '-'], {}, policy),
+        ...invoke(
+          ['config', 'show', '--root', root, '--policy', '-'],
+          {
+            BONSAI_ROOT: join(root, 'missing-root'),
+            BONSAI_POLICY: join(root, 'missing-policy.json'),
+          },
+          policy,
+        ),
         configurationUnchanged: readFileSync(join(root, 'bonsai.json'), 'utf8') === original,
         handlerExecuted: existsSync(join(root, 'must-not-run')),
       }

@@ -94,7 +94,7 @@ async function main() {
         'Run bonsai check separately for complete source, ancestry, and budget admission.\n' +
         '\nExamples:\n' +
         '  bun run test:specs -- --list\n' +
-        '  bun run test:specs -- --scenario "Missing contracts"\n' +
+        '  bun run test:specs -- --scenario "comment-only"\n' +
         '  bun run test:specs -- --scenario features/check.feature:0\n' +
         '\nWorkflow: docs/bdd.md\n',
     )

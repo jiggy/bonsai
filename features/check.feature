@@ -1,158 +1,91 @@
-Feature: Admit only supported implementations of required behavior
-  Scenario: A contracted subprocess justifies its executable entry point
+Feature: Admit implementations that fulfill their declared behavior within the code allowance
+  A maintainer can admit a supported implementation only when its required
+  behavior passes, its retained code is justified, and it fits the reviewed limit.
+  Unsupported analysis must stop before the application runs.
+
+  Scenario: A supported application fulfills its declared requests
+    The application accepts a positive quantity and rejects a zero quantity.
+    It delegates its answer to a maintained worker, and its source fits the allowance.
     When I invoke "check" with {"subprocess": "live"}
     Then response "exitCode" equals 0
-    And response "snapshot.evidence.complete" equals true
+    And response "decision.status" equals "pass"
     And response "childExecuted" equals true
-    And response "childMeasured" equals true
-    And response "childHasAncestry" equals true
+    And response "invocationCount" equals 2
 
-  Scenario: Launching a child does not justify its unused exports
-    When I invoke "check" with {"subprocess": "unused"}
-    Then response "exitCode" equals 1
-    And response "decision.status" equals "reject"
-    And response "snapshot.unrooted[0]" equals "order-worker.ts#unused"
-    And response "childExecuted" equals true
-    And response "childMeasured" equals true
-    And response "childHasAncestry" equals true
-
-  Scenario: An uncontracted subprocess does not justify its child
-    When I invoke "check" with {"subprocess": "uncontracted"}
-    Then response "exitCode" equals 1
-    And response "decision.status" equals "reject"
-    And response "handlerExecuted" equals true
-    And response "childExecuted" equals false
-    And response "childMeasured" equals true
-    And response "childHasAncestry" equals false
-
-  Scenario: A missing local subprocess entry point blocks verification
-    When I invoke "check" with {"subprocess": "missing"}
-    Then response "exitCode" equals 2
-    And response "decision.status" equals "incomplete"
-    And response "handlerExecuted" equals false
-    And response "childExecuted" equals false
-    And response "verificationTiming.status" equals "skipped"
-
-  Scenario: Checking needs a working native collector before handlers can run
+  Scenario: An unavailable checker stops before application handlers run
+    The selected local checker executable is absent.
     When I invoke "check" with {"missingNative": true}
     Then response "exitCode" equals 1
-    And response "code" equals "RUST_COLLECTOR"
-    And response "run" equals "export BONSAI_NATIVE_BINARY=/absolute/path/to/tsrs"
     And response "handlerExecuted" equals false
 
-  Scenario: Verify behavior with the Rust TypeScript checker
-    When I invoke "check" with {"examples": 2}
-    Then response "exitCode" equals 0
-    And response "snapshot.analysis.engine" equals "rust"
-    And response "snapshot.analysis.backend" equals "tsrs"
-    And response "snapshot.analysis.validation" equals "native-diagnostics"
-    And response "snapshot.analysis.status" equals "complete"
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks.length" equals 2
-    And response "handlerExecuted" equals true
-
-  Scenario: Rust tracing keeps unsupported runtime imports incomplete
+  Scenario: Unsupported runtime imports cannot bypass source tracing
+    The required handler selects its imported module at runtime.
     When I invoke "check" with {"computedImport": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
-    And response "snapshot.source.problems.length" equals 1
     And response "handlerExecuted" equals false
 
-  Scenario: Verify every example without multiplying the allowance
-    When I invoke "check" with {"examples": 3}
-    Then response "exitCode" equals 0
-    And response "decision.status" equals "pass"
-    And response "decision.surface" equals 1
-    And response "snapshot.evidence.checks.length" equals 3
-    And response "handlerExecuted" equals true
-    And response "invocationCount" equals 3
-
   Scenario: Additional examples still share the same external surface
+    Repeating a required request strengthens verification without earning space.
     When I invoke "check" with {"examples": 5}
     Then response "decision.surface" equals 1
-    And response "snapshot.evidence.checks.length" equals 5
     And response "decision.status" equals "pass"
     And response "invocationCount" equals 5
 
-  Scenario: Measure the command and candidate verification
-    When I invoke "check" with {"examples": 1}
-    Then response "exitCode" equals 0
-    And response "timingMeasured" equals true
-    And response "timing.feedback.limitMs" equals 15000
-    And response "verificationTiming.name" equals "verification"
-    And response "verificationTiming.status" equals "completed"
-    And response "sourceTiming.stages[0].name" equals "measurement"
-    And response "sourceTiming.stages[1].name" equals "program"
-    And response "sourceTiming.stages[2].name" equals "diagnostics"
-    And response "sourceTiming.stages[2].status" equals "completed"
-    And response "sourceTiming.stages[3].name" equals "graph"
-
-  Scenario: Wrong behavior is rejected
+  Scenario: Wrong application behavior is rejected after exercising the required requests
+    The handler incorrectly accepts a zero quantity, although that request must be rejected.
     When I invoke "check" with {"broken": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
-    And response "snapshot.evidence.checks[0].status" equals "passed"
-    And response "snapshot.evidence.checks[1].status" equals "failed"
+    And response "handlerExecuted" equals true
+    And response "invocationCount" equals 2
 
   Scenario: An unused symbol in a used module has no product justification
+    A working handler shares its module with an unused exported operation.
     When I invoke "check" with {"unrooted": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
-    And response "snapshot.unrooted[0]" equals "orders.ts#unused"
+    And response "snapshot.unrooted" equals ["orders.ts#unused"]
 
   Scenario: Passing behavior must fit the retained-code ceiling
+    The application fulfills its requests but its maintained source exceeds a one-token limit.
     When I invoke "check" with {"overBudget": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "decision.ceiling" equals 1
-    And response "snapshot.evidence.checks[1].status" equals "passed"
+    And response "invocationCount" equals 2
 
-  Scenario: Missing contracts cannot grant a pass
+  Scenario: A comment-only requirement file cannot grant admission
+    No executable contract has been authored for the application.
     When I invoke "check" with {"missingContracts": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
-    And response "snapshot.contracts.cases.length" equals 0
     And response "handlerExecuted" equals false
 
-  Scenario: An unbound external action cannot grant a pass
+  Scenario: An unbound external action cannot grant admission
+    A requirement names an operation that the application registry does not bind.
     When I invoke "check" with {"unbound": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
     And response "handlerExecuted" equals false
 
   Scenario: Saved exclusions determine the declared analysis scope
+    An authored unused module is explicitly outside the reviewed maintained scope.
     When I invoke "check" with {"ignoredCode": true}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
-    And response "snapshot.unrooted.length" equals 0
-
-  Scenario: Unsupported runtime imports cannot skip source tracing
-    When I invoke "check" with {"computedImport": true}
-    Then response "exitCode" equals 2
-    And response "decision.status" equals "incomplete"
-    And response "snapshot.source.problems.length" equals 1
-    And response "handlerExecuted" equals false
-    And response "timingMeasured" equals true
-    And response "verificationTiming.status" equals "skipped"
+    And response "snapshot.unrooted" equals []
 
   Scenario: Independent scenarios keep fresh state and ordered steps
+    Two scenarios each advance their own counter twice, expecting one then two.
     When I invoke "check" with {"fixture": "scenario-state"}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
-    And response "snapshot.verification.profile" equals "isolated-scenarios-v1"
-    And response "cpuPlanMatches" equals true
-    And response "snapshot.evidence.profile" equals "isolated-scenarios-v1"
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks.length" equals 4
-    And response "observations" equals ["passed", "passed", "passed", "passed"]
+    And response "invocationCount" equals 4
 
   Scenario: Serial verification preserves state between ordered scenarios
+    The counter is shared: the first scenario expects one then two and the next expects three then four.
     When I invoke "check" with {"fixture": "scenario-state", "serial": true}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
-    And response "snapshot.verification.profile" equals "in-process-v1"
-    And response "snapshot.verification.workers" equals 1
-    And response "snapshot.evidence.profile" equals "in-process-v1"
-    And response "snapshot.evidence.complete" equals true
-    And response "snapshot.evidence.checks.length" equals 4
-    And response "observations" equals ["passed", "passed", "passed", "passed"]
+    And response "invocationCount" equals 4

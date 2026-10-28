@@ -20,17 +20,24 @@ Code is a maintained liability. Product behavior, implementation ancestry, and v
 ## Development contract
 
 [The BDD workflow](bdd.md) governs development of Bonsai and the workflow taught
-to consuming agents. Reviewed executable product promises determine the surface
-used by the global allowance; raw test or scenario counts do not. New behavior
-starts with a meaningful failing acceptance example. Specifications added for
-existing behavior use a green control and a controlled rule violation to prove
-their sensitivity. Supporting tests add evidence without granting product scope.
+to consuming agents. Discover and agree on stakeholder rules and distinguishing
+examples before selecting test mechanics. Product specifications express context
+and consequences that survive a replacement implementation. Gherkin, a real CLI,
+public JSON, and red/green or fault evidence alone do not establish that level.
 
-Use stable public command identities, retain every required observation, and keep
-specification arrangements separate from the published runtime. Changes to
-contracts must follow the authorized product scope rather than provide room for
-an implementation that already exists. Complete behavior evidence, structural
-ancestry, retained size, and trusted admission remain separate claims.
+Reviewed product observations supply one global allowance; the current engine
+still counts literal normalized action–selector pairs. Human review must reject
+incidental implementation metadata and aliases as product scope. No semantic
+counter or additional allowance ledger is implied. Use stable public actions.
+
+Use meaningful red/green/refactor for new behavior and green controls with
+controlled violations for specifications added retrospectively. Keep technical
+proofs in the relevant tests, preserving their assertions when migrating them
+out of features. Report surface and allowance changes separately from retained
+code savings. Keep specification support outside published runtime sources, and
+preserve product promises unless their scope change is authorized. Complete
+behavior evidence, structural ancestry, retained size, and trusted admission
+remain separate claims.
 
 ## Internal boundaries
 

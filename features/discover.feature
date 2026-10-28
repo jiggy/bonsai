@@ -1,45 +1,24 @@
-Feature: Discover and initialize Bonsai's development loop
-  Scenario: Initialize configuration without inventing executable requirements
-    When I invoke "init" with {}
-    Then response "exitCode" equals 0
-    And response "savedConfig.bindings" equals "bonsai.bindings.ts"
-    And response "check.exitCode" equals 2
-    And response "check.decision.status" equals "incomplete"
-    And response "originalSource" equals "export function app() { return 1 }\n"
+Feature: Learn how to use Bonsai before configuring a project
+  A developer evaluating Bonsai needs local help and a version without loading an application.
+  Shell completion should help them find commands they can actually run.
 
-  Scenario: Discover check capabilities without loading a project
+  Scenario: A developer can discover the check invocation without a project or compiler
+    Both the configured project and native checker are unavailable.
     When I invoke "help" with {"command": "check"}
     Then response "exitCode" equals 0
-    And response "name" equals "bonsai"
-    And response "command" equals "check"
     And response "commands.check.usage" equals "bonsai check [flags]"
-    And response "flags.engine.choices[0]" equals "rust"
-    And response "flags.engine.scope[0]" equals "check"
-    And response "flags.engine.scope[1]" equals "explain"
-    And response "flags.serial.type" equals "boolean"
-    And response "flags.serial.scope[0]" equals "check"
 
-  Scenario Outline: Generate completions for a supported shell
-    When I invoke "completion" with {"shell": "<shell>"}
+  Scenario: Bash completion suggests check and explain from the developer's partial commands
+    The developer has installed the generated script in a clean Bash shell.
+    They type bonsai ch and then bonsai e to discover the two commands.
+    When I invoke "completion" with {"fixture": "ux", "case": "command-completion"}
     Then response "exitCode" equals 0
-    And response "shell" equals "<shell>"
-    And response "scriptPresent" equals true
-    And response "checkCommandPresent" equals true
-    And response "serialOptionPresent" equals true
-    Examples:
-      | shell      |
-      | bash       |
-      | zsh        |
-      | fish       |
-      | powershell |
+    And response "checkCandidates" equals ["check"]
+    And response "explainCandidates" equals ["explain"]
 
-  Scenario: Unsupported shells receive an actionable usage error
-    When I invoke "completion" with {"shell": "unsupported"}
-    Then response "exitCode" equals 2
-    And response "code" equals "USAGE"
-
-  Scenario: Discover the installed version without a project or compiler
+  Scenario: A developer can identify the installed Bonsai before setting up its dependencies
+    Both the configured project and native checker are unavailable.
     When I invoke "version" with {}
     Then response "exitCode" equals 0
     And response "name" equals "bonsai"
-    And response "version" equals "0.0.0-alpha.1"
+    And response "versionPresent" equals true

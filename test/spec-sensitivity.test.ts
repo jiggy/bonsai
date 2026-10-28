@@ -1,7 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -14,7 +16,9 @@ import { fileURLToPath } from 'node:url'
 import { inventory } from '../src/inventory.ts'
 import { readConfig } from '../src/project.ts'
 import type { ContractCase } from '../src/model.ts'
-import { verifySpecifications } from './specs.ts'
+import { invalidContractProject } from './accounting-fixture.ts'
+import { cliEnvironment } from './cli.ts'
+import { loadSpecifications, verifySpecifications } from './specs.ts'
 
 const repository = fileURLToPath(new URL('../', import.meta.url))
 
@@ -86,9 +90,8 @@ async function detectsFault(
     )
     assert.doesNotMatch(outcome?.error ?? '', /Missing response field|Unbound action|SyntaxError/)
     for (const check of faulty.contracts.checks.filter((check) => check.selector === 'exitCode')) {
-      // Preserve the normal command result, including incomplete for the grammar
-      // fixture's other rejected files. Only the ancestry fault changes reject
-      // to pass rather than causing a setup, compiler, or protocol error.
+      // Only the ancestry fault changes reject to pass. The other controls must
+      // preserve successful CLI results rather than fail during setup.
       const result = faulty.evidence.checks.find((entry) => entry.id === check.id)
       if (observedSelector !== 'decision.status')
         assert.equal(result?.status, 'passed', result?.error)
@@ -161,12 +164,58 @@ test('the authored obligation example detects duplicate handler execution', asyn
   )
 })
 
-test('the authored grammar example detects accepted files even while other files block', async () => {
-  await detectsFault(
-    { fixture: 'accounting', case: 'invalid-contract' },
-    'src/contracts.ts',
-    'if (step.argument)',
-    'if (false)',
-    'snapshot.contracts.cases.length',
-  )
+test('the grammar regression detects partially accepted files even while other files block', () => {
+  const checker = copiedChecker()
+  const fixture = invalidContractProject()
+  const check = () => {
+    const result = spawnSync(
+      process.execPath,
+      [join(checker.root, 'src/cli.ts'), 'check', '--root', fixture.root, '--json'],
+      { encoding: 'utf8', env: cliEnvironment(), timeout: 15000, maxBuffer: 16 * 1024 * 1024 },
+    )
+    assert.equal(result.error, undefined, String(result.error))
+    assert.equal(result.signal, null, result.stderr)
+    return { exitCode: result.status, ...JSON.parse(result.stdout || result.stderr) }
+  }
+  const blocked = (report: ReturnType<typeof check>) => {
+    assert.equal(report.exitCode, 2)
+    assert.equal(report.decision.status, 'incomplete')
+    assert.equal(
+      report.snapshot.timing.stages.find((stage: { name: string }) => stage.name === 'verification')
+        .status,
+      'skipped',
+    )
+    assert.equal(existsSync(join(fixture.root, 'handler-ran')), false)
+  }
+  try {
+    const originalFingerprint = loadSpecifications(checker.root).fingerprint
+    const control = check()
+    blocked(control)
+    assert.equal(control.snapshot.contracts.cases.length, 0)
+    const path = join(checker.root, 'src/contracts.ts')
+    const original = readFileSync(path, 'utf8')
+    const before = 'if (step.argument)'
+    assert.equal(original.split(before).length, 2, 'Grammar fault anchor must occur once')
+    writeFileSync(path, original.replace(before, 'if (false)'))
+    const faulty = check()
+    blocked(faulty)
+    assert.deepEqual(
+      faulty.snapshot.contracts.cases.map((scenario: { id: string }) => scenario.id),
+      ['datatable.feature:0', 'docstring.feature:0'],
+      'The fault must accept the two argument-bearing files, not break the fixture',
+    )
+    assert.throws(
+      () => assert.equal(faulty.snapshot.contracts.cases.length, 0),
+      /2[^\d]*!==[^\d]*0/s,
+      'A general incomplete verdict must not conceal individually accepted invalid files',
+    )
+    writeFileSync(path, original)
+    assert.equal(loadSpecifications(checker.root).fingerprint, originalFingerprint)
+    const restored = check()
+    blocked(restored)
+    assert.deepEqual(restored.snapshot.contracts, control.snapshot.contracts)
+  } finally {
+    fixture.dispose()
+    checker.dispose()
+  }
 })

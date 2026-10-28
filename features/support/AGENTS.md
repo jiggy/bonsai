@@ -11,7 +11,7 @@ Arrange isolated projects and observe Bonsai's actual public CLI for its executa
 - Use the real CLI and production native checker. Helpers must not calculate expected policy decisions or mark observations passed.
 - Keep fixtures independent and remove them in `finally`. Runtime logs and markers stay outside their explicit maintained input lists.
 - Keep action names aligned with public operations. Fixture names, extra cases, and helper result aliases must not manufacture product allowance.
-- Preserve every existing observation. Add meaningful positive, negative, and boundary examples before changing the relevant product rule.
+- Preserve product promises and regression coverage across layers. Move technical assertions into explicit tests rather than preserving them as allowance-earning selectors. Name the destinations in review.
 - Keep network installation checks in release validation, outside ordinary feature verification.
 - Do not raise the root deadline, change its coefficients, or exclude authored files to accommodate these specifications.
 
@@ -19,7 +19,9 @@ Arrange isolated projects and observe Bonsai's actual public CLI for its executa
 
 Use named imports, fixed module-relative CLI entry points, and explicit subprocess option properties so the current adapter can trace the specification-to-implementation connection.
 
-Invalid requirement files may share one fixture when authored observations require every individual rejection, zero executable cases, skipped verification, and no handler calls. A project-wide incomplete verdict alone does not prove each invalid file was rejected.
+Keep technical-only fixtures and assertions in `test/`; acceptance support must not import test modules. Shared arrangements may be reused by technical tests. Prefer a raw public report over cosmetic projections, and use independent logs, byte comparisons, or process observations when the product consequence needs them. Never return an opaque scenario verdict or compute the expected policy answer.
+
+State the arranged context in feature prose, not only a fixture identifier. Keep each canonical action limited to its named public operation; another command's result must not be nested under it to create more surface.
 
 ## Verification
 

@@ -162,6 +162,58 @@ while (true) Atomics.wait(wait, 0, 0, 1000)
   return { ...fixture, contracts, config, started, stopped }
 }
 
+test('isolated verification queues larger scenarios first and retains authored checks and equal-size order', async () => {
+  const fixture = blockingProject()
+  const text = `Feature: Unequal independent journeys
+Scenario: Earlier small case
+ When I invoke "block" with {"id":0}
+ Then response "id" equals 0
+Scenario: Another small case
+ When I invoke "block" with {"id":1}
+ Then response "id" equals 1
+Scenario: Later larger journey
+ When I invoke "block" with {"id":2}
+ Then response "id" equals 2
+ When I invoke "block" with {"id":3}
+ Then response "id" equals 3
+`
+  writeFileSync(join(fixture.root, 'concurrent.feature'), text)
+  const contracts = compileContracts([{ file: 'concurrent.feature', text }])
+  const cancellation = new AbortController()
+  const pending = runEvidence(
+    fixture.root,
+    fixture.config,
+    contracts,
+    identity(fixture.root, fixture.config),
+    15000,
+    cancellation.signal,
+    isolated(1),
+  )
+  void pending.catch(() => {})
+  try {
+    const started: string[] = []
+    for (const id of [2, 3, 0, 1]) {
+      await until(
+        () => existsSync(join(fixture.root, `started-${id}`)),
+        `The next action must be input ${id}`,
+      )
+      started.push(`started-${id}`)
+      assert.deepEqual(fixture.started().sort(), [...started].sort())
+      writeFileSync(join(fixture.root, `release-${id}`), 'go')
+    }
+    const evidence = await pending
+    fulfilled(evidence, contracts)
+    assert.equal(evidence.profile, 'isolated-scenarios-v1')
+    const pids = fixture.started().map((file) => readFileSync(join(fixture.root, file), 'utf8'))
+    assert.equal(new Set(pids).size, 3, 'Each scenario must have its own application process')
+    fixture.stopped()
+  } finally {
+    cancellation.abort()
+    await pending.catch(() => {})
+    fixture.dispose()
+  }
+})
+
 test('default verification uses available CPU capacity and never starts more workers than scenarios', async () => {
   const count = Math.min(6, availableParallelism() + 1)
   const active = Math.min(availableParallelism(), count)

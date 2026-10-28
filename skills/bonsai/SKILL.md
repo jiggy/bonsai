@@ -33,19 +33,27 @@ Record retained size, ceiling, required reduction, contract surface, violations,
 
 ## 3. Specify, implement, and prune
 
-Start from the requested product promise and concrete positive, negative, and boundary examples. Put expected outcomes in the project's executable contracts and connect them to actual application handlers. Preserve all existing obligations unless the task authorizes a product-scope change. Extend an existing action or observation where it already represents the behavior; fixture names and helper aliases are not new product capabilities.
+Discover the stakeholder rule before choosing selectors: whose problem does it solve, in what situation, and with what observable consequence? Agree on the fewest examples that distinguish the rule and its important boundaries. Their meaning should survive a replacement implementation. Safety and rejection cases qualify when users depend on them. Gherkin, public JSON, actual application execution, and red/green alone do not establish BDD.
+
+Put those rules and expected outcomes in executable contracts connected to actual application handlers. Explain context in feature prose; fixture identifiers alone cannot carry the requirement. Keep canonical public actions and domain observations. Do not replace technical fields with friendly aliases or an opaque `scenarioPassed` oracle. See [the adoption example](references/adoption.md#4-connect-one-real-behavior) for the supported invocation/response grammar; arbitrary `Given` steps do not execute.
 
 For new or changed behavior, write or reuse the acceptance example before implementation. Run it and identify a failure caused by the missing or incorrect product behavior; a broken fixture, missing binding, or unavailable checker does not establish that red step. Implement the smallest passing change, then refactor under the same observations. Use the project's focused acceptance runner when available, followed by the complete Bonsai gate.
 
-When specifying behavior that already works, establish a green control and use an isolated, reversible product fault or rejection probe to show that the intended observation detects the violation. Restore and rerun the control. Report this as retrospective coverage rather than claiming a spec-first failure. Keep fixtures responsible for arrangement, execution, and observation; they must not calculate the product's expected verdict or manufacture passed checks.
+When specifying behavior that already works, establish a green control and use an isolated, reversible product fault or rejection probe to show that the intended observation detects the violation. Restore and rerun the control. Report this as retrospective coverage rather than claiming a spec-first failure. Fault sensitivity establishes detection of that fault, not BDD quality. Fixtures arrange, execute, and observe domain facts; they must not calculate expected verdicts or manufacture passed checks.
+
+Keep implementation identities, incidental report layout, compiler diagnostics, protocol details, and performance proofs in technical tests. A public compatibility promise can warrant a product feature, but field visibility alone cannot. Preserve product promises and technical regression assertions during migration: record the tests receiving moved assertions and run them. Do not simply delete checks or retain technical features for headroom. Removing a product promise requires an authorized scope change.
+
+Bonsai counts every maintained `.feature` file, including one placed under `test/`. Keep technical cases in test-source data or disposable generated projects rather than moving them to another maintained `.feature` path. The technical tests and support themselves remain charged.
+
+For a refactor or technical regression with no product behavior change, say so and use the relevant tests. Do not invent a new product feature for that work.
 
 Retain code through contract ancestry. Before adding an abstraction, inspect the existing dependency path for a smaller extension. For an unnecessary layer, rewire its callers, preserve meaningful assertions, and remove the obsolete code and exclusive support together.
 
-The reviewed executable product surface is the deduplicated external action–observation set supplying one global allowance. Test-function counts, scenario counts, file splits, and extra examples earn no additional allowance; every observation remains required. Shared code consumes its full cost once. Unit, protocol, compiler, and performance tests add confidence but grant no product scope, and cannot justify otherwise unrooted production code. Ancestry is a structural connection, not proof of behavioral completeness.
+Reviewed product observations supply one global allowance. The checker currently counts literal action names paired with normalized selectors; it cannot identify semantic equivalence or distinguish product promises from technical proof artifacts. Audit every added pair against its stakeholder rule. Test counts, fixture names, and aliases do not qualify as new capabilities; there is no second allowance ledger. Every product observation remains required. Technical tests grant no product scope and cannot justify otherwise unrooted production code. Ancestry is structural, not proof of behavioral completeness.
 
 Keep the governing inventory and policy intact while implementing ordinary features or compaction. Treat a requested rule change as an explicit policy change, with its effect reported separately. Never manufacture external promises or remove required assertions to obtain a pass.
 
-**Done:** the candidate implements the requested behavior, the relevant red/green or control/probe evidence is recorded, and every added retained component has an identifiable contract connection. Review changes to product surface separately from measured implementation savings.
+**Done:** the stakeholder rule and examples meet that review bar, meaningful red/green or control/probe evidence is recorded, moved regression assertions retain verified destinations, and added retained components have contract connections. Report surface/allowance changes separately from actual code savings; moving assertions can lower allowance without reducing retained code.
 
 ## 4. Resolve the verdict
 

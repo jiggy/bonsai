@@ -342,20 +342,27 @@ admission, rejection, incomplete verification, read-only inspection, initializat
 help, and shell completion. The bindings create isolated fixture projects, invoke
 the real executable, and return its reports and filesystem outcomes for assertion.
 
-This repository follows [the BDD workflow](docs/bdd.md): define the product
-promise and executable examples first, demonstrate the relevant failure, implement
-the smallest passing change, and refactor. Existing behavior gaining a contract
-uses a passing control and a controlled rule violation to establish sensitivity.
-Development arrangements live in `features/support/`, outside the published
-runtime. Helpers arrange, execute, and observe; expected product outcomes belong
-in `.feature` files.
+This repository follows [the BDD workflow](docs/bdd.md): agree on a stakeholder’s
+rule and its distinguishing examples before implementation. Features describe
+meaningful context and observable consequences that survive an internal rewrite.
+Real CLI execution, Gherkin, public JSON, and red/green discipline alone do not
+make a test a product specification. Rejection, safety, and recovery cases belong
+when they matter to users. The guide includes worked Bonsai and adoption examples.
 
-Those reviewed product contracts determine the action–observation surface used by
-the global code allowance. More test functions, scenarios, example rows, or files
-earn no extra allowance. Every observation remains required, and all maintained
-code and support remain charged. Unit and technical regression tests add
-confidence without granting product scope. New promises or fixture aliases must
-never be invented merely to accommodate an existing implementation.
+New behavior uses meaningful red/green/refactor; existing behavior gaining a
+contract uses a green control and a controlled violation. Detailed compiler,
+protocol, schema, and presentation assertions remain in technical tests, including
+those migrated out of features. Development arrangements live in
+`features/support/`, outside the published runtime. Helpers arrange, execute, and
+observe; they do not calculate expected answers or replace outcomes with test flags.
+
+Those reviewed product contracts supply the action–observation surface for one
+global code allowance. The engine counts literal normalized pairs; human review
+decides whether each pair expresses product scope. More tests, examples, helper
+aliases, or technical metadata do not qualify as new capabilities. Technical tests
+remain required but do not earn allowance. Moving assertions between layers can
+reduce allowance without reducing code: report those changes separately. All
+maintained code and support remain charged, and the root policy stays unchanged.
 
 For a focused red/green loop, list the authored cases or select a scenario:
 
@@ -492,7 +499,7 @@ import { placeOrder } from './src/checkout.ts'
 export const actions = { 'place-order': placeOrder }
 ```
 
-The same registry is statically resolved and executed. Bonsai owns the response assertions; a binding cannot declare an observation passed by merely entering a step. Every scenario outline row becomes a separate required check. Duplicated scenarios and files do not create extra allowance. Array indices normalize for accounting: `items[0].price` and `items[3].price` both count as `items[*].price`. Their assertions still check the exact positions.
+The same registry is statically resolved and executed. Bonsai owns the response assertions; a binding cannot declare an observation passed by merely entering a step. Every scenario outline row becomes a separate scenario, and every observation in that scenario remains a required check. Duplicated scenarios and files do not create extra allowance. Array indices normalize for accounting: `items[0].price` and `items[3].price` both count as `items[*].price`. Their assertions still check the exact positions.
 
 The first grammar supports only these two literal step forms, JSON inputs and expected values, ordinary dotted selectors, and numeric array indices. Backgrounds and outline expansion come from the official Gherkin parser. Unsupported steps, skip tags, DocStrings, DataTables, missing bindings, and analysis errors block acceptance.
 

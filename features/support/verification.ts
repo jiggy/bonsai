@@ -5,7 +5,7 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { invoke, startCli } from './cli.ts'
 import { project, write } from './project.ts'
 
-type Input = { case: 'overlap' | 'crash' | 'timeout' | 'cancel' | 'source-change' }
+type Input = { case: 'required-calls' | 'crash' | 'timeout' | 'cancel' | 'source-change' }
 type Event = { kind: 'start' | 'finish'; id: number; pid: number }
 
 function alive(pid: number) {
@@ -29,7 +29,7 @@ async function until(predicate: () => boolean, timeoutMs = 1500) {
 }
 
 function blockedProject(kind: Input['case']) {
-  const count = availableParallelism() + 1
+  const count = kind === 'required-calls' ? 3 : availableParallelism() + 1
   const capacity = Math.min(availableParallelism(), count)
   const fixture = project(
     {
@@ -81,19 +81,11 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
   const killed = setTimeout(() => child.kill('SIGKILL'), 10500)
   const names = () => readdirSync(fixture.root)
   const started = () => names().filter((name) => name.startsWith('started-'))
-  let unoccupiedSlots = 0
   try {
-    if (kind === 'overlap') {
-      // A marker barrier measures occupied slots without asserting elapsed speed.
-      await until(() => started().length >= fixture.capacity, 2500)
-      unoccupiedSlots = fixture.capacity - started().length
-      if (fixture.capacity > 1 && unoccupiedSlots === 0) {
-        for (let id = 1; id < fixture.count; id++) write(fixture.root, `release-${id}`, 'go')
-        await until(
-          () => names().filter((name) => name.startsWith('finished-')).length === fixture.count - 1,
-          2500,
-        )
-      }
+    if (kind === 'required-calls') {
+      // Exact overlap, CPU-sized scheduling, and out-of-order reporting have
+      // explicit-lane regressions in test/evidence-parallel.test.ts. This
+      // arrangement observes actual required calls on hosts of any CPU size.
       for (let id = 0; id < fixture.count; id++) write(fixture.root, `release-${id}`, 'go')
     } else if (kind === 'cancel') {
       await until(() => started().length >= fixture.capacity, 5000)
@@ -110,38 +102,24 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
       : []
     const pids = started().map((name) => Number(readFileSync(join(fixture.root, name), 'utf8')))
     await until(() => pids.every((pid) => !alive(pid)))
-    let active = 0
-    let maximum = 0
-    for (const event of events) {
-      active += event.kind === 'start' ? 1 : -1
-      maximum = Math.max(maximum, active)
-    }
-    const ids = events.filter((event) => event.kind === 'start').map((event) => event.id)
-    const finished = new Set(
-      events.filter((event) => event.kind === 'finish').map((event) => event.id),
-    )
-    const checks = report.snapshot?.evidence?.checks ?? []
     return {
       exitCode: status,
       ...report,
-      execution: {
-        unoccupiedSlots,
-        excessWorkers: Math.max(0, maximum - fixture.capacity),
-        missingInputs: Array.from({ length: fixture.count }, (_, id) => id).filter(
-          (id) => !ids.includes(id),
-        ),
-        repeatedInputs: ids.filter((id, index) => ids.indexOf(id) !== index),
-        unfinishedInputs: Array.from({ length: fixture.count }, (_, id) => id).filter(
-          (id) => !finished.has(id),
-        ),
-        reportOrderMismatches: checks.filter(
-          (check: { id: string }, index: number) => check.id !== `verification.feature:${index}:1`,
-        ).length,
-        noHandlerStarted: pids.length === 0,
-        queuedStarts: started().filter(
-          (name) => Number(name.slice('started-'.length)) >= fixture.capacity,
-        ).length,
-        liveWorkers: pids.filter(alive).length,
+      application: {
+        startedInputs: events
+          .filter((event) => event.kind === 'start')
+          .map((event) => event.id)
+          .sort((a, b) => a - b),
+        finishedInputs: events
+          .filter((event) => event.kind === 'finish')
+          .map((event) => event.id)
+          .sort((a, b) => a - b),
+        started: pids.length > 0,
+        queuedInputsStarted: started()
+          .map((name) => Number(name.slice('started-'.length)))
+          .filter((id) => id >= fixture.capacity)
+          .sort((a, b) => a - b),
+        runningPids: pids.filter(alive),
       },
     }
   } finally {
