@@ -11,8 +11,8 @@ import { readConfig } from '../src/project.ts'
 import type { Config, Contracts, Evidence, Verification } from '../src/model.ts'
 import { createProject } from './project.ts'
 
-async function until(predicate: () => boolean, description: string) {
-  const deadline = Date.now() + 5000
+async function until(predicate: () => boolean, description: string, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs
   while (!predicate()) {
     assert.ok(Date.now() < deadline, description)
     await delay(5)
@@ -373,12 +373,15 @@ test('isolated cancellation and deadlines stop descendants of synchronous handle
   for (const mode of ['deadline', 'cancel'] as const) {
     const fixture = blockingProject(4, false, true)
     const cancellation = new AbortController()
+    // First observe live descendants: this cleanup test needs startup margin
+    // before its private deadline, which still includes all worker startup.
+    const feedbackMs = mode === 'deadline' ? 5000 : 15000
     const pending = runEvidence(
       fixture.root,
       fixture.config,
       fixture.contracts,
       identity(fixture.root, fixture.config),
-      mode === 'deadline' ? 1500 : 15000,
+      feedbackMs,
       cancellation.signal,
       isolated(),
     )
@@ -387,6 +390,7 @@ test('isolated cancellation and deadlines stop descendants of synchronous handle
       await until(
         () => [0, 1].every((id) => existsSync(join(fixture.root, `descendant-${id}`))),
         'Both synchronous handlers must launch real descendants',
+        Math.min(5000, feedbackMs - 1000),
       )
       const descendants = [0, 1].map((id) =>
         Number(readFileSync(join(fixture.root, `descendant-${id}`), 'utf8')),
