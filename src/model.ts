@@ -56,6 +56,7 @@ export type Config = {
   policy: Policy
 }
 export type Evidence = {
+  schema: 'bonsai-evidence-v1'
   fingerprint: string
   profile: Verification['profile']
   complete: boolean

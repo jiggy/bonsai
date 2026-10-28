@@ -360,9 +360,12 @@ export async function createTsrsProgram(
     const responses = await Promise.all(
       requests.map((entries) => checker.getSymbolAtLocation(entries.map((entry) => entry.native))),
     )
-    requests.forEach((entries, file) =>
-      entries.forEach((entry, index) => locations.set(entry.local, add(responses[file][index]))),
-    )
+    requests.forEach((entries, file) => {
+      const response = responses[file]
+      if (!Array.isArray(response) || response.length !== entries.length)
+        throw new Error(`Invalid native symbol batch: expected ${entries.length} results`)
+      entries.forEach((entry, index) => locations.set(entry.local, add(response[index])))
+    })
 
     const moduleExports = new Map<string, readonly NativeSymbol[]>()
     const importModules = new Map<string, NativeSymbol>()
@@ -391,6 +394,8 @@ export async function createTsrsProgram(
     const nativeTypes = remoteExpressions.length
       ? await checker.getTypeAtLocation(remoteExpressions)
       : []
+    if (!Array.isArray(nativeTypes) || nativeTypes.length !== remoteExpressions.length)
+      throw new Error(`Invalid native type batch: expected ${remoteExpressions.length} results`)
     const types = new Map<ts.Node, NativeType>()
     const typeSymbols = new Map<number, NativeSymbol | undefined>()
     const properties = new Map<string, NativeSymbol | undefined>()

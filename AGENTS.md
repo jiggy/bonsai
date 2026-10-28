@@ -16,6 +16,10 @@ Use Bun by default for dependency installation and package scripts. Install with
 
 Work on a topic branch and open a pull request against `main` for repository changes. Do not push directly to `main`. Leave merging to the user unless explicitly requested.
 
+Until the first mature release, the root retained-code allowance overrun is not a
+development delivery blocker. Continue measuring and reporting the actual verdict;
+do not relax policy, omit inventory, or turn an over-budget check into a pass.
+
 ## BDD and the code allowance
 
 Read [the BDD workflow](docs/bdd.md) before changing product behavior or its contracts. BDD starts by discovering and agreeing on stakeholder rules through examples. Red/green/refactor is implementation discipline; real CLI execution, Gherkin, public JSON, and fault sensitivity alone do not qualify a test as a product specification.

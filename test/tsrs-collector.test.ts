@@ -594,3 +594,45 @@ test('native binding-loader provenance follows exact archived implementations', 
     project.dispose()
   }
 })
+
+test('native semantic batches reject missing and surplus facts before producing a report', {
+  timeout: 60000,
+}, () => {
+  const project = fixture({
+    'handler.ts':
+      "import * as values from './values.ts'\nexport function handle() { return { status: values['status'] } }\n",
+    'values.ts': "export const status = 'ok'\n",
+  })
+  const preload = join(project.root, 'corrupt-semantic-batch.mjs')
+  writeFileSync(
+    preload,
+    `
+import { Checker } from ${JSON.stringify(import.meta.resolve('tsrs/unstable/async'))}
+if (process.argv[1]?.endsWith('tsrs-worker.ts')) {
+  const mode = process.env.BONSAI_TEST_SEMANTIC_BATCH
+  const method = mode?.startsWith('symbols') ? 'getSymbolAtLocation' : 'getTypeAtLocation'
+  const original = Checker.prototype[method]
+  Checker.prototype[method] = async function(nodes) {
+    const result = await original.call(this, nodes)
+    if (!mode || !Array.isArray(nodes) || !nodes.length) return result
+    return mode.endsWith('missing') ? result.slice(0, -1) : [...result, result[0]]
+  }
+}
+`,
+  )
+  const env = { BUN_OPTIONS: `--preload ${pathToFileURL(preload).href}` }
+  try {
+    const control = cli(project, 'rust', env)
+    assert.equal(control.status, 0, control.stderr || control.stdout)
+    for (const mode of ['symbols-missing', 'symbols-surplus', 'types-missing', 'types-surplus']) {
+      const malformed = cli(project, 'rust', { ...env, BONSAI_TEST_SEMANTIC_BATCH: mode })
+      assert.equal(malformed.status, 1, `${mode}: ${malformed.stderr || malformed.stdout}`)
+      assert.equal(malformed.stdout, '')
+      const error = JSON.parse(malformed.stderr)
+      assert.equal(error.code, 'RUST_COLLECTOR')
+      assert.match(error.message, /Invalid native (symbol|type) batch/)
+    }
+  } finally {
+    project.dispose()
+  }
+})

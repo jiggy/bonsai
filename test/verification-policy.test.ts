@@ -2,7 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { compileContracts } from '../src/contracts.ts'
 import type { Config, Snapshot, Verification } from '../src/model.ts'
-import { evaluate, validateVerification } from '../src/policy.ts'
+import { evaluate, validateVerification, validEvidence } from '../src/policy.ts'
 import { readConfig } from '../src/project.ts'
 import { buildSnapshot } from '../src/retention.ts'
 
@@ -42,6 +42,7 @@ function candidate(): Snapshot {
     problems: [],
   })
   result.evidence = {
+    schema: 'bonsai-evidence-v1',
     fingerprint: result.fingerprint,
     profile: 'isolated-scenarios-v1',
     complete: true,
@@ -101,4 +102,70 @@ test('required evidence must match the invocation verification execution profile
     'incomplete',
     'Matching unknown profile strings cannot authorize acceptance',
   )
+})
+
+test('serialized evidence requires its supported schema and well-typed facts', () => {
+  for (const change of [
+    (e: any) => {
+      delete e.schema
+    },
+    (e: any) => {
+      e.schema = 'bonsai-evidence-v999'
+    },
+    (e: any) => {
+      e.complete = 'true'
+    },
+    (e: any) => {
+      e.checks = null
+    },
+    (e: any) => {
+      e.checks = [null]
+    },
+    (e: any) => {
+      e.checks = new Array(1)
+    },
+    (e: any) => {
+      e.checks[0].status = 'skipped'
+    },
+    (e: any) => {
+      e.checks[0].error = {}
+    },
+    (e: any) => {
+      e.bindingImport = []
+    },
+  ]) {
+    const result = candidate()
+    change(result.evidence)
+    assert.equal(evaluate(undefined, result, config.policy).status, 'incomplete')
+  }
+})
+
+test('evidence shape validation rejects malformed records without reading unsafe contents', () => {
+  const good = candidate().evidence!
+  assert.equal(validEvidence(good), true)
+  for (const value of [
+    null,
+    [],
+    true,
+    'evidence',
+    {},
+    ...[NaN, Infinity, -1, '1'].map((elapsedMs) => ({ ...good, elapsedMs })),
+    ...[
+      null,
+      [],
+      {},
+      { id: 1, status: 'passed' },
+      { id: '', status: 'passed' },
+      { id: 'check', status: 'skipped' },
+      { id: 'check', status: 'passed', error: 3 },
+    ].map((check) => ({ ...good, checks: [check] })),
+    ...[
+      null,
+      [],
+      {},
+      { adapter: 'project-bindings-v1', file: '', fingerprint: 'x' },
+      { adapter: 'unknown', file: 'bindings.ts', fingerprint: 'x' },
+    ].map((bindingImport) => ({ ...good, bindingImport })),
+  ])
+    assert.equal(validEvidence(value), false)
 })

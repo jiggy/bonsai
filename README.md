@@ -408,6 +408,11 @@ connect its CLI and both workers. The current inventory still exceeds the allowa
 while all retained components have contract ancestry. Complete feature evidence
 therefore still produces a genuine rejection for the deferred size overage.
 
+Until the first mature release, this root allowance overrun does not block
+development delivery. Checks still report the actual verdict under the unchanged
+policy; this temporary development priority does not change acceptance in
+consuming projects.
+
 The unused Oxc prototype was deleted when tsrs replaced it. Its Cargo files and
 Rust sources were removed rather than excluded. Authored Rust in consuming
 projects remains unsupported and measured until a language adapter exists.
@@ -556,6 +561,11 @@ bun run bonsai explain src/orders.ts#placeOrder --root /path/to/project
 
 Read the violations, simplify the actual candidate, preserve its required behavior, and rerun. `explain` returns the component's check ancestry and incoming/outgoing relationships with source references. It performs static analysis without executing handlers.
 
+Explanation JSON adds `contractPaths` with one concrete dependency route per
+obligation and subject, and `verificationSubjects` with test-to-subject reference
+paths and inherited support paths. Registry roots are marked separately. These
+are static associations, not evidence that supporting tests ran.
+
 Exit codes are **0 pass**, **1 reject**, **2 incomplete or invalid input**. Both reject and incomplete block acceptance. JSON check output contains the decision, file costs, graph, obligations, evidence, and content fingerprint.
 
 For a Git repository configured at its root:
@@ -574,6 +584,12 @@ The base is read from an archive without running its code. Its `bonsai.json` sup
 - Tests are identified by `test/`, `tests/`, `.test.`, or `.spec.` paths. This is static subject association, **not evidence that the unit tests passed**.
 - Verification runs in fresh subprocesses with a shared deadline, so stale module caches and nonterminating handlers cannot silently pass. Feedback time includes candidate collection and execution, excluding optional base analysis and final report formatting.
 - Evidence is bound to the maintained content and effective configuration. Changes during verification, missing obligations, failed assertions, and mismatched evidence block acceptance.
+
+Evidence reports require the `bonsai-evidence-v1` schema marker and validated
+fact shapes. Candidate fingerprints also include presence and content of root
+Bun, npm, Yarn, and pnpm lockfiles, even when those files are excluded from
+retained cost. Older evidence must be regenerated. This does not attest installed
+dependency contents, checker/toolchain identity, or authentic execution.
 
 ## Limits and next steps
 

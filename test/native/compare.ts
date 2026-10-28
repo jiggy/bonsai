@@ -23,6 +23,7 @@ function derivedResult(source: Source, contracts: Contracts) {
   // Assumed observations compare policy behavior only. They are not executed
   // evidence and cannot establish acceptance outside this development harness.
   candidate.evidence = {
+    schema: 'bonsai-evidence-v1',
     fingerprint: candidate.fingerprint,
     profile: 'in-process-v1',
     complete: true,

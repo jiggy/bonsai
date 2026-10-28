@@ -1,4 +1,4 @@
-import type { Policy, Snapshot, Decision, Verification } from './model.ts'
+import type { Policy, Snapshot, Decision, Verification, Evidence } from './model.ts'
 
 export function validateVerification(verification: Verification | undefined): void {
   if (verification === undefined) return
@@ -14,6 +14,47 @@ export function validateVerification(verification: Verification | undefined): vo
     Object.keys(verification).some((key) => key !== 'profile' && key !== 'workers')
   )
     throw new Error('Invalid verification execution profile or worker count')
+}
+
+/** Validate serialized facts before policy or worker code reads their contents. */
+export function validEvidence(value: unknown): value is Evidence {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const evidence = value as Evidence
+  if (
+    evidence.schema !== 'bonsai-evidence-v1' ||
+    typeof evidence.fingerprint !== 'string' ||
+    !evidence.fingerprint.length ||
+    (evidence.profile !== 'in-process-v1' && evidence.profile !== 'isolated-scenarios-v1') ||
+    typeof evidence.complete !== 'boolean' ||
+    !Number.isFinite(evidence.elapsedMs) ||
+    evidence.elapsedMs < 0 ||
+    !Array.isArray(evidence.checks)
+  )
+    return false
+  if (evidence.bindingImport !== undefined) {
+    const receipt = evidence.bindingImport
+    if (
+      !receipt ||
+      typeof receipt !== 'object' ||
+      Array.isArray(receipt) ||
+      receipt.adapter !== 'project-bindings-v1' ||
+      typeof receipt.file !== 'string' ||
+      !receipt.file.length ||
+      typeof receipt.fingerprint !== 'string' ||
+      !receipt.fingerprint.length
+    )
+      return false
+  }
+  return [...evidence.checks].every(
+    (check) =>
+      check &&
+      typeof check === 'object' &&
+      !Array.isArray(check) &&
+      typeof check.id === 'string' &&
+      check.id.length > 0 &&
+      (check.status === 'passed' || check.status === 'failed' || check.status === 'missing') &&
+      (check.error === undefined || typeof check.error === 'string'),
+  )
 }
 
 export function validatePolicy(policy: Policy): void {
@@ -70,7 +111,7 @@ export function evaluate(
   }
   const evidence = candidate.evidence
   if (
-    !evidence ||
+    !validEvidence(evidence) ||
     !evidence.complete ||
     evidence.fingerprint !== candidate.fingerprint ||
     evidence.profile !== (candidate.verification?.profile ?? 'isolated-scenarios-v1')
