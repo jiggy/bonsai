@@ -14,6 +14,16 @@ Implement Bonsai’s CLI and contract-rooted budget gate.
 
 `subprocess.ts` recognizes fixed Bun/Node child entry points for the shared graph collector. Follow named `node:child_process` imports, literal module-relative URLs, and immutable `node:url` path aliases by symbol identity. Connect launch locations to executable startup components with static `entry-point` relationships. Inert exports receive no entry ancestry. Shells, runtime overrides, mutable URL aliases, computed paths, and opaque wrappers receive no inferred entry relationship; recognized targets outside maintained TypeScript inventory block verification. Fixed child entries include class definition effects: static blocks, effectful static fields, computed member names, heritage evaluation, and decorators. Dormant methods, constructors, and instance initializers do not create startup ancestry. Classes remain atomic once rooted. General import side effects remain outside this adapter's scope.
 
+`resources.ts` recognizes production/binding reads through resolved named `node:fs`
+`readFileSync` imports, a direct unshadowed global module-relative URL literal,
+and literal UTF-8 encoding. Validate supported text formats and bytes, URL bounds,
+canonical regular inventory membership, and symlink-free paths before creating
+one full-file `<resource>` component. Keep read provenance and file-data ancestry
+separate from executable declarations. Test fixture ownership, URL aliases,
+other filesystem APIs, and ordinary runtime inputs remain outside this slice;
+recognized computed module-relative URL reads block analysis. Removing the last
+recognized reader does not discover an orphan resource, but full file cost stays.
+
 Keep project orchestration independent of eager compiler and Gherkin imports. Standard JSON object configurations use the equivalent native JSON parser; JSONC, malformed input, non-object roots, and keys beginning with `__` retain the reference parser and its exact diagnostics. Load contract compilation inside its measured phase and fallback source measurement only after interrupted native collection. A successful CLI parent using a standard configuration must not load TypeScript; its semantic worker still loads the lexical parser.
 
 `compiler-options.ts` owns the exact compiler options shared with the development oracle. `source.ts` supplies lexical accounting and graph collection without a JavaScript compiler program. The independent compiler session and analyzer live in `test/compiler.ts` and `test/reference.ts`; production imports must never reach them.
