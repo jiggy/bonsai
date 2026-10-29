@@ -565,6 +565,9 @@ Explanation JSON adds `contractPaths` with one concrete dependency route per
 obligation and subject, and `verificationSubjects` with test-to-subject reference
 paths and inherited support paths. Registry roots are marked separately. These
 are static associations, not evidence that supporting tests ran.
+Human explanations show the same contract routes, registry attachment, and static
+test-subject/support paths. `--limit` bounds each detail list; JSON stays complete
+and plain columns remain stable. Inspection never runs handlers or supporting tests.
 
 Exit codes are **0 pass**, **1 reject**, **2 incomplete or invalid input**. Both reject and incomplete block acceptance. JSON check output contains the decision, file costs, graph, obligations, evidence, and content fingerprint.
 

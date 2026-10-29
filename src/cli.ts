@@ -840,14 +840,74 @@ async function main(): Promise<void> {
         `${component.id}\t${component.tokens}\t${component.contracts.length}\t${component.file}:${component.line}`,
     )
     const shown = human && limit ? components.slice(0, limit) : components
-    const lines = shown.flatMap((component) => [
-      component.id,
-      `  ${symbol('├─', '|-')} ${component.tokens} tokens`,
-      `  ${symbol('└─', "'-")} ${component.contracts.length} required checks`,
-      ...(enabled('verbose')
-        ? component.relationships.map((edge) => `  ${edge.from} ${symbol('→', '->')} ${edge.to}`)
-        : []),
-    ])
+    const lines: HumanLine[] = shown.flatMap((component) => {
+      const details: Exclude<HumanLine, string>[] = [
+        { text: `${component.tokens} tokens`, role: 'text' },
+        { text: `${component.contracts.length} required checks`, role: 'text' },
+      ]
+      const paths = limit ? component.contractPaths.slice(0, limit) : component.contractPaths
+      for (const path of paths) {
+        const check = component.checks.find((check) => check.id === path.check)!
+        details.push(
+          {
+            text: `Contract: ${check.action} / ${check.selector} · ${check.file}:${check.line}`,
+            role: 'text',
+          },
+          {
+            text: `${path.registry ? 'Registry' : path.subject ? 'Path to subject' : 'Path'}: ${path.components.join(` ${symbol('→', '->')} `)}`,
+            role: 'text',
+          },
+        )
+      }
+      if (paths.length < component.contractPaths.length)
+        details.push({
+          text: `Showing ${paths.length} of ${component.contractPaths.length} contract paths. Use --limit 0 to show all`,
+          role: 'detail',
+        })
+      const subjects = limit
+        ? component.verificationSubjects.slice(0, limit)
+        : component.verificationSubjects
+      for (const subject of subjects) {
+        details.push(
+          { text: `Static test subject: ${subject.subject}`, role: 'text' },
+          {
+            text: `References: ${subject.references.join(` ${symbol('→', '->')} `)}`,
+            role: 'text',
+          },
+        )
+        if (subject.support.length > 1)
+          details.push({
+            text: `Support: ${subject.support.join(` ${symbol('→', '->')} `)}`,
+            role: 'text',
+          })
+      }
+      if (subjects.length < component.verificationSubjects.length)
+        details.push({
+          text: `Showing ${subjects.length} of ${component.verificationSubjects.length} test subjects. Use --limit 0 to show all`,
+          role: 'detail',
+        })
+      if (enabled('verbose')) {
+        const relationships = limit
+          ? component.relationships.slice(0, limit)
+          : component.relationships
+        for (const edge of relationships)
+          details.push({ text: `${edge.from} ${symbol('→', '->')} ${edge.to}`, role: 'detail' })
+        if (relationships.length < component.relationships.length)
+          details.push({
+            text: `Showing ${relationships.length} of ${component.relationships.length} relationships. Use --limit 0 to show all`,
+            role: 'detail',
+          })
+      }
+      return [
+        { text: component.id, role: 'text' } as const,
+        ...details.map((detail, index) => ({
+          ...detail,
+          text: `  ${index === details.length - 1 ? symbol('└─', "'-") : symbol('├─', '|-')} ${detail.text}`,
+        })),
+      ]
+    })
+    if (shown.some((component) => component.verificationSubjects.length))
+      lines.push({ text: "Explain doesn't run handlers or supporting tests", role: 'detail' })
     if (shown.length < components.length)
       lines.push(
         `Showing ${shown.length} of ${components.length} components. Use --limit 0 to show all`,
