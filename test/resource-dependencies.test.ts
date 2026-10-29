@@ -23,7 +23,8 @@ function fixture(code = handler, extra: Record<string, string> = {}) {
   const content = {
     'package.json': '{"type":"module"}',
     'handler.ts': code,
-    'bindings.ts': "import { sample } from './handler.ts'\nexport const actions = { sample: sample }\n",
+    'bindings.ts':
+      "import { sample } from './handler.ts'\nexport const actions = { sample: sample }\n",
     'message.txt': 'hello',
     'sample.feature': behavior,
     ...extra,
