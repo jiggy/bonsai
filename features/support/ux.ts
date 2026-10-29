@@ -41,7 +41,10 @@ function styledCharacters(text: string) {
   return result
 }
 
-export function checkUx(input: { case: string }) {
+export function checkUx(
+  input: { case: string },
+  humanEnvironment: NodeJS.ProcessEnv = {},
+) {
   if (input.case === 'completion' || input.case === 'command-completion') {
     const fixture = project({ 'bindings.ts': 'export const actions = {}\n' })
     try {
@@ -118,15 +121,7 @@ printf '%s\\n' "\${COMPREPLY[*]}"
           'human',
           ...(input.case === 'human-blocker' ? [] : ['--verbose']),
         ],
-        {
-          NO_COLOR: '',
-          BONSAI_NO_COLOR: '',
-          FORCE_COLOR: '1',
-          COLUMNS: '32',
-          TERM: 'xterm-256color',
-          LANG: 'C.UTF-8',
-          LC_ALL: 'C.UTF-8',
-        },
+        humanEnvironment,
       )
       const visible = styledCharacters(human.stderr)
       const plain = visible.map((character) => character.value).join('')
@@ -145,16 +140,15 @@ printf '%s\\n' "\${COMPREPLY[*]}"
           'sh',
           [
             '-c',
-            command.replace(/^bonsai\b/, '"$BONSAI_SPEC_RUNTIME" "$BONSAI_SPEC_ENTRY"') + ' --json',
+            command.replace(/^bonsai\b/, '"$1" "$2"') + ' --json',
+            'bonsai-retry',
+            process.execPath,
+            entry,
           ],
           {
             encoding: 'utf8',
             timeout: 15000,
-            env: {
-              ...environment(),
-              BONSAI_SPEC_RUNTIME: process.execPath,
-              BONSAI_SPEC_ENTRY: entry,
-            },
+            env: environment(),
           },
         )
         if (retried.error) throw retried.error
@@ -184,7 +178,7 @@ printf '%s\\n' "\${COMPREPLY[*]}"
     if (input.case === 'machine') {
       const machine = runCli(['check', '--root', root, '--json'], {
         NO_COLOR: '',
-        BONSAI_NO_COLOR: '',
+        BONSAI_NO_COLOR: process.env.BONSAI_NO_COLOR === undefined ? undefined : '',
         FORCE_COLOR: '1',
       })
       return {

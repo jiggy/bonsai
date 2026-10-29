@@ -68,8 +68,16 @@ function fulfilled(
   config: Config,
   files: string[],
   required: ReturnType<typeof contracts>,
+  form: 'checkout' | 'archive',
 ) {
   const candidate = report.snapshot
+  console.info(JSON.stringify({
+    selfHost: form,
+    feedback: candidate.timing?.feedback,
+    expectedObservations: required.checks.length,
+    recordedObservations: candidate.evidence?.checks.length ?? 0,
+    complete: candidate.evidence?.complete ?? false,
+  }))
   assert.equal(
     report.status,
     1,
@@ -166,7 +174,7 @@ test('the native root gate verifies its full committed inventory within the save
         2,
       ) + '\n',
     )
-  fulfilled(report, config, files, contracts())
+  fulfilled(report, config, files, contracts(), 'checkout')
   assert.equal(report.snapshot.analysis?.backend, 'tsrs')
   assert.equal(report.snapshot.analysis?.status, 'complete')
 })
@@ -194,7 +202,7 @@ test('the native checker fulfills every feature from a complete archived project
     writeFileSync(resolve(root, 'bonsai.json'), JSON.stringify(scoped))
     symlinkSync(resolve(repository, 'node_modules'), resolve(root, 'node_modules'), 'dir')
     const report = check(root)
-    fulfilled(report, scoped, files, required)
+    fulfilled(report, scoped, files, required, 'archive')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

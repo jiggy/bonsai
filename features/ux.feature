@@ -4,7 +4,7 @@ Feature: Recover from blocked checks and compose Bonsai with other tools
 
   Scenario: A blocked human check identifies the missing source and offers a repair
     The application launches missing-child.ts, so Bonsai must stop before running its handler.
-    Even in a 32-column terminal, the maintainer needs the source location and missing entry.
+    The maintainer needs the source location and missing entry to correct the project.
     When I invoke "check" with {"fixture": "ux", "case": "human-blocker"}
     Then response "exitCode" equals 2
     And response "stdout" equals ""
