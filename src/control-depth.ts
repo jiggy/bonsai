@@ -11,7 +11,11 @@ export type ControlDepthRegion = {
   deepestLine: number
   deepestColumn: number
 }
-export type ControlDepthFacts = { metric: 'control-depth-v1'; complete: boolean; regions: ControlDepthRegion[] }
+export type ControlDepthFacts = {
+  metric: 'control-depth-v1'
+  complete: boolean
+  regions: ControlDepthRegion[]
+}
 
 const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object' && !Array.isArray(value)
@@ -26,7 +30,9 @@ export function validateStructuralPolicy(value: unknown): void {
     !integer(value.maxDepth) ||
     Object.keys(value).some((key) => key !== 'metric' && key !== 'maxDepth')
   )
-    throw new Error('policy.structural needs metric control-depth-v1 and a nonnegative integer maxDepth')
+    throw new Error(
+      'policy.structural needs metric control-depth-v1 and a nonnegative integer maxDepth',
+    )
 }
 
 /** Validate facts and one lexical module region per measured TypeScript file. */
@@ -42,14 +48,26 @@ export function validControlDepth(
     !Array.isArray(value.regions)
   )
     return false
-  const expected = new Set(files.filter(({ file }) => /\.[cm]?ts$/.test(file)).map(({ file }) => file))
+  const expected = new Set(
+    files.filter(({ file }) => /\.[cm]?ts$/.test(file)).map(({ file }) => file),
+  )
   const modules = new Set<string>()
   const identities = new Set<string>()
   for (const region of value.regions) {
     if (
       !object(region) ||
       Object.keys(region).some(
-        (key) => !['file', 'line', 'column', 'kind', 'name', 'depth', 'deepestLine', 'deepestColumn'].includes(key),
+        (key) =>
+          ![
+            'file',
+            'line',
+            'column',
+            'kind',
+            'name',
+            'depth',
+            'deepestLine',
+            'deepestColumn',
+          ].includes(key),
       ) ||
       typeof region.file !== 'string' ||
       !expected.has(region.file) ||
@@ -105,8 +123,13 @@ export function measureControlDepth(
             ? '<anonymous>'
             : '<module>'
     const region: ControlDepthRegion = {
-      file, ...start, kind: fn ? 'function' : 'module', name,
-      depth: 0, deepestLine: start.line, deepestColumn: start.column,
+      file,
+      ...start,
+      kind: fn ? 'function' : 'module',
+      name,
+      depth: 0,
+      deepestLine: start.line,
+      deepestColumn: start.column,
     }
     regions.push(region)
     const visit = (node: ts.Node, depth: number): void => {
