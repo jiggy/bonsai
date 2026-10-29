@@ -71,13 +71,15 @@ function fulfilled(
   form: 'checkout' | 'archive',
 ) {
   const candidate = report.snapshot
-  console.info(JSON.stringify({
-    selfHost: form,
-    feedback: candidate.timing?.feedback,
-    expectedObservations: required.checks.length,
-    recordedObservations: candidate.evidence?.checks.length ?? 0,
-    complete: candidate.evidence?.complete ?? false,
-  }))
+  console.info(
+    JSON.stringify({
+      selfHost: form,
+      feedback: candidate.timing?.feedback,
+      expectedObservations: required.checks.length,
+      recordedObservations: candidate.evidence?.checks.length ?? 0,
+      complete: candidate.evidence?.complete ?? false,
+    }),
+  )
   assert.equal(
     report.status,
     1,

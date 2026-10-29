@@ -41,10 +41,7 @@ function styledCharacters(text: string) {
   return result
 }
 
-export function checkUx(
-  input: { case: string },
-  humanEnvironment: NodeJS.ProcessEnv = {},
-) {
+export function checkUx(input: { case: string }, humanEnvironment: NodeJS.ProcessEnv = {}) {
   if (input.case === 'completion' || input.case === 'command-completion') {
     const fixture = project({ 'bindings.ts': 'export const actions = {}\n' })
     try {

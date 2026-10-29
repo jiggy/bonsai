@@ -16,7 +16,8 @@ test('ordinary UX checks reuse the matching warmed lexical process', {
   const temporary = mkdtempSync(join(tmpdir(), 'bonsai-ux-session-'))
   const candidate = createProject({
     'handler.ts': "export function ready() { return { status: 'ok' } }\n",
-    'bindings.ts': "import { ready } from './handler.ts'\nexport const actions = { ready: ready }\n",
+    'bindings.ts':
+      "import { ready } from './handler.ts'\nexport const actions = { ready: ready }\n",
     'ready.feature':
       'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
   })
@@ -26,7 +27,12 @@ test('ordinary UX checks reuse the matching warmed lexical process', {
   const ready = join(temporary, 'ready')
   const entry = fileURLToPath(new URL('./native-session-owner.ts', import.meta.url))
   const manifest = fileURLToPath(new URL('../package.json', import.meta.url))
-  const keys = ['BUN_OPTIONS', 'BONSAI_NATIVE_BINARY', 'BONSAI_NATIVE_SESSION', 'BONSAI_NO_COLOR'] as const
+  const keys = [
+    'BUN_OPTIONS',
+    'BONSAI_NATIVE_BINARY',
+    'BONSAI_NATIVE_SESSION',
+    'BONSAI_NO_COLOR',
+  ] as const
   const previous = new Map(keys.map((key) => [key, process.env[key]]))
   let owner: ReturnType<typeof spawn> | undefined
   let closed: Promise<void> | undefined
@@ -63,8 +69,19 @@ test('ordinary UX checks reuse the matching warmed lexical process', {
     }
     owner = spawn(
       process.execPath,
-      [entry, candidate.root, JSON.stringify([...candidate.files].sort()), descriptor, '--ready', ready],
-      { cwd: fileURLToPath(new URL('../', import.meta.url)), env: environment, stdio: ['ignore', 'pipe', 'pipe'] },
+      [
+        entry,
+        candidate.root,
+        JSON.stringify([...candidate.files].sort()),
+        descriptor,
+        '--ready',
+        ready,
+      ],
+      {
+        cwd: fileURLToPath(new URL('../', import.meta.url)),
+        env: environment,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
     )
     closed = new Promise((done) =>
       owner!.once('close', () => {
