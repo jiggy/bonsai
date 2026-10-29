@@ -40,7 +40,11 @@ The first Linux probe passed against rustc/rust-analyzer 1.85.0. Both Cargo feat
 profiles resolved the selected cross-module action and their correct active
 definition; declarative macro expansion and native JSON dispatch passed. The
 first samples took 3.94s and 3.35s, including analyzer startup, the explicit Cargo
-build, and native response checks. This is not a production gate benchmark.
+build, and native response checks. Each sample starts a fresh analyzer but shares
+Cargo's target directory; the second sample is not an independent cold build.
+The analyzer executable measures 36,819,280 bytes (about 35.1 MiB), excluding
+other toolchain components and caches. Versions and sizes are observations, not
+content attestation. This is not a production gate benchmark.
 
 Proceed with a compiler-aware rust-analyzer collector experiment, using the
 language-neutral fact/action boundary. Do not ship a parser-only Rust gate.
