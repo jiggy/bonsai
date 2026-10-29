@@ -332,6 +332,13 @@ export function collectSourceGraph(
     }
   }
   if (!source.registry) source.problems.push('No exported actions registry found')
+  source.controlDepth.regions.sort(
+    (left, right) =>
+      (left.file < right.file ? -1 : left.file > right.file ? 1 : 0) ||
+      left.line - right.line ||
+      left.column - right.column ||
+      (left.kind === right.kind ? 0 : left.kind === 'module' ? -1 : 1),
+  )
   source.controlDepth.complete = true
   return source
 }

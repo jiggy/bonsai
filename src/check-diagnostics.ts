@@ -168,7 +168,9 @@ export function checkDiagnostics(
     diagnostics.push({
       title: message,
       detail: [],
-      fix: message.startsWith('Evidence collection interrupted:')
+      fix: message === 'Required control-depth-v1 measurement is missing or incomplete'
+        ? 'Run complete source analysis with a checker supporting the configured control-depth-v1 requirement'
+        : message.startsWith('Evidence collection interrupted:')
         ? message.includes('feedback deadline expired')
           ? 'Use --verbose to inspect phase timings, then shorten verification while preserving required checks'
           : 'Fix the interrupted verification or its feedback deadline, then rerun the check to collect complete evidence'
