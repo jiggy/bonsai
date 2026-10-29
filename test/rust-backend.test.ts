@@ -211,7 +211,10 @@ test('pinned Rust semantic backend resolves a real native action without enablin
   try {
     const version = run(['rust-analyzer', '--version'])
     const compiler = run(['rustc', '--version'])
-    const backendPath = spawnSync('rustup', ['which', '--toolchain', toolchain, 'rust-analyzer'], { encoding: 'utf8', timeout: 5000 })
+    const backendPath = spawnSync('rustup', ['which', '--toolchain', toolchain, 'rust-analyzer'], {
+      encoding: 'utf8',
+      timeout: 5000,
+    })
     assert.equal(backendPath.status, 0, backendPath.stderr)
     const backendBinaryBytes = statSync(backendPath.stdout.trim()).size
     for (const features of [[], ['experimental']]) {
