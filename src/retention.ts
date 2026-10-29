@@ -47,6 +47,7 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
     }
   }
   return {
+    schema: 'bonsai-snapshot-v1',
     fingerprint,
     contracts,
     source,

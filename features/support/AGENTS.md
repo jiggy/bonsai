@@ -25,6 +25,8 @@ State the arranged context in feature prose, not only a fixture identifier. Keep
 
 The trusted-budget example accesses its Git checkout through a symlink, exercising real root-identity validation on every host. Keep the alias outside the target tree, clean up both paths, and let the CLI resolve identity rather than canonicalizing away the example's context.
 
+`runners.ts` arranges a real Bun assertion and a Vitest-compatible report to distinguish configured supporting success, failure, skipped work, and stale output. It is not an installed Vitest runner; pinned framework compatibility belongs in the explicit technical smoke test. Do not manufacture passed product observations or gate decisions in this arrangement.
+
 ## Verification
 
 `bun run test:specs -- --scenario NAME` provides focused authored-example feedback. `bun run test:features` executes all product contracts through the full root gate and archived checker. `bun run test:spec-sensitivity` proves selected authored observations reject controlled product faults in disposable copies. See [the BDD guide](../../docs/bdd.md).

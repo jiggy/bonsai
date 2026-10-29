@@ -9,6 +9,7 @@ import { buildSnapshot } from '../../src/retention.ts'
 import { analyzeSource } from '../reference.ts'
 import { canonicalSource, collectNative } from './client.ts'
 import { cases, materializeFixture } from './fixtures.ts'
+import { assumedIdentity } from '../identity-fixture.ts'
 
 const policy = {
   bootstrap: 100000,
@@ -20,10 +21,12 @@ const policy = {
 
 function derivedResult(source: Source, contracts: Contracts) {
   const candidate = buildSnapshot('fixture-comparison', contracts, source)
+  candidate.identity = assumedIdentity
   // Assumed observations compare policy behavior only. They are not executed
   // evidence and cannot establish acceptance outside this development harness.
   candidate.evidence = {
-    schema: 'bonsai-evidence-v1',
+    schema: 'bonsai-evidence-v2',
+    identity: assumedIdentity,
     fingerprint: candidate.fingerprint,
     profile: 'in-process-v1',
     complete: true,

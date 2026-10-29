@@ -128,6 +128,8 @@ Default section order:
 
 The root owns package metadata, runtime dependencies, environment setup, repository-wide contracts, and the legacy `native/README.md` migration note.
 
+`bun run test:runners` is an explicit network-dependent release check for pinned supporting-runner compatibility. Ordinary tests stay network-free; no runner install belongs in product checks.
+
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
 - [features/AGENTS.md](features/AGENTS.md): executable contracts for Bonsai’s own observable behavior
 - [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests, native comparisons, and benchmark tooling

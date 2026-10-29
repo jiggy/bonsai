@@ -186,8 +186,40 @@ jobs:
           test -x "$BONSAI_NATIVE_BINARY"
           bun test --isolate --timeout 30000 test/native-installation.test.ts test/cli-base-paths.test.ts
 
+  runner-adapters:
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$FORMATTED_SHA"
+          git merge --no-edit "$FORMATTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - run: bun run test:runners
+
   report-formatting-check:
-    needs: [apply-formatting, verify, native-platforms]
+    needs: [apply-formatting, verify, native-platforms, runner-adapters]
     if: always() && needs.apply-formatting.outputs.sha != ''
     permissions:
       checks: write
@@ -201,10 +233,14 @@ jobs:
           FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
           RESULT: ${{ needs.verify.result }}
           NATIVE_RESULT: ${{ needs.native-platforms.result }}
+          RUNNER_RESULT: ${{ needs.runner-adapters.result }}
         run: |
           conclusion="$RESULT"
           if [ "$conclusion" = success ] && [ "$NATIVE_RESULT" != success ]; then
             conclusion="$NATIVE_RESULT"
+          fi
+          if [ "$conclusion" = success ] && [ "$RUNNER_RESULT" != success ]; then
+            conclusion="$RUNNER_RESULT"
           fi
           if [ "$conclusion" = skipped ]; then
             conclusion=failure

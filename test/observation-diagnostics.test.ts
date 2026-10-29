@@ -265,6 +265,8 @@ Scenario: Two calls of the same action
     // Presentation receives the real evidence; full source analysis is exercised
     // by the nested-CLI test above, rather than duplicated in this unit regression.
     const snapshot: Snapshot = {
+      schema: 'bonsai-snapshot-v1',
+      identity: result.identity,
       fingerprint: result.fingerprint,
       contracts,
       source: {

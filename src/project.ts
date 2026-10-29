@@ -8,6 +8,9 @@ import { validatePolicy } from './policy.ts'
 import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
 import { collectRustSource } from './collector.ts'
+import { executionIdentity, sameExecutionIdentity } from './identity.ts'
+import { runSupportingVerification, validateRunnerRequirements } from './runners.ts'
+import { parseSnapshot } from './snapshot-schema.ts'
 
 export { CollectorError } from './collector.ts'
 
@@ -63,6 +66,7 @@ export function readConfig(
   )
     throw new Error('Configuration exclude must be an array of non-empty ignore patterns')
   validatePolicy(config.policy)
+  validateRunnerRequirements(config.runners)
   if (Object.hasOwn(config, 'verification'))
     throw new Error(
       'Remove verification from bonsai.json; checks now run concurrently by default. Use --serial for sequential verification',
@@ -107,6 +111,8 @@ export async function snapshot(
     if (collected.interrupted) timer.finish('interrupted')
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
+    result.identity = executionIdentity()
+    if (config.runners?.length) result.runners = config.runners
     if (execute) result.verification = verificationPlan(contracts, options.serial)
     result.analysis = collected.analysis
     let feedbackElapsed = execute ? performance.now() - started : undefined
@@ -121,7 +127,18 @@ export async function snapshot(
           config.policy.maxFeedbackMs - (performance.now() - started),
           signal,
           result.verification,
+          result.identity,
         )
+        if (config.runners?.length) {
+          result.runnerEvidence = await runSupportingVerification(
+            root,
+            config.runners,
+            hash,
+            config.policy.maxFeedbackMs - (performance.now() - started),
+            signal,
+          )
+          for (const evidence of result.runnerEvidence) evidence.identity = result.identity
+        }
         timer.finish()
       } catch (error) {
         timer.finish('interrupted')
@@ -133,6 +150,8 @@ export async function snapshot(
       if (fingerprint(root, inventory(root, config.maintained, config.exclude), config) !== hash) {
         source.problems.push('Maintained files changed during verification')
       }
+      if (!sameExecutionIdentity(result.identity, executionIdentity()))
+        source.problems.push('Checker or toolchain changed during verification')
       timer.finish()
     } else {
       timer.skip('verification')
@@ -144,6 +163,7 @@ export async function snapshot(
         feedback: { elapsedMs: feedbackElapsed, limitMs: config.policy.maxFeedbackMs },
       }),
     }
+    parseSnapshot(JSON.stringify(result))
     return result
   } catch (error) {
     timer.finish('interrupted')

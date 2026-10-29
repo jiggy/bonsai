@@ -1,3 +1,6 @@
+import type { ExecutionIdentity } from './identity.ts'
+import type { RunnerRequirement, RunnerEvidence } from './runners.ts'
+
 export type Reference = { file: string; line: number }
 export type Component = Reference & {
   id: string
@@ -54,9 +57,11 @@ export type Config = {
   exclude?: string[]
   bindings: string
   policy: Policy
+  runners?: RunnerRequirement[]
 }
 export type Evidence = {
-  schema: 'bonsai-evidence-v1'
+  schema: 'bonsai-evidence-v2'
+  identity: ExecutionIdentity
   fingerprint: string
   profile: Verification['profile']
   complete: boolean
@@ -78,12 +83,16 @@ export type TimingStage = {
 export type Timing = { elapsedMs: number; stages: TimingStage[] }
 export type CheckTiming = Timing & { feedback?: { elapsedMs: number; limitMs: number } }
 export type Snapshot = {
+  schema: 'bonsai-snapshot-v1'
   fingerprint: string
+  identity?: ExecutionIdentity
   contracts: Contracts
   source: Source
   ancestry: Record<string, string[]>
   unrooted: string[]
   evidence?: Evidence
+  runners?: RunnerRequirement[]
+  runnerEvidence?: RunnerEvidence[]
   verification?: Verification
   timing?: CheckTiming
   analysis?: {

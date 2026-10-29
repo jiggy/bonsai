@@ -417,10 +417,12 @@ test('isolated verification rejects incomplete, mismatched, and malformed shard 
     'package.json': '{"type":"module"}',
     'bindings.ts': `import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { executionIdentity } from ${JSON.stringify(new URL('../src/identity.ts', import.meta.url).href)}
 const fingerprint = new URL(import.meta.url).searchParams.get('snapshot')
 function forge(input: { mode: string }) {
   const evidence: any = {
-    schema: 'bonsai-evidence-v1',
+    schema: 'bonsai-evidence-v2',
+    identity: executionIdentity(),
     fingerprint,
     profile: 'in-process-v1',
     complete: true,
