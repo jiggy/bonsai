@@ -30,7 +30,8 @@ Scenario: Deny an unpaid request
     { structural: { metric: 'control-depth-v1', maxDepth: 4 } },
   )
   try {
-    return invoke(['check', '--root', fixture.root])
+    // The rule concerns structure; serial mode avoids unrelated nested-worker startup.
+    return invoke(['check', '--root', fixture.root, '--serial'])
   } finally {
     fixture.dispose()
   }

@@ -4,7 +4,7 @@ Arrange isolated projects and observe Bonsai's actual public CLI for its executa
 
 ## Ownership
 
-`cli.ts` owns real synchronous and asynchronous CLI launches. `project.ts` owns disposable fixture files and policies. Domain helpers arrange inputs and return CLI reports or independently observed filesystem/process facts. `actions.ts` binds the stable public command identities. `control-depth.ts` arranges equivalent nested and guard-clause applications under an explicit structural policy.
+`cli.ts` owns real synchronous and asynchronous CLI launches. `project.ts` owns disposable fixture files and policies. Domain helpers arrange inputs and return CLI reports or independently observed filesystem/process facts. `actions.ts` binds the stable public command identities. `control-depth.ts` arranges equivalent nested and guard-clause applications under an explicit structural policy. Its real nested check explicitly uses the supported serial mode: both application observations still execute, while worker isolation remains covered by its dedicated contracts and regressions.
 
 ## Local Contracts
 
