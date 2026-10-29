@@ -41,9 +41,24 @@ Scenario: Place an order
   }
 })
 
-test('inspection fixture observes application loading during a real check', () => {
+test('inspection markers observe real execution before an ancestry rejection', () => {
   const report = checkBasicProject({ observeApplicationLoad: true })
-  assert.equal(report.exitCode, 0, JSON.stringify(report))
+  // The standalone load marker has no ancestry under the current adapter.
+  // This control observes execution before the final ancestry rejection.
+  assert.equal(report.exitCode, 1, JSON.stringify(report))
+  assert.equal(report.decision.status, 'reject')
+  assert.equal(report.snapshot.analysis.status, 'complete')
+  assert.deepEqual(report.snapshot.source.problems, [])
+  assert.equal(report.snapshot.unrooted.length, 1)
+  assert.match(report.snapshot.unrooted[0], /^orders\.ts#<top-level:/)
+  assert.deepEqual(report.decision.violations, [
+    `No contract ancestry: ${report.snapshot.unrooted[0]}`,
+  ])
+  assert.equal(report.snapshot.evidence.complete, true)
+  assert.deepEqual(
+    report.snapshot.evidence.checks.map((check: { status: string }) => check.status),
+    ['passed', 'passed'],
+  )
   assert.equal(report.applicationLoaded, true)
   assert.equal(report.handlerExecuted, true)
   assert.equal(report.invocationCount, 2)
