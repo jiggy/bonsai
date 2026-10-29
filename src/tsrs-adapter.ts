@@ -279,7 +279,7 @@ export async function createTsrsProgram(
         if (node.parent === ast && ts.isImportDeclaration(node)) {
           if (
             !ts.isStringLiteral(node.moduleSpecifier) ||
-            !['node:child_process', 'node:url', 'node:fs'].includes(node.moduleSpecifier.text)
+            !['node:child_process', 'node:url'].includes(node.moduleSpecifier.text)
           )
             return
           const bindings = node.importClause?.namedBindings

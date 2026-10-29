@@ -49,14 +49,6 @@ bounded human details and complete machine facts.
 
 `subprocess-ancestry.test.ts` compares complete native source facts with the development oracle and exercises real child execution plus read-only explain. Preserve unused-export, uncontracted launch, test-to-production, builtin/global shadowing, launch-option, and missing-inventory regressions. Test-helper subject discovery must handle chains and cycles without propagating inherited support ancestry into unrelated tests or dead production.
 
-`resource-dependencies.test.ts` compares native and oracle facts for literal UTF-8
-resource reads, deduplication, provenance, and source-as-data boundaries. Exercise
-actual native verification and read-only explain with independently observed
-handler execution. Missing/unmaintained, computed, malformed, binary, and symlink
-cases must block without running handlers; lookalikes, tests, and runtime input
-paths must not manufacture resource ancestry. These are technical regressions
-under the existing dependency-scope promise and grant no product allowance.
-
 `class-startup.test.ts` checks definition-time class effects against dormant bodies and compares native/oracle child ancestry while preserving inert sibling rejection. Its real native CLI regression preserves successful exit, passing decision, independently observed handler execution, and complete product evidence in a disposable consuming project. Class-syntax cases remain technical regressions rather than additional product specifications.
 
 Compiler-session regressions compare fresh diagnostics and source facts after changes to source, external declarations, package resolution, missing dependencies, and project roots. Reusing syntax must never authorize stale diagnostics or relationships. The lean-worker regression runs a real handler in a fresh evidence subprocess and checks that inventory validation alone does not load the TypeScript compiler.
