@@ -16,8 +16,8 @@ declarative macro, and distinguish active `cfg` definitions. It builds and execu
 the same target twice, with and without the `experimental` feature. The native
 dispatcher returns application JSON; it never reports an authoritative pass.
 
-The ordinary suite verifies that maintained `.rs` source is still charged and
-produces incomplete analysis. No grammar, allowance, production dependency, or
+The existing native CLI regressions verify that maintained `.rs` source is still
+charged and produces incomplete analysis. No grammar, allowance, production dependency, or
 supported-language claim changes in this experiment.
 
 ## Run the experiment
@@ -30,8 +30,23 @@ BONSAI_RUST_PROBE=1 bun test --isolate --timeout 180000 test/rust-backend.test.t
 The separate read-only Rust backend workflow installs this optional toolchain.
 Normal checks and package installation do not install or start it. The probe
 prints versioned samples with the actual compiler/backend versions, selected
-features, semantic results, native response checks, elapsed time, and output size.
+features, semantic results, native response checks, elapsed time, backend executable
+size, and protocol output size.
 Those timings describe this fixture; they do not establish a full gate deadline.
+
+## Initial result and selected next step
+
+The first Linux probe passed against rustc/rust-analyzer 1.85.0. Both Cargo feature
+profiles resolved the selected cross-module action and their correct active
+definition; declarative macro expansion and native JSON dispatch passed. The
+first samples took 3.94s and 3.35s, including analyzer startup, the explicit Cargo
+build, and native response checks. This is not a production gate benchmark.
+
+Proceed with a compiler-aware rust-analyzer collector experiment, using the
+language-neutral fact/action boundary. Do not ship a parser-only Rust gate.
+The unresolved work is systematic reference collection, completeness diagnostics,
+toolchain/target identity, resource/initialization semantics, and execution
+isolation for build scripts and procedural macros.
 
 ## Integration gate
 

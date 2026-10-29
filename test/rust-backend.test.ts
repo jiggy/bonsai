@@ -1,45 +1,15 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { compileContracts } from '../src/contracts.ts'
-import { createProject } from './project.ts'
-import { runCli } from './cli.ts'
 
 const toolchain = '1.85.0'
 const feature =
   'Feature: Orders\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ready"\n'
-
-test('a Rust backend experiment cannot silently enable production Rust analysis', () => {
-  const fixture = createProject({
-    'handler.ts': "export function ready() { return { status: 'ready' } }\n",
-    'bindings.ts':
-      "import { ready } from './handler.ts'\nexport const actions = { ready: ready }\n",
-    'ready.feature': feature,
-    'main.rs': 'fn main() {}\n',
-  })
-  try {
-    const result = runCli(['check', '--root', fixture.root, '--json'])
-    assert.equal(result.status, 2, result.stderr || result.stdout)
-    const report = JSON.parse(result.stdout)
-    assert.ok(
-      report.snapshot.source.problems.some((problem: string) =>
-        problem.includes('Unsupported source language: main.rs'),
-      ),
-    )
-    assert.ok(
-      report.snapshot.source.files.find(
-        (file: { file: string; tokens: number }) => file.file === 'main.rs',
-      ).tokens > 0,
-    )
-    assert.notEqual(report.snapshot.evidence?.complete, true)
-  } finally {
-    fixture.dispose()
-  }
-})
 
 class RustProbe {
   child: ReturnType<typeof spawn>
@@ -241,6 +211,9 @@ test('pinned Rust semantic backend resolves a real native action without enablin
   try {
     const version = run(['rust-analyzer', '--version'])
     const compiler = run(['rustc', '--version'])
+    const backendPath = spawnSync('rustup', ['which', '--toolchain', toolchain, 'rust-analyzer'], { encoding: 'utf8', timeout: 5000 })
+    assert.equal(backendPath.status, 0, backendPath.stderr)
+    const backendBinaryBytes = statSync(backendPath.stdout.trim()).size
     for (const features of [[], ['experimental']]) {
       const started = performance.now()
       const probe = new RustProbe(root)
@@ -348,6 +321,7 @@ test('pinned Rust semantic backend resolves a real native action without enablin
         schema: 'bonsai-rust-backend-probe-v1',
         compiler,
         backend: version,
+        backendBinaryBytes,
         samples,
         productionRustSupport: false,
       }),
