@@ -145,8 +145,7 @@ printf '%s\\n' "\${COMPREPLY[*]}"
           'sh',
           [
             '-c',
-            command.replace(/^bonsai\b/, '"$BONSAI_SPEC_RUNTIME" "$BONSAI_SPEC_ENTRY"') +
-              ' --json',
+            command.replace(/^bonsai\b/, '"$BONSAI_SPEC_RUNTIME" "$BONSAI_SPEC_ENTRY"') + ' --json',
           ],
           {
             encoding: 'utf8',

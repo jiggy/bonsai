@@ -60,14 +60,11 @@ export function run(input: { id: number }) {
       'bindings.ts': "import { run } from './handler.ts'\nexport const actions = { 'run': run }\n",
       'verification.feature':
         'Feature: Independent required calls\n' +
-        Array.from(
-          { length: count },
-          (_, index) => {
-            // Failure arrangements deliberately do not start with the lowest input IDs.
-            const id = kind === 'required-calls' ? index : count - index - 1
-            return `Scenario: Input ${id}\n When I invoke "run" with {"id":${id}}\n Then response "id" equals ${id}\n`
-          },
-        ).join('\n'),
+        Array.from({ length: count }, (_, index) => {
+          // Failure arrangements deliberately do not start with the lowest input IDs.
+          const id = kind === 'required-calls' ? index : count - index - 1
+          return `Scenario: Input ${id}\n When I invoke "run" with {"id":${id}}\n Then response "id" equals ${id}\n`
+        }).join('\n'),
     },
     { maxFeedbackMs: kind === 'timeout' ? 2500 : 15000 },
   )
