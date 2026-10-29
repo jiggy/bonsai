@@ -157,7 +157,8 @@ function vitestFacts(report: Record<string, unknown>): RunnerFacts {
     (report.numTotalTestSuites as number) ===
       (report.numPassedTestSuites as number) +
         (report.numFailedTestSuites as number) +
-        (report.numPendingTestSuites as number),
+        (report.numPendingTestSuites as number) &&
+      (report.numTotalTestSuites as number) >= report.testResults.length,
     'Vitest suite counts disagree',
   )
   requireFact(
@@ -263,6 +264,7 @@ function cucumberFacts(input: string): RunnerFacts {
         raw.attempt === prior.length && prior.every((attempt) => attempt.finished),
         'Cucumber attempt order is missing or duplicated',
       )
+      if (raw.attempt > 0) result.problems.push('Cucumber reported a retried attempt')
       attempts.set(raw.id, {
         testCase: raw.testCaseId,
         started: new Set(),
@@ -774,6 +776,12 @@ async function runCommand(
       clearTimeout(timer)
       signal?.removeEventListener('abort', abort)
       stop()
+      if (error) {
+        // Escaped sessions may keep inherited write ends open after this child
+        // exits. Close our read ends so they cannot hold deadline settlement.
+        child.stdout?.destroy()
+        child.stderr?.destroy()
+      }
       void closed.then(() => {
         process.removeListener('exit', stop)
         if (error) reject(error)

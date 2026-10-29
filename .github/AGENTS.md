@@ -28,6 +28,8 @@ The native platform job also runs `test/cli-base-paths.test.ts` on both macOS ar
 
 The normal test step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temporary directory. The native root regression saves its actual decision, snapshot, and command timings before assertions. Always upload that report as `bonsai-self-check` when available, retaining failures as well as successes for 14 days. This records existing verification, without another full check or changed deadline.
 
+CI emits a compact actual root verdict, observation completion, ancestry count, and timing summary from the already-saved self-check report before archiving it. This is measured diagnostic output, not another verification run or a changed feedback deadline.
+
 ## Work Guidance
 
 Never execute candidate scripts in write-capable jobs. Preserve checks on formatting commits. Keep website action versions pinned and preserve the separation between validation and deployment.

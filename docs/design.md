@@ -93,8 +93,9 @@ evidence with that profile. The maintained content and effective project policy
 remain fingerprinted independently of the invocation's execution mode.
 
 Versioned snapshots and product evidence also carry installed checker/toolchain
-content and Bun/preload identities. Workers compare their own identity before
-loading bindings; the final integrity phase detects later content changes.
+content and Bun/preload identities. Application workers compare checker/runtime content before
+loading bindings and carry the validated analysis compiler receipt; the final
+integrity phase detects later content changes.
 Structural-only facts can omit identity, but they cannot satisfy acceptance.
 
 An effective configuration can additionally require concrete supporting runners.

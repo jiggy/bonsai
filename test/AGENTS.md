@@ -65,6 +65,8 @@ Package-install regressions must pack the actual npm payload and verify native c
 
 Use asynchronous child invocations while a test owns the broker, so its event loop can serve requests. Protocol regressions cover busy-worker fallback through the real CLI, per-request diagnostic bounds, malformed identities and facts, worker death before acknowledgment, cancellation, and owner death after warm startup. A delayed native proxy must prove successful requests wait for process exit and cancellation still reaps it after the SDK clears its process field. Keep application call counts and process identities observable without changing compiler module contents.
 
+`identity-cli.test.ts` mutates only a disposable installed-checker copy after actual native analysis to prove identity changes block before handler execution. `native-session-content.test.ts` checks frozen cached-code keys and real fresh-worker fallback after copied checker/SDK changes, with unchanged candidate files. These probes never modify the installed dependency tree. Report-path overlap tests preserve authored input bytes before any command can run.
+
 ## Verification
 
 `bun run test` includes the executable product contracts and gives each test file a fresh module/global scope with Bun's `--isolate`; tests remain sequential. This prevents compiler-oracle and worker lifecycle state from being shared across files. It does not extend any product feedback deadline. `bun run test:features` runs the product contracts alone.

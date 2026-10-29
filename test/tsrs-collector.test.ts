@@ -364,6 +364,9 @@ test('native checks preserve real evidence and reject invalid behavior, ancestry
           reference.fingerprint,
           project.config.policy.maxFeedbackMs,
         )
+      // This development comparison uses the real verification context with
+      // oracle source facts; it does not attest those facts as native analysis.
+      reference.identity = reference.evidence?.identity
       rmSync(marker, { force: true })
       const repeated = await snapshot(project.root, project.config, true)
       assert.deepEqual(canonicalSource(native.source), canonicalSource(reference.source))

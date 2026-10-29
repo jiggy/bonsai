@@ -5,6 +5,7 @@ import { createConnection, createServer, type Socket } from 'node:net'
 import { tmpdir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sessionContentKey } from './identity.ts'
 
 const checker = realpathSync(fileURLToPath(new URL('../', import.meta.url)))
 const entry = fileURLToPath(new URL('./tsrs-worker.ts', import.meta.url))
@@ -39,10 +40,11 @@ const binary = () =>
     : resolve(process.env.BONSAI_NATIVE_BINARY)
 
 type Descriptor = {
-  protocol: 1
+  protocol: 2
   checker: string
   binary?: string
   environment: string
+  content: string
   path: string
   token: string
 }
@@ -55,10 +57,11 @@ function inherited(): Descriptor | undefined {
   try {
     const value = JSON.parse(process.env.BONSAI_NATIVE_SESSION ?? 'null') as Descriptor | null
     if (
-      value?.protocol === 1 &&
+      value?.protocol === 2 &&
       value.checker === checker &&
       value.binary === binary() &&
       value.environment === environmentKey() &&
+      value.content === sessionContentKey() &&
       typeof value.path === 'string' &&
       isAbsolute(value.path) &&
       typeof value.token === 'string' &&
@@ -92,18 +95,28 @@ export function spawnNativeWorker(
   })
 }
 
-/** Undefined means no matching session or an explicitly busy worker, never a failed request. */
+/** Matching callers compare current cached-code content for every request.
+ * This collects facts in that context; project pre/postanalysis and final integrity
+ * guards remain responsible for acceptance. Undefined means no matching session
+ * or an explicitly busy worker, never a failed matching request.
+ */
 export async function requestNativeSession(
   request: string,
   signal?: AbortSignal,
   timeoutMs?: number,
   validate?: (response: string) => void,
 ): Promise<string | undefined> {
+  const began = performance.now()
   const session = inherited()
   if (!session) return undefined
   if (signal?.aborted) throw new SessionInterrupted('Command interrupted')
   if (timeoutMs !== undefined && timeoutMs <= 0)
     throw new SessionInterrupted('Feedback deadline expired before Rust analysis')
+  if (timeoutMs !== undefined) {
+    timeoutMs -= performance.now() - began
+    if (timeoutMs <= 0)
+      throw new SessionInterrupted('Feedback deadline expired before Rust analysis')
+  }
   const frame = `{"token":${JSON.stringify(session.token)},"request":${request}}\n`
   if (Buffer.byteLength(frame) > requestLimit)
     throw new SessionError('Rust session request exceeded its 4 MiB input limit')
@@ -212,15 +225,17 @@ export async function openNativeSession(
     directory = mkdtempSync('/tmp/bonsai-')
   }
   const descriptor: Descriptor = {
-    protocol: 1,
+    protocol: 2,
     checker,
     binary: binary(),
     environment: environmentKey(environment),
+    content: sessionContentKey(environment),
     path: join(directory, 'n.sock'),
     token: randomBytes(32).toString('hex'),
   }
   const sockets = new Set<Socket>()
   let warm: NativeWorker | undefined
+  let validatedContent: NativeWorker | undefined
   let warmClosed: Promise<void> | undefined
   let retiring: Promise<void> | undefined
   let closing: Promise<void> | undefined
@@ -256,6 +271,7 @@ export async function openNativeSession(
     if (!child) return Promise.resolve()
     const closed = warmClosed!
     warm = undefined
+    validatedContent = undefined
     exchange?.reject(error)
     exchange = undefined
     retiring = (async () => {
@@ -282,6 +298,8 @@ export async function openNativeSession(
     await retiring
     if (stopped) throw new SessionError('Rust session is closed')
     if (warm) return warm
+    if (sessionContentKey(environment) !== descriptor.content)
+      throw new SessionError('Rust session checker or cached toolchain content changed')
     const child = spawnNativeWorker(['--session', directory], {
       binary: descriptor.binary,
       environment,
@@ -454,6 +472,13 @@ export async function openNativeSession(
             retiring
           )
             throw new SessionError('Rust session worker stopped before response acceptance')
+          // Freeze what the lazy process loaded once. Later requests use its
+          // frozen key plus the caller's fresh content match and project guards.
+          if (validatedContent !== child) {
+            if (sessionContentKey(environment) !== descriptor.content)
+              throw new SessionError('Rust session checker or cached toolchain content changed')
+            validatedContent = child
+          }
           phase = 'ack'
           socket.write('{"session":"result","response":' + raw + '}\n')
         } catch (error) {

@@ -126,6 +126,14 @@ test('Vitest summaries cannot conceal missing, empty, unknown, failed suites or 
   )
 })
 
+test('Vitest suite totals cover reported files while permitting nested suites', () => {
+  const report = JSON.parse(vitest())
+  Object.assign(report, { numTotalTestSuites: 0, numPassedTestSuites: 0 })
+  assert.equal(parseRunnerReport('vitest-json', JSON.stringify(report)).complete, false)
+  Object.assign(report, { numTotalTestSuites: 2, numPassedTestSuites: 2 })
+  assert.equal(parseRunnerReport('vitest-json', JSON.stringify(report)).complete, true)
+})
+
 function cucumber(statuses = ['PASSED'], protocol = '31.2.0') {
   const timestamp = { seconds: 1, nanos: 0 }
   return [
@@ -198,6 +206,30 @@ test('Cucumber skipped steps and failed run hooks cannot produce configured succ
     '{"testRunHookFinished":{"testRunHookStartedId":"hook","result":{"status":"FAILED","duration":{"seconds":0,"nanos":1}}}}',
   )
   assert.equal(parseRunnerReport(req.adapter, hookFailure.join('\n')).complete, false)
+})
+
+test('Cucumber repeated attempts remain blocking even when retry flags deny the retry', () => {
+  for (const willBeRetried of [false, true]) {
+    const messages = cucumber()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+    const retry = structuredClone(messages.slice(3, -1))
+    retry[0].testCaseStarted.id = 'retry'
+    retry[0].testCaseStarted.attempt = 1
+    for (const envelope of retry.slice(1)) {
+      const message = Object.values(envelope)[0] as { testCaseStartedId: string }
+      message.testCaseStartedId = 'retry'
+    }
+    messages[messages.length - 2].testCaseFinished.willBeRetried = willBeRetried
+    messages.splice(messages.length - 1, 0, ...retry)
+    assert.equal(
+      parseRunnerReport(
+        'cucumber-messages',
+        messages.map((message) => JSON.stringify(message)).join('\n'),
+      ).complete,
+      false,
+    )
+  }
 })
 
 function stryker(statuses = ['Killed', 'Timeout', 'Survived', 'NoCoverage']) {
@@ -563,6 +595,47 @@ test('live runner cancellation stops its process-group descendants before comple
     await until(() => stopped(pid))
   } finally {
     cancellation.abort()
+    await pending
+    fixture.dispose()
+  }
+})
+
+test('a detached descendant holding output pipes cannot hold the supporting deadline open', {
+  skip: process.platform === 'win32' && 'Detached process groups require Unix',
+}, async () => {
+  const fixture = project()
+  const marker = join(fixture.root, 'detached-pid')
+  const daemon = 'setInterval(() => {}, 1000)'
+  const command = `const child = require('node:child_process').spawn(process.execPath, ['-e', ${JSON.stringify(daemon)}], { detached: true, stdio: ['ignore', 'inherit', 'inherit'] }); require('node:fs').writeFileSync(${JSON.stringify(marker)}, String(child.pid)); child.unref(); process.exit(0)`
+  const pending = runSupportingVerification(
+    fixture.root,
+    [{ ...requirement(), command: [process.execPath, '-e', command] }],
+    'candidate',
+    500,
+  )
+  let watchdog: ReturnType<typeof setTimeout> | undefined
+  try {
+    const result = await Promise.race([
+      pending,
+      new Promise<never>((_, reject) => {
+        watchdog = setTimeout(
+          () => reject(new Error('Inherited output pipes held the expired runner open')),
+          3000,
+        )
+      }),
+    ])
+    assert.equal(result[0]!.status, 'incomplete')
+    assert.match(result[0]!.problems.join('\n'), /deadline/)
+    assert.equal(existsSync(marker), true, 'The detached child must actually have started')
+  } finally {
+    clearTimeout(watchdog)
+    // A subprocess boundary does not contain an escaped session. The fixture
+    // explicitly owns and cleans this daemon; production only closes its pipes.
+    if (existsSync(marker)) {
+      try {
+        process.kill(Number(readFileSync(marker, 'utf8')), 'SIGKILL')
+      } catch {}
+    }
     await pending
     fixture.dispose()
   }
