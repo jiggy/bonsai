@@ -38,6 +38,8 @@ Explanation regressions cover actual reference paths, cycles, registry boundarie
 test subject discovery, and inherited support without granting ancestry to
 unrelated tests. Pair pure graph tests with real CLI JSON and read-only checks;
 structural explanation facts never claim test execution.
+Check route-name foreground and dim state after narrow wrapping, plus independently
+bounded human details and complete machine facts.
 
 `package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled, then exercises `bunx` and missing-dependency recovery. Only this explicit release check uses the package registry.
 

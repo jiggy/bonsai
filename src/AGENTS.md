@@ -36,9 +36,11 @@ Test subject discovery may follow test-helper references to already rooted produ
 
 Explanation JSON includes shortest static `contractPaths` for each associated
 obligation and `verificationSubjects` separating test-to-subject references from
-inherited support. Registry attachment is explicit, never an edge to every action.
-These are structural explanations, not evidence that supporting tests ran. Keep
-existing human and plain output unchanged when adding machine explanation facts.
+inherited support. Human explanations show these contract, registry, reference,
+and support paths with neutral static labels; each path/subject/verbose-relationship
+list obeys `--limit` (0 means all). Registry attachment never implies an edge to
+every action. Structural paths never claim handler or supporting-test execution.
+Plain columns and complete JSON remain unchanged.
 
 Initialization never executes project code or overwrites existing files. Capture root/nested Gitignore rules, standard generated/lock/cache exclusions, symlinks, and nested project boundaries in optional `config.exclude`; report skipped paths. Keep directories as inventory entries so future authored files count. Runtime inventory uses the effective configuration's exclusions, never mutable candidate ignore files or newly added project markers. Required starters must not be excluded. Starter contracts remain commented and draft policy defaults require calibration; initialization never manufactures passing evidence.
 
