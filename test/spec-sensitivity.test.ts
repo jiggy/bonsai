@@ -176,7 +176,7 @@ test('the authored explanation example detects incorrect requirement content', a
   await detectsFault(
     { target: 'orders.ts#placeOrder' },
     'src/retention.ts',
-    "const checks = snapshot.contracts.checks.filter((check) => contracts.includes(check.id))",
+    'const checks = snapshot.contracts.checks.filter((check) => contracts.includes(check.id))',
     "const checks = snapshot.contracts.checks.filter((check) => contracts.includes(check.id)).map((check) => ({ ...check, expected: 'incorrect' }))",
     'requirements',
     'explain',
