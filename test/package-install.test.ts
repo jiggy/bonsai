@@ -187,7 +187,10 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
       const staticReport = JSON.parse(staticCheck.stdout)
       assert.equal(validExecutionIdentity(staticReport.snapshot.identity), true)
       assert.equal(
-        sameExecutionIdentity(staticReport.snapshot.identity, staticReport.snapshot.evidence.identity),
+        sameExecutionIdentity(
+          staticReport.snapshot.identity,
+          staticReport.snapshot.evidence.identity,
+        ),
         true,
       )
       const installedIdentity = report.snapshot.identity
