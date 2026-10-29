@@ -17,6 +17,7 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { NativeInstallError, nativePackage, nativeRepair } from '../src/native-install.ts'
+import { sameExecutionIdentity, validExecutionIdentity } from '../src/identity.ts'
 
 const repository = resolve('.')
 const manifest = JSON.parse(readFileSync(join(repository, 'package.json'), 'utf8'))
@@ -151,6 +152,11 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
     assert.equal(report.decision.status, 'pass')
     assert.equal(report.snapshot.analysis.backend, 'tsrs')
     assert.equal(report.snapshot.evidence.complete, true)
+    assert.equal(validExecutionIdentity(report.snapshot.identity), true)
+    assert.equal(
+      sameExecutionIdentity(report.snapshot.identity, report.snapshot.evidence.identity),
+      true,
+    )
     assert.deepEqual(
       report.snapshot.evidence.checks.map((check: { status: string }) => check.status),
       ['passed', 'passed', 'passed'],
@@ -178,14 +184,43 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
         BONSAI_NATIVE_BINARY: join(musl, 'tsrs'),
       })
       assert.equal(staticCheck.status, 0, staticCheck.stderr)
+      const staticReport = JSON.parse(staticCheck.stdout)
+      assert.equal(validExecutionIdentity(staticReport.snapshot.identity), true)
+      assert.equal(
+        sameExecutionIdentity(staticReport.snapshot.identity, staticReport.snapshot.evidence.identity),
+        true,
+      )
+      const installedIdentity = report.snapshot.identity
+      const staticIdentity = staticReport.snapshot.identity
+      assert.deepEqual(staticIdentity.checker, installedIdentity.checker)
+      assert.deepEqual(staticIdentity.runtime, installedIdentity.runtime)
+      assert.equal(staticIdentity.compiler.name, installedIdentity.compiler.name)
+      assert.equal(staticIdentity.compiler.version, installedIdentity.compiler.version)
+      const defaultNative = join(
+        dirname(
+          compilerRequire.resolve(
+            `${nativePackage('linux', process.arch, existsSync(loader))}/package.json`,
+          ),
+        ),
+        'tsrs',
+      )
+      const sameNativeBytes = readFileSync(defaultNative).equals(readFileSync(join(musl, 'tsrs')))
+      assert.equal(
+        staticIdentity.compiler.digest === installedIdentity.compiler.digest,
+        sameNativeBytes,
+        'Selected native bytes, not binary location or version alone, determine toolchain identity',
+      )
       const comparable = (value: typeof report) => {
         const copy = structuredClone(value)
         delete copy.timing
         delete copy.snapshot.timing
         copy.snapshot.evidence.elapsedMs = 0
+        // GNU and static-musl behavior must match after independently validating their identities.
+        copy.snapshot.identity.compiler.digest = '<selected-native-variant>'
+        copy.snapshot.evidence.identity.compiler.digest = '<selected-native-variant>'
         return copy
       }
-      assert.deepEqual(comparable(JSON.parse(staticCheck.stdout)), comparable(report))
+      assert.deepEqual(comparable(staticReport), comparable(report))
     }
     const selected = nativePackage(process.platform, process.arch, existsSync(loader))
     const optional = dirname(compilerRequire.resolve(`${selected}/package.json`))

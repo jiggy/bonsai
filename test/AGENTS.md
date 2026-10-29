@@ -41,7 +41,7 @@ test subject discovery, and inherited support without granting ancestry to
 unrelated tests. Pair pure graph tests with real CLI JSON and read-only checks;
 structural explanation facts never claim test execution.
 
-`package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled, then exercises `bunx` and missing-dependency recovery. Only this explicit release check uses the package registry.
+`package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled, then exercises `bunx` and missing-dependency recovery. Compare GNU/musl behavior while validating each report's own execution identity; different selected binary bytes must change the compiler content digest. Only this explicit release check uses the package registry.
 
 `subprocess-ancestry.test.ts` compares complete native source facts with the development oracle and exercises real child execution plus read-only explain. Preserve unused-export, uncontracted launch, test-to-production, builtin/global shadowing, launch-option, and missing-inventory regressions. Test-helper subject discovery must handle chains and cycles without propagating inherited support ancestry into unrelated tests or dead production.
 
