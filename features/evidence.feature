@@ -41,3 +41,19 @@ Feature: Verify every required behavior without leaving application work running
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
     And response "maintainedText" equals "{\"revision\":2}\n"
+
+  Scenario Outline: Required supporting verification must finish successfully
+    A readiness observation passes for both the correct and the faulty doubling
+    helper. The maintainer also requires a separate supporting suite that checks
+    doubling with a real assertion and emits a Vitest-compatible report. A skipped
+    assertion or an old report left by a command that does no work cannot satisfy it.
+    When I invoke "check" with {"fixture": "supporting-suite", "case": "<case>"}
+    Then response "exitCode" equals <exit>
+    And response "decision.status" equals "<status>"
+
+    Examples:
+      | case    | exit | status     |
+      | passed  | 0    | pass       |
+      | failed  | 1    | reject     |
+      | skipped | 2    | incomplete |
+      | stale   | 2    | incomplete |
