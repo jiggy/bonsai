@@ -20,7 +20,7 @@ policy, sandbox execution, and required-status publication.
 
 Keep the BDD guide authoritative for discovering stakeholder rules, reviewing implementation-independent examples, and deciding which product observations qualify for the global allowance. Distinguish BDD from red/green implementation discipline: Gherkin, public JSON, real CLI execution, and fault sensitivity alone do not qualify a feature. Describe the literal action–selector counter and human eligibility review accurately; do not claim automatic semantic counting. Preserve technical regression assertions when moving them out of features, and report allowance changes separately from code savings. Neither structural ancestry nor selected fault checks prove complete behavioral coverage.
 
-Document fixed subprocess entry-point syntax separately from runtime coverage. Child launches root executable startup, not entire modules or exports. Keep unsupported launch forms, import side effects, and class initialization explicit. Test-helper subject discovery uses established production ancestry; supporting helper ancestry cannot justify unrelated callers.
+Document fixed subprocess entry-point syntax separately from runtime coverage. Child launches root executable startup, not entire modules or exports. Keep unsupported launch forms and general import side effects explicit; distinguish definition-time class effects from dormant bodies. Test-helper subject discovery uses established production ancestry; supporting helper ancestry cannot justify unrelated callers.
 
 Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
 

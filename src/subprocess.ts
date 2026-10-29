@@ -219,7 +219,8 @@ export function createSubprocessAdapter(root: string, files: string[], program: 
 /** Function/type declarations and inert exported values are not execution roots. */
 export function executesAtEntry(node: ts.Node): boolean {
   const effect = (part: ts.Node): boolean => {
-    if (ts.isFunctionLike(part) || ts.isClassExpression(part)) return false
+    if (ts.isFunctionLike(part)) return false
+    if (ts.isClassExpression(part) || ts.isClassDeclaration(part)) return initializesClass(part)
     if (
       ts.isCallExpression(part) ||
       ts.isNewExpression(part) ||
@@ -236,6 +237,42 @@ export function executesAtEntry(node: ts.Node): boolean {
       return true
     return ts.forEachChild(part, effect) ?? false
   }
+  const decorated = (part: ts.Node) =>
+    ts.canHaveDecorators(part) && !!ts.getDecorators(part)?.length
+  const initializesClass = (declaration: ts.ClassLikeDeclaration): boolean => {
+    if (decorated(declaration)) return true
+    for (const heritage of declaration.heritageClauses ?? [])
+      if (
+        heritage.token === ts.SyntaxKind.ExtendsKeyword &&
+        heritage.types.some((type) => effect(type.expression))
+      )
+        return true
+    for (const member of declaration.members) {
+      if (decorated(member)) return true
+      if (member.name && ts.isComputedPropertyName(member.name) && effect(member.name.expression))
+        return true
+      if (ts.isClassStaticBlockDeclaration(member) && member.body.statements.some(executesAtEntry))
+        return true
+      if (
+        ts.isPropertyDeclaration(member) &&
+        member.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.StaticKeyword) &&
+        member.initializer &&
+        effect(member.initializer)
+      )
+        return true
+      if (
+        (ts.isConstructorDeclaration(member) ||
+          ts.isMethodDeclaration(member) ||
+          ts.isGetAccessorDeclaration(member) ||
+          ts.isSetAccessorDeclaration(member)) &&
+        member.parameters.some(decorated)
+      )
+        return true
+    }
+    return false
+  }
+  if (ts.isClassDeclaration(node)) return initializesClass(node)
+  if (ts.isVariableStatement(node)) return node.declarationList.declarations.some(executesAtEntry)
   if (ts.isVariableDeclaration(node)) return node.initializer ? effect(node.initializer) : false
   if (ts.isExportAssignment(node) || ts.isExpressionStatement(node)) return effect(node.expression)
   return !ts.isDeclarationStatement(node) && !ts.isEmptyStatement(node)

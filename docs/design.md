@@ -162,8 +162,9 @@ effectful initializers in the maintained child module. Inert exports stay unroot
 These relationships connect the self-host CLI, evidence worker, and native lexical
 worker without new authored manifests or runtime-evidence receipts. Computed or
 cwd-relative targets receive no relationship; recognized targets outside the measured
-TypeScript inventory block verification. General import side effects and class
-initialization remain separate adapter gaps.
+TypeScript inventory block verification. At the selected child entry, class
+definition effects also supply startup ancestry; dormant method/constructor bodies
+and instance initializers do not. General import side effects remain an adapter gap.
 
 The full-root regressions require exact observation IDs, candidate fingerprints,
 binding receipts, and all three executable boundaries. CI archives the native
