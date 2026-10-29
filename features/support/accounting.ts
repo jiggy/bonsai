@@ -142,6 +142,7 @@ export function second() { return value() }
 function compactRetainedSource(revision: 'base' | 'pruned') {
   const fixture = compactionProject()
   try {
+    if (revision === 'base') return invoke(['check', '--root', fixture.root])
     for (const args of [
       ['init', '-b', 'main', fixture.root],
       ['-C', fixture.root, 'add', '.'],
@@ -162,7 +163,7 @@ function compactRetainedSource(revision: 'base' | 'pruned') {
       ],
     ])
       execFileSync('git', args, { stdio: 'ignore' })
-    if (revision === 'pruned') write(fixture.root, 'handlers.ts', fixture.compact)
+    write(fixture.root, 'handlers.ts', fixture.compact)
     return invoke(['check', '--root', fixture.root, '--base', 'HEAD'])
   } finally {
     fixture.dispose()

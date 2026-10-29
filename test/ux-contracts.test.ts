@@ -30,7 +30,18 @@ test('machine-readable help retains its command identity and engine flag scope',
 })
 
 test('the narrow subprocess blocker preserves its exact copy and semantic ANSI state', () => {
-  const report = checkUx({ case: 'verbose-blocker' })
+  const report = checkUx(
+    { case: 'verbose-blocker' },
+    {
+      NO_COLOR: '',
+      BONSAI_NO_COLOR: '',
+      FORCE_COLOR: '1',
+      COLUMNS: '32',
+      TERM: 'xterm-256color',
+      LANG: 'C.UTF-8',
+      LC_ALL: 'C.UTF-8',
+    },
+  )
   assert.equal(report.exitCode, 2)
   assert.equal(report.stdout, '')
   assert.equal(report.title, "Can't trace 1 local subprocess entry point")

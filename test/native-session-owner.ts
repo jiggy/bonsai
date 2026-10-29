@@ -12,3 +12,12 @@ await collectRustSource(
   undefined,
   30000,
 )
+
+if (process.argv[5] === '--ready') {
+  const ready = process.argv[6]
+  if (!ready) throw new Error('Native session readiness path is required')
+  process.once('SIGTERM', () => {
+    void session.close().then(() => process.exit(0))
+  })
+  writeFileSync(ready, 'ready')
+}
