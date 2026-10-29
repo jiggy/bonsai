@@ -18,11 +18,17 @@ export function createResourceAdapter(root: string, files: string[], program: ts
         !ts.isImportDeclaration(statement) ||
         !ts.isStringLiteral(statement.moduleSpecifier) ||
         statement.moduleSpecifier.text !== 'node:fs'
-      ) continue
+      )
+        continue
       const bindings = statement.importClause?.namedBindings
       if (bindings && ts.isNamedImports(bindings))
         for (const binding of bindings.elements) {
-          if ((binding.propertyName ?? binding.name).text !== 'readFileSync' || binding.isTypeOnly || statement.importClause?.isTypeOnly) continue
+          if (
+            (binding.propertyName ?? binding.name).text !== 'readFileSync' ||
+            binding.isTypeOnly ||
+            statement.importClause?.isTypeOnly
+          )
+            continue
           const symbol = checker.getSymbolAtLocation(binding.name)
           if (symbol) readers.add(symbol)
         }
@@ -59,14 +65,42 @@ export function createResourceAdapter(root: string, files: string[], program: ts
   }
   // These extensions declare a textual format. Unknown and binary formats need
   // their own accounting adapter, even if particular bytes happen to be ASCII.
-  const textual = new Set(['.txt', '.json', '.sql', '.md', '.markdown', '.html', '.htm', '.css', '.svg', '.yaml', '.yml', '.toml', '.ini', '.xml', '.graphql', '.gql', '.csv', '.tsv', '.ts', '.mts', '.cts'])
+  const textual = new Set([
+    '.txt',
+    '.json',
+    '.sql',
+    '.md',
+    '.markdown',
+    '.html',
+    '.htm',
+    '.css',
+    '.svg',
+    '.yaml',
+    '.yml',
+    '.toml',
+    '.ini',
+    '.xml',
+    '.graphql',
+    '.gql',
+    '.csv',
+    '.tsv',
+    '.ts',
+    '.mts',
+    '.cts',
+  ])
   const validated = new Map<string, Resource>()
   return (call: ts.CallExpression): Resource | undefined => {
     if (!ts.isIdentifier(call.expression)) return undefined
     const reader = checker.getSymbolAtLocation(call.expression)
     if (!reader || !readers.has(reader)) return undefined
     const target = call.arguments[0]
-    if (!target || !ts.isNewExpression(target) || !ts.isIdentifier(target.expression) || target.expression.text !== 'URL') return undefined
+    if (
+      !target ||
+      !ts.isNewExpression(target) ||
+      !ts.isIdentifier(target.expression) ||
+      target.expression.text !== 'URL'
+    )
+      return undefined
     const symbol = checker.getSymbolAtLocation(target.expression)
     if (!symbol || symbol.flags & ts.SymbolFlags.Alias || local.has(symbol)) return undefined
     const [path, base] = target.arguments ?? []
@@ -77,21 +111,31 @@ export function createResourceAdapter(root: string, files: string[], program: ts
       !ts.isMetaProperty(base.expression) ||
       base.expression.keywordToken !== ts.SyntaxKind.ImportKeyword ||
       base.expression.name.text !== 'meta'
-    ) return undefined
-    const unsupported = (reason: string): Resource => ({ problem: 'Unsupported resource dependency: ' + reason })
+    )
+      return undefined
+    const unsupported = (reason: string): Resource => ({
+      problem: 'Unsupported resource dependency: ' + reason,
+    })
     if (!path || !ts.isStringLiteralLike(path)) return unsupported('computed module-relative URL')
-    if (target.arguments?.length !== 2 || call.arguments.length !== 2) return unsupported('expected direct URL and UTF-8 encoding')
+    if (target.arguments?.length !== 2 || call.arguments.length !== 2)
+      return unsupported('expected direct URL and UTF-8 encoding')
     const encoding = call.arguments[1]!
-    if (!ts.isStringLiteralLike(encoding) || !['utf8', 'utf-8'].includes(encoding.text)) return unsupported('expected literal UTF-8 encoding')
-    if (!/^\.{1,2}\//.test(path.text) || /[\\?#\u0000-\u001f\u007f]|%(?:2f|5c)/i.test(path.text)) return unsupported('expected a plain module-relative file URL')
+    if (!ts.isStringLiteralLike(encoding) || !['utf8', 'utf-8'].includes(encoding.text))
+      return unsupported('expected literal UTF-8 encoding')
+    if (!/^\.{1,2}\//.test(path.text) || /[\\?#\u0000-\u001f\u007f]|%(?:2f|5c)/i.test(path.text))
+      return unsupported('expected a plain module-relative file URL')
     let absolute: string
     try {
       const url = new URL(path.text, pathToFileURL(target.getSourceFile().fileName))
-      if (url.protocol !== 'file:' || url.search || url.hash) return unsupported('expected a local URL without search or hash')
+      if (url.protocol !== 'file:' || url.search || url.hash)
+        return unsupported('expected a local URL without search or hash')
       absolute = fileURLToPath(url)
-    } catch { return unsupported('malformed file URL') }
+    } catch {
+      return unsupported('malformed file URL')
+    }
     const file = relative(canonicalRoot, absolute).split(sep).join('/')
-    if (!within(absolute) || !maintained.has(file)) return { problem: 'Resource dependency outside maintained inventory: ' + file }
+    if (!within(absolute) || !maintained.has(file))
+      return { problem: 'Resource dependency outside maintained inventory: ' + file }
     const prior = validated.get(file)
     if (prior) return prior
     let result: Resource
@@ -102,13 +146,22 @@ export function createResourceAdapter(root: string, files: string[], program: ts
         if (lstatSync(current).isSymbolicLink()) throw new Error('symlinked resource path')
       }
       if (!lstatSync(absolute).isFile()) throw new Error('resource is not a regular file')
-      if (realpathSync(absolute) !== absolute || !within(realpathSync(absolute))) throw new Error('noncanonical resource path')
-      if (!textual.has(extname(file).toLowerCase())) throw new Error('unsupported resource format; binary accounting is unavailable')
+      if (realpathSync(absolute) !== absolute || !within(realpathSync(absolute)))
+        throw new Error('noncanonical resource path')
+      if (!textual.has(extname(file).toLowerCase()))
+        throw new Error('unsupported resource format; binary accounting is unavailable')
       const text = new TextDecoder('utf-8', { fatal: true }).decode(readFileSync(absolute))
-      if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text)) throw new Error('binary resource content is unsupported')
+      if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(text))
+        throw new Error('binary resource content is unsupported')
       result = { file }
     } catch (error) {
-      result = { problem: 'Unsupported resource dependency: ' + file + ' — ' + (error instanceof Error ? error.message : String(error)) }
+      result = {
+        problem:
+          'Unsupported resource dependency: ' +
+          file +
+          ' — ' +
+          (error instanceof Error ? error.message : String(error)),
+      }
     }
     validated.set(file, result)
     return result

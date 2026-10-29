@@ -206,10 +206,18 @@ export function collectSourceGraph(
         else if (selected) {
           let target = resources.get(selected.file)
           if (!target) {
-            const measured = source.files.find(entry => entry.file === selected.file)!
+            const measured = source.files.find((entry) => entry.file === selected.file)!
             target = {
-              file: selected.file, line: 1, id: selected.file + '#<resource>', name: '<resource>',
-              kind: selected.file === bindings ? 'binding' : /(?:^|\/)(?:test|tests)\/|\.(?:test|spec)\./.test(selected.file) ? 'test' : 'production',
+              file: selected.file,
+              line: 1,
+              id: selected.file + '#<resource>',
+              name: '<resource>',
+              kind:
+                selected.file === bindings
+                  ? 'binding'
+                  : /(?:^|\/)(?:test|tests)\/|\.(?:test|spec)\./.test(selected.file)
+                    ? 'test'
+                    : 'production',
               tokens: measured.tokens,
             }
             resources.set(selected.file, target)
