@@ -1,10 +1,15 @@
 import { execFileSync } from 'node:child_process'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { invoke } from './cli.ts'
 import { project, write } from './project.ts'
 
 /** A real supporting assertion emits a Vitest-compatible report; it is not a Vitest installation. */
-export function checkSupportingSuite(input: { case: 'passed' | 'failed' | 'skipped' | 'stale' }) {
+export function checkSupportingSuite(input: {
+  case: 'passed' | 'failed' | 'skipped' | 'stale' | 'input-overlap'
+}) {
   const fixture = project({
+    ...(input.case === 'input-overlap' ? { 'notes.txt': 'Authored project notes\n' } : {}),
     'app.ts': `export function double(value: number) { return value * ${input.case === 'failed' ? 3 : 2} }
 export function ready() { return { status: double(1) > 0 ? 'ready' : 'unavailable' } }
 `,
@@ -40,7 +45,7 @@ verify()
         {
           id: 'supporting-suite',
           adapter: 'vitest-json',
-          report: 'supporting.json',
+          report: input.case === 'input-overlap' ? 'notes.txt' : 'supporting.json',
           command:
             input.case === 'stale'
               ? [process.execPath, '-e', 'process.exit(0)']
@@ -53,7 +58,15 @@ verify()
       // The old file is valid output from a prior real assertion. The configured command does not replace it.
       execFileSync(process.execPath, ['suite.test.ts'], { cwd: fixture.root, stdio: 'ignore' })
     }
-    return invoke(['check', '--root', fixture.root, '--json'])
+    const report = invoke(['check', '--root', fixture.root, '--json'])
+    return input.case === 'input-overlap'
+      ? {
+          ...report,
+          maintainedText: existsSync(join(fixture.root, 'notes.txt'))
+            ? readFileSync(join(fixture.root, 'notes.txt'), 'utf8')
+            : null,
+        }
+      : report
   } finally {
     fixture.dispose()
   }
