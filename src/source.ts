@@ -1,5 +1,5 @@
 import ts from 'typescript'
-import { measureControlDepth } from './control-depth.ts'
+import { controlDepthSupported, measureControlDepth } from './control-depth.ts'
 import { readFileSync } from 'node:fs'
 import { resolve, relative, sep } from 'node:path'
 import type { Source, Component } from './model.ts'
@@ -339,6 +339,6 @@ export function collectSourceGraph(
       left.column - right.column ||
       (left.kind === right.kind ? 0 : left.kind === 'module' ? -1 : 1),
   )
-  source.controlDepth.complete = true
+  source.controlDepth.complete = controlDepthSupported(source.files)
   return source
 }

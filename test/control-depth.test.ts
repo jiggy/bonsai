@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import ts from 'typescript'
 import {
+  controlDepthSupported,
   measureControlDepth,
   validControlDepth,
   validateStructuralPolicy,
@@ -176,6 +177,39 @@ test('missing, partial, foreign, duplicate and malformed required measurements c
   const invalid = candidate()
   invalid.source.controlDepth!.regions[0]!.depth = Number.NaN
   assert.equal(validSnapshot(invalid), false)
+})
+
+test('a required TypeScript metric cannot claim empty Python/Rust or mixed executable scope', () => {
+  const required = { ...policy, structural: { metric: 'control-depth-v1' as const, maxDepth: 4 } }
+  // Hypothetical evaluator inputs do not claim an implemented Python or Rust collector.
+  for (const file of ['bindings.py', 'bindings.rs']) {
+    const snapshot = candidate()
+    snapshot.source.files = [{ file, tokens: 10 }]
+    snapshot.source.components[0]!.file = file
+    snapshot.source.components[0]!.id = `${file}#ready`
+    snapshot.source.actions.ready = `${file}#ready`
+    snapshot.source.controlDepth = { metric: 'control-depth-v1', complete: true, regions: [] }
+    assert.equal(validControlDepth(snapshot.source.controlDepth, snapshot.source.files), false)
+    assert.equal(evaluate(undefined, snapshot, required).status, 'incomplete', file)
+  }
+  for (const file of ['support.py', 'support.pyi', 'support.rs', 'support.js', 'support.tsx']) {
+    const snapshot = candidate()
+    snapshot.source.files.push({ file, tokens: 1 })
+    assert.equal(evaluate(undefined, snapshot, required).status, 'incomplete', file)
+    snapshot.source.controlDepth!.complete = false
+    assert.equal(validControlDepth(snapshot.source.controlDepth, snapshot.source.files), true)
+    assert.equal(evaluate(undefined, snapshot, policy).status, 'pass', 'Legacy policy stays opt-in')
+  }
+  assert.equal(controlDepthSupported([]), false)
+  assert.equal(controlDepthSupported([{ file: 'app.ts' }, { file: 'schema.json' }]), true)
+  assert.equal(
+    controlDepthSupported([{ file: 'app.ts' }, { file: 'app.custom', executable: true }]),
+    false,
+  )
+  assert.equal(
+    controlDepthSupported([{ file: 'app.ts', executable: 'yes' as never }]),
+    false,
+  )
 })
 
 test('structural policy has an explicit metric and nonnegative integral limit without changing legacy defaults', () => {

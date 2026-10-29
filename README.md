@@ -585,6 +585,14 @@ not runtime coverage or a proof that every statement is necessary. Splitting a
 helper can reduce local depth without reducing retained cost; all files remain
 fully charged. TypeScript syntax is measured before compiler desugaring.
 
+The current metric requires a nonempty maintained TypeScript scope. Recognized
+Python (including stubs), Rust, JavaScript, JSX, and TSX files leave diagnostics
+partial; enabling the requirement then reports incomplete until their language
+adapter supports the metric. Data files remain charged without blocking it.
+Executable metadata, when supplied by an adapter, also prevents an unsupported
+file from being claimed as measured. This is a bounded file-type and metadata
+check, not universal detection of embedded executable code.
+
 ## Agent loop
 
 ```sh

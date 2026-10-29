@@ -35,15 +35,32 @@ export function validateStructuralPolicy(value: unknown): void {
     )
 }
 
+/** The current metric needs a nonempty TypeScript scope without unsupported executable files. */
+export function controlDepthSupported(
+  files: readonly { file: string; executable?: boolean }[],
+): boolean {
+  const typescript = (file: string) => /\.[cm]?ts$/.test(file)
+  return (
+    files.every(({ executable }) => executable === undefined || typeof executable === 'boolean') &&
+    files.some(({ file }) => typescript(file)) &&
+    !files.some(
+      ({ file, executable }) =>
+        !typescript(file) &&
+        (executable === true || /\.(?:py[wi]?|rs|[cm]?jsx?|tsx)$/.test(file)),
+    )
+  )
+}
+
 /** Validate facts and one lexical module region per measured TypeScript file. */
 export function validControlDepth(
   value: unknown,
-  files: readonly { file: string }[],
+  files: readonly { file: string; executable?: boolean }[],
 ): value is ControlDepthFacts {
   if (
     !object(value) ||
     value.metric !== 'control-depth-v1' ||
     typeof value.complete !== 'boolean' ||
+    (value.complete && !controlDepthSupported(files)) ||
     Object.keys(value).some((key) => key !== 'metric' && key !== 'complete' && key !== 'regions') ||
     !Array.isArray(value.regions)
   )
