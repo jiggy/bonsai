@@ -585,11 +585,19 @@ The base is read from an archive without running its code. Its `bonsai.json` sup
 - Verification runs in fresh subprocesses with a shared deadline, so stale module caches and nonterminating handlers cannot silently pass. Feedback time includes candidate collection and execution, excluding optional base analysis and final report formatting.
 - Evidence is bound to the maintained content and effective configuration. Changes during verification, missing obligations, failed assertions, and mismatched evidence block acceptance.
 
-Evidence reports require the `bonsai-evidence-v1` schema marker and validated
+Evidence reports require the `bonsai-evidence-v2` schema marker and validated
 fact shapes. Candidate fingerprints also include presence and content of root
 Bun, npm, Yarn, and pnpm lockfiles, even when those files are excluded from
-retained cost. Older evidence must be regenerated. This does not attest installed
-dependency contents, checker/toolchain identity, or authentic execution.
+retained cost. Versioned snapshots and matching checker/toolchain/Bun content
+identities bind execution facts to their collector; older evidence must be
+regenerated. This does not authenticate hostile execution or attest every
+installed dependency.
+
+Optional `runners` in `bonsai.json` require fresh Vitest JSON, Cucumber Messages,
+or Stryker JSON reports in addition to product observations. Missing, failed,
+skipped, stale, or insufficient results block the configured gate. Coverage and
+mutation floors grant no allowance or ancestry. See [supporting verification](docs/verification.md)
+for exact supported formats, runtime requirements, limits, and configuration.
 
 ## Limits and next steps
 
@@ -651,4 +659,10 @@ General import side effects and class initialization need further adapters.
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 
-Coverage, mutation effectiveness, unit-runner evidence, structural quality floors, trusted checker distribution, merge-candidate enforcement, and branch protection are **not implemented yet**. The repository's CI checks the implementation, its executable product contracts, and its example; it is not the trusted admission system described in the design. See [the design](docs/design.md) and [the implementation roadmap](docs/roadmap.md).
+Configured supporting-runner evidence and explicit coverage/mutation floors are
+implemented for the formats documented above. Structural quality floors, execution-aware
+fixture ownership, trusted checker distribution, authoritative merge-candidate
+enforcement, and branch protection remain unfinished. The repository's CI checks
+the implementation, its executable product contracts, its example, and explicit
+release smoke tests; it is not the trusted admission system described in the
+design. See [the design](docs/design.md) and [the implementation roadmap](docs/roadmap.md).

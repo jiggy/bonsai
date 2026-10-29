@@ -28,17 +28,23 @@ and [performance evidence](performance.md).
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
 - Extend the fixed subprocess adapter only from real launch patterns; computed targets, general import side effects, class initialization, and resource dependencies still need precise tracing and diagnostics.
 - Extend human explanations from the static contract paths and verification subjects now available in JSON.
-- Version and validate serialized snapshots; extend the validated evidence-v1 envelope and lockfile-bound fingerprint to checker and toolchain identities. Execution profiles already require matching evidence. Identity still does not establish authentic execution.
+- Keep versioned snapshot and evidence-v2 validation aligned with collector output. Checker/toolchain/Bun content identities, root lockfiles, effective configuration, and execution profiles now bind the local facts; authentic execution remains a separate deployment requirement.
 - Calibrate inventory and size pressure on real repositories before treating the coefficients as defaults.
 
 Done when representative TypeScript projects can be analyzed without silently dropping maintained dependencies.
 
 ## 2. Real runner and effectiveness evidence
 
-- Reuse Cucumber execution messages and Vitest results where teams already run them.
-- Keep structural references, runtime coverage, mutation detection, and passed contract observations separate.
-- Attach Stryker mutation evidence and enforce explicit quality floors without granting extra size allowance.
-- Attribute lower-level tests and their exclusive fixtures while preserving all contractual obligations during test deletion.
+Concrete Vitest JSON, Cucumber Messages, and Stryker JSON adapters now run required
+commands and reject stale, incomplete, skipped, failed, or insufficient results.
+Explicit coverage/mutation floors use report counts without granting allowance;
+structural references, coverage, mutation detection, and product observations stay
+separate. Pinned real-framework smoke checks exercise the formats and runtimes
+documented in [supporting verification](verification.md).
+
+- Calibrate runner scope, quality floors, and feedback time against actual consuming projects.
+- Attribute lower-level tests and their exclusive fixtures from execution evidence while preserving all contractual obligations during test deletion.
+- Extend formats only from concrete consumer demand; do not infer universal runner compatibility or authenticated provenance from accepted JSON.
 
 Done when missing, interrupted, skipped, stale, or ineffective verification blocks the configured gate reliably.
 

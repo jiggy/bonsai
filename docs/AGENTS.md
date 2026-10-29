@@ -6,6 +6,8 @@ Explain Bonsai’s supported behavior and limits.
 
 Design baseline, BDD workflow (`bdd.md`), roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), performance profiling and native checker research (`performance.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
 
+`verification.md` owns concrete supporting-runner configuration, exercised format/runtime versions, quality-floor semantics, snapshot/evidence identities, and their authentication limits.
+
 ## Local Contracts
 
 Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and development oracle comparisons from native full-root admission checks under the saved deadline.

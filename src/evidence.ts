@@ -3,6 +3,7 @@ import { availableParallelism } from 'node:os'
 import { inspect, types } from 'node:util'
 import { projectBindingTarget } from './binding-target.ts'
 import { validateVerification, validEvidence } from './policy.ts'
+import { executionIdentity, sameExecutionIdentity, type ExecutionIdentity } from './identity.ts'
 import type { Config, Contracts, Evidence, Verification } from './model.ts'
 
 /** Use runtime CPU capacity, bounded by the number of scenarios that can execute. */
@@ -95,10 +96,12 @@ export async function collectEvidence(
   config: Config,
   contracts: Contracts,
   fingerprint: string,
+  identity = executionIdentity(),
 ): Promise<Evidence> {
   const started = performance.now()
   const evidence: Evidence = {
-    schema: 'bonsai-evidence-v1',
+    schema: 'bonsai-evidence-v2',
+    identity,
     fingerprint,
     profile: 'in-process-v1',
     complete: false,
@@ -164,10 +167,15 @@ export async function runEvidence(
   timeoutMs: number,
   signal?: AbortSignal,
   verification = verificationPlan(contracts),
+  identity?: ExecutionIdentity,
 ): Promise<Evidence> {
+  const began = performance.now()
   validateVerification(verification)
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
+  identity ??= executionIdentity()
+  timeoutMs -= performance.now() - began
+  if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (verification.profile === 'isolated-scenarios-v1')
     return isolatedEvidence(
       root,
@@ -177,8 +185,9 @@ export async function runEvidence(
       verification.workers,
       timeoutMs,
       signal,
+      identity,
     )
-  const began = performance.now()
+  const serialBegan = performance.now()
   const { openNativeSession } = await import('./native-session.ts')
   const session = await openNativeSession()
   try {
@@ -187,9 +196,11 @@ export async function runEvidence(
       config,
       contracts,
       fingerprint,
-      timeoutMs - (performance.now() - began),
+      timeoutMs - (performance.now() - serialBegan),
       signal,
       session.value,
+      false,
+      identity,
     )
   } finally {
     await session.close()
@@ -205,6 +216,7 @@ async function isolatedEvidence(
   workers: number,
   timeoutMs: number,
   signal?: AbortSignal,
+  identity?: ExecutionIdentity,
 ): Promise<Evidence> {
   const began = performance.now()
   const cancellation = new AbortController()
@@ -268,8 +280,9 @@ async function isolatedEvidence(
             cancellation.signal,
             session.value,
             true,
+            identity,
           )
-          validateScenarioEvidence(evidence, shard, config, fingerprint)
+          validateScenarioEvidence(evidence, shard, config, fingerprint, identity)
           results[index] = evidence
         }
       } catch (error) {
@@ -294,7 +307,8 @@ async function isolatedEvidence(
       throw new Error('Isolated verification did not report every required check exactly once')
     remaining()
     return {
-      schema: 'bonsai-evidence-v1',
+      schema: 'bonsai-evidence-v2',
+      identity: identity!,
       fingerprint,
       profile: 'isolated-scenarios-v1',
       complete: true,
@@ -313,12 +327,14 @@ function validateScenarioEvidence(
   contracts: Contracts,
   config: Config,
   fingerprint: string,
+  identity?: ExecutionIdentity,
 ): void {
   if (
     !validEvidence(evidence) ||
     evidence.complete !== true ||
     evidence.profile !== 'in-process-v1' ||
     evidence.fingerprint !== fingerprint ||
+    !sameExecutionIdentity(evidence.identity, identity) ||
     evidence.bindingImport?.adapter !== 'project-bindings-v1' ||
     evidence.bindingImport.file !== config.bindings ||
     evidence.bindingImport.fingerprint !== fingerprint ||
@@ -356,6 +372,7 @@ async function forkEvidence(
   signal: AbortSignal | undefined,
   session?: string,
   isolated = false,
+  identity?: ExecutionIdentity,
 ): Promise<Evidence> {
   const { fork } = await import('node:child_process')
   return new Promise((resolveResult, reject) => {
@@ -419,7 +436,11 @@ async function forkEvidence(
     )
     child.once('message', (message) => {
       const result = message as { evidence?: Evidence; error?: string }
-      if (validEvidence(result?.evidence)) finish(undefined, result.evidence)
+      if (
+        validEvidence(result?.evidence) &&
+        sameExecutionIdentity(result.evidence.identity, identity)
+      )
+        finish(undefined, result.evidence)
       else
         finish(
           new Error(
@@ -429,7 +450,7 @@ async function forkEvidence(
           ),
         )
     })
-    child.send({ root, config, contracts, fingerprint })
+    child.send({ root, config, contracts, fingerprint, identity })
     if (signal?.aborted) abort()
   })
 }

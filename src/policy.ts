@@ -1,4 +1,6 @@
 import type { Policy, Snapshot, Decision, Verification, Evidence } from './model.ts'
+import { sameExecutionIdentity, validExecutionIdentity } from './identity.ts'
+import { validateRunnerRequirements, validRunnerEvidence, runnerViolations } from './runners.ts'
 
 export function validateVerification(verification: Verification | undefined): void {
   if (verification === undefined) return
@@ -21,7 +23,8 @@ export function validEvidence(value: unknown): value is Evidence {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false
   const evidence = value as Evidence
   if (
-    evidence.schema !== 'bonsai-evidence-v1' ||
+    evidence.schema !== 'bonsai-evidence-v2' ||
+    !validExecutionIdentity(evidence.identity) ||
     typeof evidence.fingerprint !== 'string' ||
     !evidence.fingerprint.length ||
     (evidence.profile !== 'in-process-v1' && evidence.profile !== 'isolated-scenarios-v1') ||
@@ -112,7 +115,9 @@ export function evaluate(
   }
   const evidence = candidate.evidence
   if (
+    candidate.schema !== 'bonsai-snapshot-v1' ||
     !validEvidence(evidence) ||
+    !sameExecutionIdentity(candidate.identity, evidence.identity) ||
     !evidence.complete ||
     evidence.fingerprint !== candidate.fingerprint ||
     evidence.profile !== (candidate.verification?.profile ?? 'isolated-scenarios-v1')
@@ -146,6 +151,45 @@ export function evaluate(
       violations.push(
         `Feedback time ${Math.ceil(evidence.elapsedMs)}ms exceeds ${policy.maxFeedbackMs}ms`,
       )
+  }
+  try {
+    validateRunnerRequirements(candidate.runners)
+    const required = candidate.runners ?? []
+    const reported = candidate.runnerEvidence ?? []
+    if (!Array.isArray(reported)) throw new Error('Invalid supporting runner evidence')
+    const seen = new Set<string>()
+    for (const item of reported) {
+      if (
+        !validRunnerEvidence(item) ||
+        seen.has(item.id) ||
+        !required.some((r) => r.id === item.id)
+      ) {
+        missing('Supporting runner evidence is invalid, duplicated, or unexpected')
+        continue
+      }
+      seen.add(item.id)
+    }
+    for (const requirement of required) {
+      const item = reported.find(
+        (result) => validRunnerEvidence(result) && result.id === requirement.id,
+      )
+      if (
+        !item ||
+        item.fingerprint !== candidate.fingerprint ||
+        !sameExecutionIdentity(candidate.identity, item.identity)
+      ) {
+        missing(`Supporting verification is missing or stale: ${requirement.id}`)
+        continue
+      }
+      const verdict = runnerViolations(requirement, item)
+      for (const problem of verdict.problems) {
+        const message = `Supporting verification ${requirement.id}: ${problem}`
+        if (verdict.status === 'incomplete') missing(message)
+        else violations.push(message)
+      }
+    }
+  } catch (error) {
+    missing(`Supporting verification metadata is invalid: ${String(error)}`)
   }
   for (const id of candidate.unrooted) violations.push(`No contract ancestry: ${id}`)
   if (size > budget) violations.push(`Retained size exceeds ceiling by ${size - budget} tokens`)

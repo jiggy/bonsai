@@ -92,6 +92,18 @@ record the selected runtime profile and worker count, and the evaluator requires
 evidence with that profile. The maintained content and effective project policy
 remain fingerprinted independently of the invocation's execution mode.
 
+Versioned snapshots and product evidence also carry installed checker/toolchain
+content and Bun/preload identities. Workers compare their own identity before
+loading bindings; the final integrity phase detects later content changes.
+Structural-only facts can omit identity, but they cannot satisfy acceptance.
+
+An effective configuration can additionally require concrete supporting runners.
+Their commands share the same feedback deadline and must replace prior reports.
+Vitest assertions, Cucumber execution messages, coverage counts, and Stryker
+mutation results remain separate evidence facts. Missing or insufficient configured
+results block the one evaluator; they never create ancestry or allowance. See
+[supporting verification](verification.md) for actual format/runtime boundaries.
+
 ## Timing boundaries
 
 The command profile measures elapsed wall time from the runtime clock origin through

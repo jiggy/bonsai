@@ -5,6 +5,7 @@ import type { Config, Snapshot, Verification } from '../src/model.ts'
 import { evaluate, validateVerification, validEvidence } from '../src/policy.ts'
 import { readConfig } from '../src/project.ts'
 import { buildSnapshot } from '../src/retention.ts'
+import { assumedIdentity } from './identity-fixture.ts'
 
 const config: Config = {
   maintained: ['bindings.ts'],
@@ -41,8 +42,10 @@ function candidate(): Snapshot {
     actions: { handle: 'handler.ts#handle' },
     problems: [],
   })
+  result.identity = assumedIdentity
   result.evidence = {
-    schema: 'bonsai-evidence-v1',
+    schema: 'bonsai-evidence-v2',
+    identity: assumedIdentity,
     fingerprint: result.fingerprint,
     profile: 'isolated-scenarios-v1',
     complete: true,
@@ -113,6 +116,9 @@ test('serialized evidence requires its supported schema and well-typed facts', (
       e.schema = 'bonsai-evidence-v999'
     },
     (e: any) => {
+      e.schema = 'bonsai-evidence-v1'
+    },
+    (e: any) => {
       e.complete = 'true'
     },
     (e: any) => {
@@ -137,6 +143,28 @@ test('serialized evidence requires its supported schema and well-typed facts', (
     const result = candidate()
     change(result.evidence)
     assert.equal(evaluate(undefined, result, config.policy).status, 'incomplete')
+  }
+})
+
+test('checker, runtime and compiler identities must be present and match the candidate', () => {
+  for (const change of [
+    (snapshot: Snapshot) => {
+      delete snapshot.identity
+    },
+    (snapshot: Snapshot) => {
+      delete (snapshot.evidence as any).identity
+    },
+    (snapshot: Snapshot) => {
+      snapshot.schema = 'unknown' as never
+    },
+    ...(['checker', 'runtime', 'compiler'] as const).map((part) => (snapshot: Snapshot) => {
+      snapshot.evidence!.identity[part].version = 'another-toolchain'
+    }),
+  ]) {
+    const snapshot = structuredClone(candidate())
+    snapshot.evidence!.identity = structuredClone(snapshot.evidence!.identity)
+    change(snapshot)
+    assert.equal(evaluate(undefined, snapshot, config.policy).status, 'incomplete')
   }
 })
 

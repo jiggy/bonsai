@@ -18,6 +18,8 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs. `verification-policy.test.ts` checks schema and malformed serialized evidence rejection; `fingerprint.test.ts` checks excluded root lockfile presence, content, and removal as evidence inputs.
 
+`identity.test.ts` and `snapshot-schema.test.ts` cover content identity, relocation, runtime options, and nested serialized facts. `identity-fixture.ts` supplies explicitly assumed identities only to pure evaluator fixtures. `runner-adapters.test.ts` checks concrete report correlation, counts/floors, stale files, containment, and actual command cancellation. `runner-real.test.ts` is the opt-in pinned-framework consumer smoke; ordinary tests skip its network installation.
+
 `cli-base-paths.test.ts` exercises real Git roots and aliases through config, check, and explain, including worktrees and actual-subdirectory rejection. Preserve the caller's root spelling and invocation-relative policy paths. The macOS native platform job runs this file with installation regressions so canonical-path bugs stay covered beyond Linux.
 
 `observation-diagnostics.test.ts` preserves actual returned failure context without changing application error semantics. Cover a real nested CLI failure, grouped human details, bounded safe previews and visible truncation, expected error-valued responses, and thrown actions. Isolated evidence regressions validate the optional diagnostic field and continue accepting legacy records without it.
