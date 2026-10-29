@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { availableParallelism } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -46,7 +46,6 @@ import { fileURLToPath } from 'node:url'
 const wait = new Int32Array(new SharedArrayBuffer(4))
 export function run(input: { id: number }) {
   const file = (name: string) => fileURLToPath(new URL(name, import.meta.url))
-  writeFileSync(file('started-' + input.id), String(process.pid))
   appendFileSync(file('events'), JSON.stringify({kind:'start', id:input.id, pid:process.pid}) + '\\n')
   while (!existsSync(file('release-' + input.id))) {
     ${kind === 'crash' ? "if (existsSync(file('crash-' + input.id))) process.exit(17)" : ''}
@@ -89,15 +88,16 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
   void closed.catch(() => {})
   const forced = setTimeout(() => child.kill('SIGTERM'), 10000)
   const killed = setTimeout(() => child.kill('SIGKILL'), 10500)
-  const names = () => readdirSync(fixture.root)
-  const started = () => names().filter((name) => name.startsWith('started-'))
-  const recordedEvents = (): Event[] =>
-    existsSync(join(fixture.root, 'events'))
-      ? readFileSync(join(fixture.root, 'events'), 'utf8')
-          .split('\n')
-          .slice(0, -1)
-          .map((line) => JSON.parse(line))
-      : []
+  const recordedEvents = (complete = false): Event[] => {
+    if (!existsSync(join(fixture.root, 'events'))) return []
+    const text = readFileSync(join(fixture.root, 'events'), 'utf8')
+    if (complete && text.length > 0 && !text.endsWith('\n'))
+      throw new Error('Verification fixture has an incomplete application event')
+    return text
+      .split('\n')
+      .slice(0, -1)
+      .map((line) => JSON.parse(line))
+  }
   let startCountAtInterruption: number | undefined
   try {
     if (kind === 'required-calls') {
@@ -129,8 +129,8 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
     }
     const status = await closed
     const report = JSON.parse(stdout || stderr)
-    const events = recordedEvents()
-    const pids = started().map((name) => Number(readFileSync(join(fixture.root, name), 'utf8')))
+    const events = recordedEvents(true)
+    const pids = events.filter((event) => event.kind === 'start').map((event) => event.pid)
     await until(() => pids.every((pid) => !alive(pid)))
     return {
       exitCode: status,
@@ -160,8 +160,7 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
       await Promise.race([closed.catch(() => {}), delay(500)])
       child.kill('SIGKILL')
     }
-    for (const name of started()) {
-      const pid = Number(readFileSync(join(fixture.root, name), 'utf8'))
+    for (const { pid } of recordedEvents().filter((event) => event.kind === 'start')) {
       if (alive(pid)) {
         try {
           process.kill(-pid, 'SIGKILL')
