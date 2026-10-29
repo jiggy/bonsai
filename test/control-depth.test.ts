@@ -2,7 +2,9 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import ts from 'typescript'
 import {
-  measureControlDepth, validControlDepth, validateStructuralPolicy,
+  measureControlDepth,
+  validControlDepth,
+  validateStructuralPolicy,
   type ControlDepthFacts,
 } from '../src/control-depth.ts'
 import { evaluate, validatePolicy } from '../src/policy.ts'
@@ -14,18 +16,29 @@ import type { Snapshot } from '../src/model.ts'
 import { assumedIdentity } from './identity-fixture.ts'
 
 const policy = {
-  bootstrap: 1000, bootstrapSurface: 1, perDoubling: 0, hardLimit: 1000, maxFeedbackMs: 15000,
+  bootstrap: 1000,
+  bootstrapSurface: 1,
+  perDoubling: 0,
+  hardLimit: 1000,
+  maxFeedbackMs: 15000,
 }
 function facts(text: string): ControlDepthFacts {
   return {
-    metric: 'control-depth-v1', complete: true,
+    metric: 'control-depth-v1',
+    complete: true,
     regions: measureControlDepth(
-      ts, ts.createSourceFile('app.ts', text, ts.ScriptTarget.Latest, true), 'app.ts',
+      ts,
+      ts.createSourceFile('app.ts', text, ts.ScriptTarget.Latest, true),
+      'app.ts',
     ),
   }
 }
 const nested = (depth: number) =>
-  'export function ready() {' + 'if (true) {'.repeat(depth) + 'return true;' + '}'.repeat(depth) + '}'
+  'export function ready() {' +
+  'if (true) {'.repeat(depth) +
+  'return true;' +
+  '}'.repeat(depth) +
+  '}'
 
 test('control depth counts decisions, not indentation, wrappers, or else-if chain length', () => {
   for (const [body, expected] of [
@@ -49,7 +62,9 @@ test('control depth counts decisions, not indentation, wrappers, or else-if chai
     assert.ok(validControlDepth(result, [{ file: 'app.ts' }]))
   }
   const compact = facts('function ready(){if(a){if(b){return 1}}}')
-  const formatted = facts('function ready() {\n\tif (a) {\n        if (b) {\n            return 1\n        }\n    }\n}')
+  const formatted = facts(
+    'function ready() {\n\tif (a) {\n        if (b) {\n            return 1\n        }\n    }\n}',
+  )
   assert.equal(compact.regions[1]!.depth, formatted.regions[1]!.depth)
 })
 
@@ -68,23 +83,44 @@ class Example {
   assert.equal(closure.depth, 2)
   assert.ok(closure.deepestLine >= closure.line)
   assert.ok(closure.deepestColumn > 0)
-  assert.equal(facts('function outer() { if (a) { return () => { if (b) {} } } }').regions[1]!.depth, 1)
+  assert.equal(
+    facts('function outer() { if (a) { return () => { if (b) {} } } }').regions[1]!.depth,
+    1,
+  )
 })
 
 function candidate(depth = 4): Snapshot {
-  const contracts = compileContracts([{
-    file: 'ready.feature',
-    text: 'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
-  }])
+  const contracts = compileContracts([
+    {
+      file: 'ready.feature',
+      text: 'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
+    },
+  ])
   const result = buildSnapshot('candidate', contracts, {
     files: [{ file: 'app.ts', tokens: 10 }],
-    components: [{ file: 'app.ts', line: 1, id: 'app.ts#ready', name: 'ready', kind: 'production', tokens: 10 }],
-    relationships: [], actions: { ready: 'app.ts#ready' }, problems: [], controlDepth: facts(nested(depth)),
+    components: [
+      {
+        file: 'app.ts',
+        line: 1,
+        id: 'app.ts#ready',
+        name: 'ready',
+        kind: 'production',
+        tokens: 10,
+      },
+    ],
+    relationships: [],
+    actions: { ready: 'app.ts#ready' },
+    problems: [],
+    controlDepth: facts(nested(depth)),
   })
   result.identity = assumedIdentity
   result.evidence = {
-    schema: 'bonsai-evidence-v2', identity: assumedIdentity, fingerprint: 'candidate',
-    profile: 'isolated-scenarios-v1', complete: true, elapsedMs: 1,
+    schema: 'bonsai-evidence-v2',
+    identity: assumedIdentity,
+    fingerprint: 'candidate',
+    profile: 'isolated-scenarios-v1',
+    complete: true,
+    elapsedMs: 1,
     checks: contracts.checks.map(({ id }) => ({ id, status: 'passed' })),
   }
   return result
@@ -107,14 +143,30 @@ test('the opt-in structural boundary rejects five, accepts four, and never chang
 test('missing, partial, foreign, duplicate and malformed required measurements cannot become depth zero', () => {
   const required = { ...policy, structural: { metric: 'control-depth-v1' as const, maxDepth: 4 } }
   for (const mutate of [
-    (s: Snapshot) => { delete s.source.controlDepth },
-    (s: Snapshot) => { s.source.controlDepth!.complete = false },
-    (s: Snapshot) => { s.source.controlDepth!.regions.shift() },
-    (s: Snapshot) => { s.source.controlDepth!.regions.push(s.source.controlDepth!.regions[0]!) },
-    (s: Snapshot) => { s.source.controlDepth!.regions[0]!.file = 'foreign.ts' },
-    (s: Snapshot) => { s.source.controlDepth!.regions[1]!.depth = -1 },
-    (s: Snapshot) => { s.source.controlDepth!.regions[1]!.depth = 1.5 },
-    (s: Snapshot) => { (s.source.controlDepth as unknown as { metric: string }).metric = 'unknown' },
+    (s: Snapshot) => {
+      delete s.source.controlDepth
+    },
+    (s: Snapshot) => {
+      s.source.controlDepth!.complete = false
+    },
+    (s: Snapshot) => {
+      s.source.controlDepth!.regions.shift()
+    },
+    (s: Snapshot) => {
+      s.source.controlDepth!.regions.push(s.source.controlDepth!.regions[0]!)
+    },
+    (s: Snapshot) => {
+      s.source.controlDepth!.regions[0]!.file = 'foreign.ts'
+    },
+    (s: Snapshot) => {
+      s.source.controlDepth!.regions[1]!.depth = -1
+    },
+    (s: Snapshot) => {
+      s.source.controlDepth!.regions[1]!.depth = 1.5
+    },
+    (s: Snapshot) => {
+      ;(s.source.controlDepth as unknown as { metric: string }).metric = 'unknown'
+    },
   ]) {
     const snapshot = candidate()
     mutate(snapshot)
@@ -130,27 +182,54 @@ test('structural policy has an explicit metric and nonnegative integral limit wi
   validatePolicy(policy)
   validateStructuralPolicy(undefined)
   validateStructuralPolicy({ metric: 'control-depth-v1', maxDepth: 0 })
-  for (const value of [null, {}, { maxDepth: 4 }, { metric: 'unknown', maxDepth: 4 },
-    { metric: 'control-depth-v1', maxDepth: -1 }, { metric: 'control-depth-v1', maxDepth: 1.5 },
-    { metric: 'control-depth-v1', maxDepth: 4, ignore: true }])
+  for (const value of [
+    null,
+    {},
+    { maxDepth: 4 },
+    { metric: 'unknown', maxDepth: 4 },
+    { metric: 'control-depth-v1', maxDepth: -1 },
+    { metric: 'control-depth-v1', maxDepth: 1.5 },
+    { metric: 'control-depth-v1', maxDepth: 4, ignore: true },
+  ])
     assert.throws(() => validateStructuralPolicy(value))
 })
 
 test('structural blockers provide cause-specific repairs using the existing critical alert role', () => {
   const required = { ...policy, structural: { metric: 'control-depth-v1' as const, maxDepth: 4 } }
   const snapshot = candidate(5)
-  const render = () => checkReport(snapshot, evaluate(undefined, snapshot, required), {
-    bindings: 'bindings.ts', verbose: false, limit: 20, invocation: (words) => words.join(' '),
-  }).problems
+  const render = () =>
+    checkReport(snapshot, evaluate(undefined, snapshot, required), {
+      bindings: 'bindings.ts',
+      verbose: false,
+      limit: 20,
+      invocation: (words) => words.join(' '),
+    }).problems
   const rejected = render()
-  assert.ok(rejected.some((line) =>
-    typeof line !== 'string' && line.role === 'error' && line.text.includes('Control-flow depth 5 exceeds 4'),
-  ))
-  assert.ok(rejected.some((line) =>
-    typeof line !== 'string' && line.text.includes('Reduce control-flow nesting at the reported location while preserving required behavior'),
-  ))
+  assert.ok(
+    rejected.some(
+      (line) =>
+        typeof line !== 'string' &&
+        line.role === 'error' &&
+        line.text.includes('Control-flow depth 5 exceeds 4'),
+    ),
+  )
+  assert.ok(
+    rejected.some(
+      (line) =>
+        typeof line !== 'string' &&
+        line.text.includes(
+          'Reduce control-flow nesting at the reported location while preserving required behavior',
+        ),
+    ),
+  )
   delete snapshot.source.controlDepth
-  assert.ok(render().some((line) =>
-    typeof line !== 'string' && line.text.includes('Run complete source analysis with a checker supporting the configured control-depth-v1 requirement'),
-  ))
+  assert.ok(
+    render().some(
+      (line) =>
+        typeof line !== 'string' &&
+        line.text.includes(
+          'Run complete source analysis with a checker supporting the configured control-depth-v1 requirement',
+        ),
+    ),
+  )
 })
