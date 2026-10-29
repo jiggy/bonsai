@@ -57,3 +57,11 @@ Feature: Verify every required behavior without leaving application work running
       | failed  | 1    | reject     |
       | skipped | 2    | incomplete |
       | stale   | 2    | incomplete |
+
+  Scenario: A report path cannot overwrite an authored project input
+    The maintainer accidentally names the authored project notes as a supporting
+    report destination. Bonsai must reject the configuration and preserve the
+    authored notes.
+    When I invoke "check" with {"fixture": "supporting-suite", "case": "input-overlap"}
+    Then response "exitCode" equals 2
+    And response "maintainedText" equals "Authored project notes\n"
