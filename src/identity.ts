@@ -106,16 +106,11 @@ export function checkerIdentity(root = installed): ExecutionIdentity['checker'] 
   return { name: manifest.name, version: manifest.version, digest: hash.digest('hex') }
 }
 
-/** Capture content identity, not execution authenticity or dependency attestation. */
-export function executionIdentity(binary = nativeBinary()): ExecutionIdentity {
+function addToolchainCode(hash: Hash): string {
   const sdkManifest = require.resolve('tsrs/package.json')
   const sdk = dirname(sdkManifest)
   const version: unknown = JSON.parse(readFileSync(sdkManifest, 'utf8')).version
-  const bun = process.versions.bun
-  if (!text(version) || !text(bun))
-    throw new Error('Bun and tsrs versions are required for evidence')
-  const hash = createHash('sha256').update('bonsai-toolchain-v1\0')
-  addFile(hash, 'native-binary', binary)
+  if (!text(version)) throw new Error('The tsrs version is required for evidence')
   addFile(hash, 'tsrs/package.json', sdkManifest)
   for (const directory of ['dist', 'lib', 'vendor'])
     for (const file of codeFiles(join(sdk, directory)))
@@ -123,16 +118,60 @@ export function executionIdentity(binary = nativeBinary()): ExecutionIdentity {
   const typescript = dirname(require.resolve('typescript/package.json'))
   addFile(hash, 'typescript/package.json', join(typescript, 'package.json'))
   addFile(hash, 'typescript/lib/typescript.js', join(typescript, 'lib/typescript.js'))
+  return version
+}
+
+/** Only cached modules need a session key; every request starts a fresh native binary. */
+export function sessionContentKey(environment: NodeJS.ProcessEnv = process.env): string {
+  const hash = createHash('sha256').update('bonsai-session-content-v1\0')
+  hash.update(JSON.stringify(checkerIdentity()))
+  addToolchainCode(hash)
+  hash.update(
+    JSON.stringify([
+      process.versions.bun,
+      environment.BUN_OPTIONS ?? null,
+      environment.NODE_OPTIONS ?? null,
+    ]),
+  )
+  return hash.digest('hex')
+}
+
+function runtimeIdentity(): ExecutionIdentity['runtime'] {
+  const version = process.versions.bun
+  if (!text(version)) throw new Error('The Bun version is required for evidence')
+  return {
+    name: 'bun',
+    version,
+    options: createHash('sha256')
+      .update(JSON.stringify([process.env.BUN_OPTIONS ?? null, process.env.NODE_OPTIONS ?? null]))
+      .digest('hex'),
+  }
+}
+
+/** Application workers execute assertions, carrying the parent's already-validated analysis context. */
+export function applicationIdentity(expected: ExecutionIdentity): ExecutionIdentity {
+  if (!validExecutionIdentity(expected))
+    throw new Error('Verification checker or toolchain identity changed')
+  const identity: ExecutionIdentity = {
+    schema: 'bonsai-execution-v1',
+    checker: Object.freeze(checkerIdentity()),
+    runtime: Object.freeze(runtimeIdentity()),
+    compiler: Object.freeze({ ...expected.compiler }),
+  }
+  if (!sameExecutionIdentity(identity, expected))
+    throw new Error('Verification checker or toolchain identity changed')
+  return Object.freeze(identity)
+}
+
+/** Capture content identity, not execution authenticity or dependency attestation. */
+export function executionIdentity(binary = nativeBinary()): ExecutionIdentity {
+  const hash = createHash('sha256').update('bonsai-toolchain-v1\0')
+  addFile(hash, 'native-binary', binary)
+  const version = addToolchainCode(hash)
   return {
     schema: 'bonsai-execution-v1',
     checker: checkerIdentity(),
-    runtime: {
-      name: 'bun',
-      version: bun,
-      options: createHash('sha256')
-        .update(JSON.stringify([process.env.BUN_OPTIONS ?? null, process.env.NODE_OPTIONS ?? null]))
-        .digest('hex'),
-    },
+    runtime: runtimeIdentity(),
     compiler: { name: 'tsrs', version, digest: hash.digest('hex') },
   }
 }

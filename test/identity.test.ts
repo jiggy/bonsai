@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import {
   checkerIdentity,
+  applicationIdentity,
   executionIdentity,
   sameExecutionIdentity,
   validExecutionIdentity,
@@ -124,6 +125,44 @@ test('identity comparison requires all supported fields and rejects malformed in
       assert.equal(validExecutionIdentity(value), false)
       assert.equal(sameExecutionIdentity(identity, value), false)
     }
+  } finally {
+    candidate.dispose()
+  }
+})
+
+test('application workers recheck checker and runtime while retaining frozen parent analysis context', () => {
+  const candidate = fixture()
+  const binary = join(candidate.root, 'native')
+  try {
+    writeFileSync(binary, 'analysis compiler')
+    const expected = executionIdentity(binary)
+    writeFileSync(binary, 'changed compiler')
+    assert.notEqual(
+      executionIdentity(binary).compiler.digest,
+      expected.compiler.digest,
+      'The parent full check detects changed compiler content',
+    )
+    unlinkSync(binary)
+    const worker = applicationIdentity(expected)
+    assert.equal(sameExecutionIdentity(worker, expected), true)
+    assert.notEqual(
+      worker.compiler,
+      expected.compiler,
+      'A worker does not share the parent input object',
+    )
+    assert.equal(Object.isFrozen(worker), true)
+    for (const part of [worker.checker, worker.runtime, worker.compiler])
+      assert.equal(Object.isFrozen(part), true)
+    const saved = worker.compiler.digest
+    expected.compiler.digest = 'f'.repeat(64)
+    assert.equal(worker.compiler.digest, saved)
+    for (const changed of [
+      { ...expected, checker: { ...expected.checker, digest: '0'.repeat(64) } },
+      { ...expected, runtime: { ...expected.runtime, version: 'another-runtime' } },
+      { ...expected, runtime: { ...expected.runtime, options: '0'.repeat(64) } },
+      { ...expected, compiler: { ...expected.compiler, digest: 'malformed' } },
+    ])
+      assert.throws(() => applicationIdentity(changed), /identity changed/)
   } finally {
     candidate.dispose()
   }

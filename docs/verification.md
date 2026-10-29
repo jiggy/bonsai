@@ -103,6 +103,17 @@ identity, so unchanged installed copies can move. Candidate-local packages canno
 replace the checker's resolved toolchain. Root lockfile presence/content and the
 effective project configuration remain bound through the candidate fingerprint.
 The final integrity check also detects changes to the checker or toolchain.
+Native analysis captures the context before work and checks it afterward.
+Application workers independently compare checker bytes and Bun/preload context,
+and carry the parent's validated compiler receipt: they do not run that compiler.
+Warm native scopes bind loaded checker/SDK/lexical code content, so changed code
+at unchanged paths needs a fresh worker. This shares initialization, never source
+facts or application evidence.
+
+Bonsai refuses report destinations that overlap maintained inputs before report
+cleanup or execution, including existing filesystem aliases. Supporting commands
+still run with the caller's privileges and can themselves modify files; this is
+not a write sandbox.
 
 These are content identities and locally collected execution facts. They do not
 authenticate hostile worker messages, attest every installed dependency or

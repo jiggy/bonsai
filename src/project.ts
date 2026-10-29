@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
 import { inventory, fingerprint } from './inventory.ts'
@@ -7,8 +7,9 @@ import { runEvidence, verificationPlan } from './evidence.ts'
 import { validatePolicy } from './policy.ts'
 import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
-import { collectRustSource } from './collector.ts'
-import { executionIdentity, sameExecutionIdentity } from './identity.ts'
+import { collectRustSource, CollectorError } from './collector.ts'
+import { NativeInstallError } from './native-install.ts'
+import { executionIdentity, sameExecutionIdentity, type ExecutionIdentity } from './identity.ts'
 import { runSupportingVerification, validateRunnerRequirements } from './runners.ts'
 import { parseSnapshot } from './snapshot-schema.ts'
 
@@ -88,6 +89,20 @@ export async function snapshot(
     const files = inventory(root, config.maintained, config.exclude)
     if (!files.includes(config.bindings))
       throw new Error('The binding file must be in maintained inventory')
+    const maintained = config.runners?.length
+      ? new Set(files.map((file) => realpathSync(resolve(root, file))))
+      : undefined
+    for (const runner of config.runners ?? []) {
+      for (const output of [runner.report, runner.coverage?.report]) {
+        if (
+          output !== undefined &&
+          (files.includes(output) ||
+            (existsSync(resolve(root, output)) &&
+              maintained!.has(realpathSync(resolve(root, output)))))
+        )
+          throw new Error(`Runner report overlaps maintained input: ${output}`)
+      }
+    }
     timer.start('fingerprint')
     const hash = fingerprint(root, files, config)
     timer.start('contracts')
@@ -97,6 +112,14 @@ export async function snapshot(
         .filter((file) => file.endsWith('.feature'))
         .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
     )
+    timer.start('identity')
+    let identity: ExecutionIdentity
+    try {
+      identity = executionIdentity()
+    } catch (error) {
+      if (error instanceof NativeInstallError) throw new CollectorError(error.message, error.run)
+      throw error
+    }
     const sourceTimer = new Timer()
     timer.start('source', sourceTimer)
     const collected = await collectRustSource(
@@ -109,9 +132,12 @@ export async function snapshot(
     )
     const source = collected.source
     if (collected.interrupted) timer.finish('interrupted')
+    timer.start('analysis-integrity')
+    if (!sameExecutionIdentity(identity, executionIdentity()))
+      source.problems.push('Checker or toolchain changed during source analysis')
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
-    result.identity = executionIdentity()
+    result.identity = identity
     if (config.runners?.length) result.runners = config.runners
     if (execute) result.verification = verificationPlan(contracts, options.serial)
     result.analysis = collected.analysis

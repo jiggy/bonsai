@@ -173,7 +173,10 @@ export async function runEvidence(
   validateVerification(verification)
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
-  identity ??= executionIdentity()
+  const currentIdentity = executionIdentity()
+  if (identity !== undefined && !sameExecutionIdentity(identity, currentIdentity))
+    throw new Error('Verification checker or toolchain identity changed')
+  identity = currentIdentity
   timeoutMs -= performance.now() - began
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (verification.profile === 'isolated-scenarios-v1')

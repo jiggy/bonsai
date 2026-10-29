@@ -109,6 +109,26 @@ jobs:
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
         run: bun run test
+      - name: Summarize actual root verdict and timings
+        if: always()
+        env:
+          BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
+        run: |
+          bun -e '
+            const path = process.env.BONSAI_SELF_CHECK_REPORT;
+            if (path && await Bun.file(path).exists()) {
+              const report = await Bun.file(path).json();
+              const snapshot = report.snapshot;
+              console.log(JSON.stringify({
+                decision: report.decision ?? null,
+                observations: snapshot?.contracts?.checks?.length ?? null,
+                passed: snapshot?.evidence?.checks?.filter(c => c.status === "passed").length ?? null,
+                complete: snapshot?.evidence?.complete ?? null,
+                unrooted: snapshot?.unrooted?.length ?? null,
+                sourceProblems: snapshot?.source?.problems ?? null,
+                timing: snapshot?.timing ?? null
+              }));
+            }'
       - name: Save full-root self-check evidence and timings
         if: always()
         uses: actions/upload-artifact@v4
