@@ -27,7 +27,7 @@ bun run --cwd "$BONSAI_DIR" --silent bonsai check --root "$PROJECT_DIR" --json
 
 `BONSAI_DIR` is the absolute checker checkout; `PROJECT_DIR` is the absolute consuming-project root. Preserve any `--base` or `--policy` arguments required by the project's acceptance command. Read the exit status and the report: normal results contain `decision` and `snapshot`; setup errors report `status: incomplete` with a string `error` and actionable metadata on stderr.
 
-Record retained size, ceiling, required reduction, contract surface, violations, and individual required-check outcomes. A pre-existing failure remains a blocker to claiming acceptance.
+Record retained size, ceiling, required reduction, contract surface, violations, and individual required-check outcomes, including every configured supporting runner and quality floor. A pre-existing failure remains a blocker to claiming acceptance.
 
 **Done:** the starting result and every reported blocker are accounted for. If execution is unavailable, record the concrete missing prerequisite and continue work that does not depend on its result.
 
@@ -63,7 +63,7 @@ Rerun the same gate against the changed candidate. Use its result to choose the 
 | --- | --- | --- |
 | `reject`: size | Reclaim at least `requiredReduction` through actual deletion, inlining, consolidation, or a smaller implementation. Whole-file retained totals determine savings. | A fresh measurement fits the ceiling. |
 | `reject`: ancestry | Run `explain` for each reported component. Delete unsupported scope, repair its real executable connection, or restore a contract required by the authorized behavior. | Every retained component has contract ancestry. |
-| `reject`: assertion or feedback time | Repair the behavior or shorten the required verification path while preserving every obligation. | All required checks pass within the configured deadline. |
+| `reject`: assertion, supporting verification, quality floor, or feedback time | Repair the behavior or required verification while preserving every obligation and reviewed floor. | All required checks pass within the configured deadline. |
 | `incomplete` | Resolve the reported missing binding, unsupported syntax, analysis error, interrupted execution, changed files, or missing evidence. | A complete report evaluates the current candidate. |
 | `pass` | Run the project's other required checks. | The gate and those checks pass for the final candidate. |
 
@@ -81,4 +81,4 @@ If the remaining blocker requires a new adapter, a product decision, or a policy
 
 Report the final verdict, retained size versus ceiling, measured change from the baseline, required checks passed, and other project checks run. State unresolved violations and unsupported scope explicitly. Exit **0** means pass, **1** reject, and **2** incomplete or invalid input; only a fresh pass supports claiming the gate passed.
 
-Bonsai's current unit-test ancestry is a static association. Run the project's unit suite separately. Coverage, mutation effectiveness, structural quality floors, and trusted merge enforcement need additional integration; a prototype pass establishes only the implemented gate's guarantees.
+Unit-test ancestry remains a static association. Preserve the project's required suites. For releases with supporting runners, read the installed checker's `docs/verification.md` and configure its concrete Vitest JSON, Cucumber Messages, or Stryker JSON adapter; coverage and mutation floors remain explicit policy requirements. Missing, stale, skipped, failed, or insufficient required results block acceptance and earn no allowance. Regenerate old evidence when its schema or execution context changes. Checker/toolchain content identities bind local facts; they do not authenticate hostile execution. Trusted merge enforcement still requires a separate protected deployment.

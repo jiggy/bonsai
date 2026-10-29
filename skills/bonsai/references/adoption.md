@@ -39,7 +39,9 @@ exclusions. Checks use the saved configuration, including the base version under
 
 Choose project-wide coefficients and a feedback deadline from the measured baseline and the project's intended constraint. The initializer's defaults and example numbers are starting points, not calibrated acceptance rules. Record the calibration rationale; keep the resulting acceptance policy stable during ordinary implementation work.
 
-**Done:** each maintained path exists, the binding file is included, the scope has no unexplained exclusions, and the policy's initial allowance and deadline have a recorded rationale.
+For releases with supporting runners, use the installed checker's `docs/verification.md` to configure the concrete adapters and reviewed coverage or mutation floors under `runners`. Pin framework dependencies and define their test and coverage scope deliberately. Commands share the existing feedback deadline with product verification. Put fresh reports outside maintained inputs; report paths cannot overlap authored inventory. Supporting results grant no ancestry or allowance, and a configured requirement cannot be replaced by an unintegrated passing suite.
+
+**Done:** each maintained path exists, the binding file is included, the scope has no unexplained exclusions, required verification is explicit, and the policy's initial allowance and deadline have a recorded rationale.
 
 ## 4. Connect one real behavior
 
@@ -79,6 +81,8 @@ Use an isolated copy or a reversible edit outside existing user changes. Demonst
 
 - Change one real handler's response for a specified input while preserving a runnable, analyzable program. The gate must reject the violated observation; an unrelated setup or compiler failure is not evidence of assertion sensitivity.
 - Add an unused top-level function to an inventoried production module. The gate must exit 1 and identify its missing ancestry, including when the module's other symbols are retained.
+
+If supporting runners are configured, also show that a skipped required result or a command that leaves no fresh report blocks the check. With a quality floor, demonstrate rejection when the suite passes but measured coverage or mutation detection falls below that floor. Restore the passing arrangement and demonstrate recovery without lowering the requirement; a pre-existing passing report must not satisfy it.
 
 Restore each probe and rerun the original candidate. Do not weaken expected results, change scope, or enlarge policy to recover the pass.
 
