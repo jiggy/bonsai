@@ -651,6 +651,10 @@ Explicit options must be a literal object, with no shell or runtime override;
 
 The launch retains executable top-level statements and immediately effectful
 initializers, then follows their references. It does not retain every export.
+Class definition effects in the selected child entry count too: static blocks,
+effectful static fields, computed member names, heritage evaluation, and decorators.
+Dormant methods, constructors, and instance field initializers do not create
+startup ancestry; a retained class still counts as one atomic component.
 Unused functions and inert exports remain unrooted, and every file still consumes
 its full retained cost. Tests can inherit subjects through test helpers, but never
 root production code. `explain` shows these relationships without starting children.
@@ -658,7 +662,7 @@ root production code. `explain` shows these relationships without starting child
 Computed paths, cwd-relative strings, mutable URL aliases, wrappers around launch
 APIs, and shell-selected commands receive no entry-point relationship. A recognized
 local target outside inventory or in an unsupported language blocks verification.
-General import side effects and class initialization need further adapters.
+General import side effects need further adapters.
 
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 

@@ -26,7 +26,7 @@ and [performance evidence](performance.md).
 
 - Profile nested verification and native graph transfer before further optimization; remove unused or duplicate semantic queries while preserving fresh programs and every observation.
 - Add fixtures for re-exports, overloads, classes, type-only dependencies, binding helpers, and unsupported executable registration patterns.
-- Extend the fixed subprocess adapter only from real launch patterns; computed targets, general import side effects, class initialization, and resource dependencies still need precise tracing and diagnostics.
+- Extend the fixed subprocess adapter only from real launch patterns; computed targets, general import side effects, and resource dependencies still need precise tracing and diagnostics.
 - Extend human explanations from the static contract paths and verification subjects now available in JSON.
 - Keep versioned snapshot and evidence-v2 validation aligned with collector output. Checker/toolchain/Bun content identities, root lockfiles, effective configuration, and execution profiles now bind the local facts; authentic execution remains a separate deployment requirement.
 - Calibrate inventory and size pressure on real repositories before treating the coefficients as defaults.
