@@ -8,7 +8,7 @@ Guide pull request review, automate formatting, verify proposed changes, and pub
 
 ## Local Contracts
 
-The PR template distinguishes stakeholder behavior from technical regression details. Refactors can preserve existing promises without adding BDD scenarios. Require explicit destinations for moved assertions, meaningful failure evidence, and separate contract-surface, ceiling, retained-size, and gate-verdict reporting. These are review prompts, not automated semantic eligibility checks.
+The PR template requires change classification before acceptance examples, distinguishing new or changed product rules, missing meaningful examples, and technical regressions. Refactors can preserve existing promises without adding BDD scenarios. Require explicit destinations for moved assertions, meaningful failure evidence, and separate contract-surface, ceiling, retained-size, and gate-verdict reporting. These are review prompts, not automated semantic eligibility checks.
 
 Formatting and candidate validation have read-only tokens with no persisted credentials. Only isolated jobs apply patches, push branch updates, report check results, or deploy Pages. PR validation checks the merge result. The normal test step includes Bonsai’s executable feature contracts; a passing suite does not claim the root retained-code gate passes.
 

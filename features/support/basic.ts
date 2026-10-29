@@ -12,6 +12,7 @@ type ProjectInput = {
   unbound?: boolean
   ignoredCode?: boolean
   computedImport?: boolean
+  observeApplicationLoad?: boolean
   engine?: 'rust'
   missingNative?: boolean
   subprocess?: 'live' | 'unused' | 'uncontracted' | 'missing'
@@ -20,6 +21,7 @@ type ProjectInput = {
 function project(input: ProjectInput = {}) {
   const root = mkdtempSync(join(tmpdir(), 'bonsai-self-host-'))
   const marker = join(root, 'handler-executed')
+  const applicationMarker = join(root, 'application-loaded')
   const childMarker = join(root, 'child-executed')
   const usesChild = input.subprocess && input.subprocess !== 'uncontracted'
   if (input.subprocess) writeFileSync(join(root, 'package.json'), '{"type":"module"}\n')
@@ -27,6 +29,9 @@ function project(input: ProjectInput = {}) {
     join(root, 'orders.ts'),
     [
       "import { appendFileSync } from 'node:fs'",
+      ...(input.observeApplicationLoad
+        ? [`appendFileSync(${JSON.stringify(applicationMarker)}, 'loaded')`]
+        : []),
       ...(input.subprocess
         ? [
             "import { spawnSync } from 'node:child_process'",
@@ -115,11 +120,11 @@ function project(input: ProjectInput = {}) {
       },
     }),
   )
-  return { root, marker, childMarker }
+  return { root, marker, childMarker, applicationMarker }
 }
 
 export function checkBasicProject(input: ProjectInput) {
-  const { root, marker, childMarker } = project(input)
+  const { root, marker, childMarker, applicationMarker } = project(input)
   try {
     const report = invoke(
       ['check', '--root', root, ...(input.engine ? ['--engine', input.engine] : [])],
@@ -127,6 +132,7 @@ export function checkBasicProject(input: ProjectInput) {
     )
     return {
       ...report,
+      applicationLoaded: existsSync(applicationMarker),
       handlerExecuted: existsSync(marker),
       invocationCount: existsSync(marker)
         ? readFileSync(marker, 'utf8').trim().split('\n').length
@@ -141,19 +147,42 @@ export function checkBasicProject(input: ProjectInput) {
 }
 
 export function inspectConfiguration(input: ProjectInput) {
-  const { root, marker } = project(input)
+  const { root, marker, applicationMarker } = project({ ...input, observeApplicationLoad: true })
   try {
-    return { ...invoke(['config', 'show', '--root', root]), handlerExecuted: existsSync(marker) }
+    return {
+      ...invoke(['config', 'show', '--root', root]),
+      applicationLoaded: existsSync(applicationMarker),
+      handlerExecuted: existsSync(marker),
+    }
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
 }
 
+type Requirement = { action: string; selector: string; expected: unknown }
+
+export function observedRequirements(checks: Requirement[]) {
+  return checks
+    .map(({ action, selector, expected }) => ({ action, selector, expected }))
+    .sort((left, right) => {
+      const a = JSON.stringify(left)
+      const b = JSON.stringify(right)
+      return a < b ? -1 : a > b ? 1 : 0
+    })
+}
+
 export function explainComponent(input: { target?: string }) {
-  const { root, marker } = project()
+  const { root, marker, applicationMarker } = project({ observeApplicationLoad: true })
   try {
+    const report = invoke(['explain', input.target ?? 'orders.ts#placeOrder', '--root', root])
     return {
-      ...invoke(['explain', input.target ?? 'orders.ts#placeOrder', '--root', root]),
+      ...report,
+      requirements:
+        report.components &&
+        observedRequirements(
+          report.components.flatMap((component: { checks: Requirement[] }) => component.checks),
+        ),
+      applicationLoaded: existsSync(applicationMarker),
       handlerExecuted: existsSync(marker),
     }
   } finally {

@@ -115,6 +115,11 @@ test('compaction preserves exact wrapper charges, shared-file inventory, ancestr
     assert.equal(previous.decision.status, 'reject')
     assert.deepEqual(previous.snapshot.unrooted, ['handlers.ts#abandoned'])
     assert.equal(previous.decision.requiredReduction, 19)
+    assert.equal(previous.snapshot.evidence.complete, true)
+    assert.deepEqual(
+      previous.snapshot.evidence.checks.map((check: { status: string }) => check.status),
+      ['passed', 'passed'],
+    )
     assert.equal(
       previous.snapshot.source.components.find(
         (component: { id: string }) => component.id === 'handlers.ts#wrapper',
@@ -133,6 +138,10 @@ test('compaction preserves exact wrapper charges, shared-file inventory, ancestr
     assert.equal(report.decision.status, 'pass')
     assert.equal(report.decision.requiredReduction, 0)
     assert.equal(report.snapshot.evidence.checks.length, 2)
+    assert.deepEqual(
+      report.snapshot.evidence.checks.map((check: { status: string }) => check.status),
+      ['passed', 'passed'],
+    )
     assert.equal(previous.decision.retained - report.decision.retained, 19)
     assert.equal(report.decision.ceiling - previous.decision.ceiling, 0)
   } finally {

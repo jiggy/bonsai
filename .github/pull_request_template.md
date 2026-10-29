@@ -1,8 +1,11 @@
 ## Behavior
 
-Describe the user or maintainer, the rule they need, and the observable result.
-For a refactor or technical fix, identify the existing promise being preserved;
-new BDD scenarios are not required when product behavior does not change.
+Classify the change before choosing acceptance examples: a new or changed product
+rule, a missing meaningful example of an existing rule, or a technical regression.
+Describe the stakeholder, agreed rule, and observable consequence. For each added
+BDD scenario, explain the decision boundary the current examples do not cover.
+For a technical fix, name the existing promise and technical tests; a new syntax
+or protocol case does not by itself require a product scenario.
 
 ## Specifications and regressions
 

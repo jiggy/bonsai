@@ -17,6 +17,8 @@ Arrange isolated projects and observe Bonsai's actual public CLI for its executa
 
 ## Work Guidance
 
+`ux.ts` returns each check's own canonical report; output mode and copied retries do not create new namespaces for the same facts. Exact wrapping and timing headings remain technical observations. `basic.ts` observes application loading separately from handler calls and projects actual requirement content in canonical order without removing duplicates. `verification.ts` identifies waiting work from observed start events at a live interruption barrier; input IDs do not identify queue position. `accounting.ts` checks the base and pruned revisions separately under the same reviewed policy.
+
 Use named imports, fixed module-relative CLI entry points, and explicit subprocess option properties so the current adapter can trace the specification-to-implementation connection.
 
 Keep technical-only fixtures and assertions in `test/`; acceptance support must not import test modules. Shared arrangements may be reused by technical tests. Prefer a raw public report over cosmetic projections, and use independent logs, byte comparisons, or process observations when the product consequence needs them. Never return an opaque scenario verdict or compute the expected policy answer.
