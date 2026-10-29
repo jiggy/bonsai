@@ -13,6 +13,7 @@ import { checkAncestry, inspectAncestryConfiguration } from './ancestry.ts'
 import { checkVerification } from './verification.ts'
 import { projectBehavior } from './project-behavior.ts'
 import { checkUx } from './ux.ts'
+import { checkSupportingSuite } from './runners.ts'
 
 /** Fixture inputs arrange contexts; the action identity remains the public command. */
 export function checkProject(input: Record<string, unknown>) {
@@ -25,6 +26,8 @@ export function checkProject(input: Record<string, unknown>) {
       return checkVerification(input as Parameters<typeof checkVerification>[0])
     case 'ux':
       return checkUx(input as Parameters<typeof checkUx>[0])
+    case 'supporting-suite':
+      return checkSupportingSuite(input as Parameters<typeof checkSupportingSuite>[0])
     case 'scenario-state':
       return verifyIsolatedScenarios(input)
     case undefined:
