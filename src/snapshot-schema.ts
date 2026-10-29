@@ -1,3 +1,4 @@
+import { validControlDepth } from './control-depth.ts'
 import type { Snapshot } from './model.ts'
 import { validExecutionIdentity, type ExecutionIdentity } from './identity.ts'
 import { validEvidence, validateVerification } from './policy.ts'
@@ -61,6 +62,8 @@ function source(value: unknown): boolean {
     object(value) &&
     strings(value.problems) &&
     array(value.files, (file) => object(file) && text(file.file) && integer(file.tokens)) &&
+    (value.controlDepth === undefined ||
+      validControlDepth(value.controlDepth, value.files as { file: string }[])) &&
     array(
       value.components,
       (component) =>

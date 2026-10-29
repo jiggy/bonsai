@@ -1,3 +1,4 @@
+import type { StructuralPolicy, ControlDepthFacts } from './control-depth.ts'
 import type { ExecutionIdentity } from './identity.ts'
 import type { RunnerRequirement, RunnerEvidence } from './runners.ts'
 
@@ -42,9 +43,11 @@ export type Source = {
     adapter: 'project-bindings-v1'
     bindings: string
   })[]
+  controlDepth?: ControlDepthFacts
   problems: string[]
 }
 export type Policy = {
+  structural?: StructuralPolicy
   bootstrap: number
   bootstrapSurface: number
   perDoubling: number

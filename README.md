@@ -552,6 +552,39 @@ All files in the inventory count, including unrooted source, tests, bindings, fe
 
 The inventory is explicit and must be reviewed. Unlisted local TypeScript and JSON imports are detected. An unrelated file outside the inventory is outside the gate's scope. Initialization proposes exclusions for dependencies, lockfiles, local caches, generated outputs, and nested projects; checks use the saved configuration. Documentation counts when included in the maintained scope. Formatting outside literals does not create TypeScript headroom. Source-symbol costs in explanations exclude some statement scaffolding; the authoritative repository total always comes from whole files.
 
+### Optional control-flow nesting limit
+
+A team can enforce a reviewed nesting limit independently of retained-token cost.
+For example, add this optional setting inside `policy` in `bonsai.json`:
+
+```json
+"structural": { "metric": "control-depth-v1", "maxDepth": 4 }
+```
+
+There is no default structural limit. Four is an illustrative policy choice, not
+a universal quality boundary. Existing configurations keep their behavior.
+A complete measurement above the selected limit rejects; a missing or partial
+required measurement is incomplete. With `--base`, the effective reviewed base
+policy supplies this setting just like the code allowance.
+
+The source-level metric starts each function, method, accessor, constructor,
+and closure at zero. Nested conditionals, conditional expressions, loops,
+`switch`, and catch branches add one. Direct else-if chains and equivalent
+single-if else blocks remain at the same level; switch arms do not add another
+level. Conditions and loop headers are within their enclosing decision.
+Plain blocks, class indentation, try/finally wrappers, whitespace, and async
+syntax add no depth by themselves. Parameter initializers belong to the function;
+computed method names and decorators belong to their surrounding lexical region.
+Code outside function-like bodies is measured as a module lexical region, without
+claiming it executes during module loading. Logical operator chains are not a
+separate control-depth increment.
+
+JSON `snapshot.source.controlDepth` exposes the version, completeness, region
+locations, maximum depth, and first deepest location. These are structural facts,
+not runtime coverage or a proof that every statement is necessary. Splitting a
+helper can reduce local depth without reducing retained cost; all files remain
+fully charged. TypeScript syntax is measured before compiler desugaring.
+
 ## Agent loop
 
 ```sh
@@ -667,7 +700,7 @@ General import side effects need further adapters.
 The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 
 Configured supporting-runner evidence and explicit coverage/mutation floors are
-implemented for the formats documented above. Structural quality floors, execution-aware
+implemented for the formats documented above. The optional control-depth guard is the first concrete structural quality rule; broader structural requirements, execution-aware
 fixture ownership, trusted checker distribution, authoritative merge-candidate
 enforcement, and branch protection remain unfinished. The repository's CI checks
 the implementation, its executable product contracts, its example, and explicit

@@ -11,8 +11,9 @@ export function checkControlDepth(input: { layout: 'nested' | 'flat' }) {
       ? conditions.map((name) => `if (input.${name}) {`).join('\n') +
         "\nreturn { status: 'accepted' }\n" +
         conditions.map(() => '}').join('\n')
-      : conditions.map((name) => `if (!input.${name}) return { status: 'denied' }`).join('\n') +
-        "\nreturn { status: 'accepted' }"
+      : conditions
+          .map((name) => `if (!input.${name}) return { status: 'denied' }`)
+          .join('\n') + "\nreturn { status: 'accepted' }"
   const fixture = project(
     {
       'approval.ts': `export function approve(input: { valid: boolean; stocked: boolean; paid: boolean; authorized: boolean; available: boolean }) {\n${body}${input.layout === 'nested' ? "\nreturn { status: 'denied' }" : ''}\n}\n`,
@@ -27,7 +28,7 @@ Scenario: Deny an unpaid request
  Then response "status" equals "denied"
 `,
     },
-    { structural: { metric: 'control-depth-v1', maxDepth: 4 } } as never,
+    { structural: { metric: 'control-depth-v1', maxDepth: 4 } },
   )
   try {
     return invoke(['check', '--root', fixture.root])

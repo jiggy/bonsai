@@ -6,6 +6,8 @@ Explain Bonsai’s supported behavior and limits.
 
 Design baseline, BDD workflow (`bdd.md`), roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), performance profiling and native checker research (`performance.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
 
+README's optional structural-policy section owns `control-depth-v1` counting and limit semantics. Keep configured enforcement distinct from additive source diagnostics and retained-token accounting; no default depth limit is implied.
+
 `verification.md` owns concrete supporting-runner configuration, exercised format/runtime versions, quality-floor semantics, snapshot/evidence identities, and their authentication limits.
 
 ## Local Contracts

@@ -1,3 +1,4 @@
+import { validateStructuralPolicy, validControlDepth } from './control-depth.ts'
 import type { Policy, Snapshot, Decision, Verification, Evidence } from './model.ts'
 import { sameExecutionIdentity, validExecutionIdentity } from './identity.ts'
 import { validateRunnerRequirements, validRunnerEvidence, runnerViolations } from './runners.ts'
@@ -62,6 +63,7 @@ export function validEvidence(value: unknown): value is Evidence {
 }
 
 export function validatePolicy(policy: Policy): void {
+  validateStructuralPolicy(policy.structural)
   for (const key of [
     'bootstrap',
     'bootstrapSurface',
@@ -190,6 +192,17 @@ export function evaluate(
     }
   } catch (error) {
     missing(`Supporting verification metadata is invalid: ${String(error)}`)
+  }
+  if (policy.structural) {
+    const facts = candidate.source.controlDepth
+    if (!validControlDepth(facts, candidate.source.files) || !facts.complete)
+      missing('Required control-depth-v1 measurement is missing or incomplete')
+    else
+      for (const region of facts.regions)
+        if (region.depth > policy.structural.maxDepth)
+          violations.push(
+            `Control-flow depth ${region.depth} exceeds ${policy.structural.maxDepth} at ${region.file}:${region.deepestLine}:${region.deepestColumn} (${region.name})`,
+          )
   }
   for (const id of candidate.unrooted) violations.push(`No contract ancestry: ${id}`)
   if (size > budget) violations.push(`Retained size exceeds ceiling by ${size - budget} tokens`)
