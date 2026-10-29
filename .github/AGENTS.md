@@ -4,7 +4,7 @@ Guide pull request review, automate formatting, verify proposed changes, and pub
 
 ## Ownership
 
-`pull_request_template.md`, `workflows/ci.yml`, and `workflows/pages.yml`.
+`pull_request_template.md`, `workflows/ci.yml`, `workflows/pages.yml`, and the development-only `workflows/rust-backend.yml`.
 
 ## Local Contracts
 
@@ -29,6 +29,8 @@ The native platform job also runs `test/cli-base-paths.test.ts` on both macOS ar
 The normal test step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temporary directory. The native root regression saves its actual decision, snapshot, and command timings before assertions. Always upload that report as `bonsai-self-check` when available, retaining failures as well as successes for 14 days. This records existing verification, without another full check or changed deadline.
 
 CI emits a compact actual root verdict, observation completion, ancestry count, and timing summary from the already-saved self-check report before archiving it. This is measured diagnostic output, not another verification run or a changed feedback deadline.
+
+`rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.85.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
 
 ## Work Guidance
 
