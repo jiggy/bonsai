@@ -25,6 +25,13 @@ Review a proposed specification against these questions:
 - Does each observation establish a product consequence rather than inspect
   an implementation choice or the test harness?
 
+Classify the change before choosing a `.feature` file or starting red/green.
+Name the agreed product rule, say whether it is new, changed, or already covered,
+and explain which meaningful decision boundary the example adds. A new syntax,
+report-layout, or scheduling case under an existing rule normally belongs in a
+technical regression. Surviving an implementation rewrite is necessary but not
+sufficient: technical compatibility tests can survive one too.
+
 For a developer tool, code and failure cases are often the domain. Rejecting
 unsupported source, preserving existing files, refusing false passes, and stopping
 work after cancellation are valid product promises. JSON can expose a domain

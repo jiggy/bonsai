@@ -104,16 +104,30 @@ printf '%s\\n' "\${COMPREPLY[*]}"
         childExecuted: existsSync(join(root, 'child-ran')),
       }
     }
-    if (input.case === 'human-blocker') {
-      const human = runCli(['check', '--root', root, '--output', 'human', '--verbose'], {
-        NO_COLOR: '',
-        BONSAI_NO_COLOR: '',
-        FORCE_COLOR: '1',
-        COLUMNS: '32',
-        TERM: 'xterm-256color',
-        LANG: 'C.UTF-8',
-        LC_ALL: 'C.UTF-8',
-      })
+    if (
+      input.case === 'human-blocker' ||
+      input.case === 'verbose-blocker' ||
+      input.case === 'copied-retry'
+    ) {
+      const human = runCli(
+        [
+          'check',
+          '--root',
+          root,
+          '--output',
+          'human',
+          ...(input.case === 'human-blocker' ? [] : ['--verbose']),
+        ],
+        {
+          NO_COLOR: '',
+          BONSAI_NO_COLOR: '',
+          FORCE_COLOR: '1',
+          COLUMNS: '32',
+          TERM: 'xterm-256color',
+          LANG: 'C.UTF-8',
+          LC_ALL: 'C.UTF-8',
+        },
+      )
       const visible = styledCharacters(human.stderr)
       const plain = visible.map((character) => character.value).join('')
       const start = plain.indexOf("Can't trace")
@@ -122,36 +136,41 @@ printf '%s\\n' "\${COMPREPLY[*]}"
       const titleCharacters = visible
         .slice(start, detail < 0 ? undefined : start + detail)
         .filter((character) => character.value.trim())
-      const command = /Next (?:→|->) (.+)/.exec(plain)?.[1] ?? ''
-      const entry = fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
-      const retried = /^bonsai check(?: |$)/.test(command)
-        ? spawnSync(
-            'sh',
-            [
-              '-c',
-              command.replace(/^bonsai\b/, '"$BONSAI_SPEC_RUNTIME" "$BONSAI_SPEC_ENTRY"') +
-                ' --json',
-            ],
-            {
-              encoding: 'utf8',
-              timeout: 15000,
-              env: {
-                ...environment(),
-                BONSAI_SPEC_RUNTIME: process.execPath,
-                BONSAI_SPEC_ENTRY: entry,
-              },
+      if (input.case === 'copied-retry') {
+        const command = /Next (?:→|->) (.+)/.exec(plain)?.[1] ?? ''
+        const entry = fileURLToPath(new URL('../../src/cli.ts', import.meta.url))
+        if (!/^bonsai check(?: |$)/.test(command))
+          throw new Error('The blocked check did not provide a check retry command')
+        const retried = spawnSync(
+          'sh',
+          [
+            '-c',
+            command.replace(/^bonsai\b/, '"$BONSAI_SPEC_RUNTIME" "$BONSAI_SPEC_ENTRY"') +
+              ' --json',
+          ],
+          {
+            encoding: 'utf8',
+            timeout: 15000,
+            env: {
+              ...environment(),
+              BONSAI_SPEC_RUNTIME: process.execPath,
+              BONSAI_SPEC_ENTRY: entry,
             },
-          )
-        : undefined
-      let recoveryDecision: string | null = null
-      try {
-        recoveryDecision = JSON.parse(retried?.stdout || '{}').decision?.status ?? null
-      } catch {
-        /* Expose the invalid recovery result to the contract. */
+          },
+        )
+        if (retried.error) throw retried.error
+        return {
+          ...JSON.parse(retried.stdout || retried.stderr),
+          exitCode: retried.status,
+          stdout: retried.stdout,
+          stderr: retried.stderr,
+          handlerExecuted: existsSync(join(root, 'must-not-run')),
+        }
       }
       return {
         exitCode: human.status,
         stdout: human.stdout,
+        stderr: human.stderr,
         title: title.replace(/\s+/g, ' ').trim(),
         titleColors: [...new Set(titleCharacters.map((character) => character.color))],
         titleDimmed: titleCharacters.some((character) => character.dim),
@@ -159,35 +178,34 @@ printf '%s\\n' "\${COMPREPLY[*]}"
         hasSourceLocation: /handler\.ts:\d+/.test(plain),
         missingEntryVisible: plain.includes('missing-child.ts'),
         hasFix: /Fix:[^\S\r\n]*\S/.test(plain),
-        hasTimings:
-          /^Timing$/m.test(plain) && /^Feedback window:/m.test(plain) && /\belapsed\b/.test(plain),
-        recoveryExitCode: retried?.status ?? null,
-        recoveryDecision,
+        hasTimings: /\b\d+(?:\.\d+)?(?:ms|s)\s+elapsed\b/.test(plain),
         handlerExecuted: existsSync(join(root, 'must-not-run')),
       }
     }
-    if (input.case === 'machine-quiet') {
+    if (input.case === 'machine') {
       const machine = runCli(['check', '--root', root, '--json'], {
         NO_COLOR: '',
         BONSAI_NO_COLOR: '',
         FORCE_COLOR: '1',
       })
+      return {
+        ...JSON.parse(machine.stdout),
+        exitCode: machine.status,
+        stdout: machine.stdout,
+        stderr: machine.stderr,
+        hasAnsi: /\x1b\[/.test(machine.stdout + machine.stderr),
+      }
+    }
+    if (input.case === 'quiet') {
       const quiet = runCli(['check', '--root', root, '--quiet', '--output', 'human'])
       return {
-        machine: {
-          exitCode: machine.status,
-          report: JSON.parse(machine.stdout),
-          stderr: machine.stderr,
-          hasAnsi: /\x1b\[/.test(machine.stdout + machine.stderr),
-        },
-        quiet: {
-          exitCode: quiet.status,
-          stdout: quiet.stdout,
-          hasBlocker: /Can't trace/.test(quiet.stderr),
-          hasFix: /Fix:[^\S\r\n]*\S/.test(quiet.stderr),
-          hasProgress: /Checking contracts/.test(quiet.stderr),
-          hasMeasurements: /Inventory measurements|Retained:/.test(quiet.stderr),
-        },
+        exitCode: quiet.status,
+        stdout: quiet.stdout,
+        stderr: quiet.stderr,
+        hasBlocker: /Can't trace/.test(quiet.stderr),
+        hasFix: /Fix:[^\S\r\n]*\S/.test(quiet.stderr),
+        hasProgress: /Checking contracts/.test(quiet.stderr),
+        hasMeasurements: /Inventory measurements|Retained:/.test(quiet.stderr),
       }
     }
     throw new Error(`Unknown UX fixture: ${input.case}`)

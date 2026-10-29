@@ -42,10 +42,10 @@ function copiedChecker() {
   return { root, dispose: () => rmSync(root, { recursive: true, force: true }) }
 }
 
-function inputMatches(expected: Record<string, unknown>) {
+function inputMatches(expected: Record<string, unknown>, action: 'check' | 'explain' = 'check') {
   return (scenario: ContractCase) =>
     scenario.steps.some((step) => {
-      if (step.kind !== 'action' || step.action !== 'check') return false
+      if (step.kind !== 'action' || step.action !== action) return false
       if (step.input === null || typeof step.input !== 'object') return false
       const input = step.input as Record<string, unknown>
       return Object.entries(expected).every(([key, value]) => input[key] === value)
@@ -58,10 +58,11 @@ async function detectsFault(
   before: string,
   after: string,
   observedSelector: string,
+  action: 'check' | 'explain' = 'check',
 ) {
   const checker = copiedChecker()
   try {
-    const options = { select: inputMatches(expectedInput) }
+    const options = { select: inputMatches(expectedInput, action) }
     const control = await verifySpecifications(checker.root, options)
     assert.equal(control.contracts.cases.length, 1, 'Choose one authored product example')
     assert.equal(control.evidence.complete, true)
@@ -115,6 +116,13 @@ async function detectsFault(
       (check) => check.selector === 'snapshot.source.problems',
     ))
       assert.equal(faulty.evidence.checks.find((entry) => entry.id === check.id)?.status, 'passed')
+    if (action === 'explain')
+      for (const check of faulty.contracts.checks.filter((check) => check.id !== target.id))
+        assert.equal(
+          faulty.evidence.checks.find((entry) => entry.id === check.id)?.status,
+          'passed',
+          'Wrong requirement content must preserve selection, normal exit, and read-only safety',
+        )
     writeFileSync(path, original)
     const restored = await verifySpecifications(checker.root, options)
     assert.equal(
@@ -161,6 +169,17 @@ test('the authored obligation example detects duplicate handler execution', asyn
     call,
     `await module.actions[step.action](structuredClone(step.input))\n            ${call}`,
     'invocationCount',
+  )
+})
+
+test('the authored explanation example detects incorrect requirement content', async () => {
+  await detectsFault(
+    { target: 'orders.ts#placeOrder' },
+    'src/retention.ts',
+    "const checks = snapshot.contracts.checks.filter((check) => contracts.includes(check.id))",
+    "const checks = snapshot.contracts.checks.filter((check) => contracts.includes(check.id)).map((check) => ({ ...check, expected: 'incorrect' }))",
+    'requirements',
+    'explain',
   )
 })
 

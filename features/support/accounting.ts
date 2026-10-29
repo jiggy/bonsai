@@ -8,6 +8,7 @@ type AccountingInput = {
   case: 'ceiling' | 'duplicate-contracts' | 'selectors' | 'background' | 'compaction'
   surface?: number
   layout?: 'duplicate' | 'split'
+  revision?: 'base' | 'pruned'
 }
 
 const handler = `import { appendFileSync } from 'node:fs'
@@ -97,7 +98,7 @@ export function accountingProject(input: AccountingInput) {
 }
 
 export function checkAccounting(input: AccountingInput) {
-  if (input.case === 'compaction') return compactRetainedSource()
+  if (input.case === 'compaction') return compactRetainedSource(input.revision ?? 'pruned')
   const fixture = accountingProject(input)
   try {
     const report = invoke(['check', '--root', fixture.root])
@@ -138,7 +139,7 @@ export function second() { return value() }
   return { ...fixture, compact }
 }
 
-function compactRetainedSource() {
+function compactRetainedSource(revision: 'base' | 'pruned') {
   const fixture = compactionProject()
   try {
     for (const args of [
@@ -161,7 +162,7 @@ function compactRetainedSource() {
       ],
     ])
       execFileSync('git', args, { stdio: 'ignore' })
-    write(fixture.root, 'handlers.ts', fixture.compact)
+    if (revision === 'pruned') write(fixture.root, 'handlers.ts', fixture.compact)
     return invoke(['check', '--root', fixture.root, '--base', 'HEAD'])
   } finally {
     fixture.dispose()

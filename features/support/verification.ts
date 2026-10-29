@@ -28,6 +28,14 @@ async function until(predicate: () => boolean, timeoutMs = 1500) {
   return predicate()
 }
 
+export function startedAfterInterruption(events: readonly Event[], startCount: number) {
+  return events
+    .filter((event) => event.kind === 'start')
+    .slice(startCount)
+    .map((event) => event.id)
+    .sort((a, b) => a - b)
+}
+
 function blockedProject(kind: Input['case']) {
   const count = kind === 'required-calls' ? 3 : availableParallelism() + 1
   const capacity = Math.min(availableParallelism(), count)
@@ -40,8 +48,10 @@ export function run(input: { id: number }) {
   const file = (name: string) => fileURLToPath(new URL(name, import.meta.url))
   writeFileSync(file('started-' + input.id), String(process.pid))
   appendFileSync(file('events'), JSON.stringify({kind:'start', id:input.id, pid:process.pid}) + '\\n')
-  ${kind === 'crash' ? `if (input.id === 0) { ${capacity > 1 ? "while (!existsSync(file('started-1'))) Atomics.wait(wait, 0, 0, 5);" : ''} process.exit(17) }` : ''}
-  while (!existsSync(file('release-' + input.id))) Atomics.wait(wait, 0, 0, 5)
+  while (!existsSync(file('release-' + input.id))) {
+    ${kind === 'crash' ? "if (existsSync(file('crash-' + input.id))) process.exit(17)" : ''}
+    Atomics.wait(wait, 0, 0, 5)
+  }
   appendFileSync(file('events'), JSON.stringify({kind:'finish', id:input.id, pid:process.pid}) + '\\n')
   writeFileSync(file('finished-' + input.id), 'done')
   return { id:input.id }
@@ -52,8 +62,11 @@ export function run(input: { id: number }) {
         'Feature: Independent required calls\n' +
         Array.from(
           { length: count },
-          (_, id) =>
-            `Scenario: Input ${id}\n When I invoke "run" with {"id":${id}}\n Then response "id" equals ${id}\n`,
+          (_, index) => {
+            // Failure arrangements deliberately do not start with the lowest input IDs.
+            const id = kind === 'required-calls' ? index : count - index - 1
+            return `Scenario: Input ${id}\n When I invoke "run" with {"id":${id}}\n Then response "id" equals ${id}\n`
+          },
         ).join('\n'),
     },
     { maxFeedbackMs: kind === 'timeout' ? 2500 : 15000 },
@@ -81,25 +94,45 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
   const killed = setTimeout(() => child.kill('SIGKILL'), 10500)
   const names = () => readdirSync(fixture.root)
   const started = () => names().filter((name) => name.startsWith('started-'))
+  const recordedEvents = (): Event[] =>
+    existsSync(join(fixture.root, 'events'))
+      ? readFileSync(join(fixture.root, 'events'), 'utf8')
+          .split('\n')
+          .slice(0, -1)
+          .map((line) => JSON.parse(line))
+      : []
+  let startCountAtInterruption: number | undefined
   try {
     if (kind === 'required-calls') {
       // Exact overlap, CPU-sized scheduling, and out-of-order reporting have
       // explicit-lane regressions in test/evidence-parallel.test.ts. This
       // arrangement observes actual required calls on hosts of any CPU size.
       for (let id = 0; id < fixture.count; id++) write(fixture.root, `release-${id}`, 'go')
-    } else if (kind === 'cancel') {
-      await until(() => started().length >= fixture.capacity, 5000)
-      child.kill('SIGINT')
+    } else {
+      // Occupy the available slots with held calls before interrupting. Their
+      // observed IDs, rather than their authored order, establish what is active.
+      await until(
+        () =>
+          recordedEvents().filter((event) => event.kind === 'start').length >= fixture.capacity ||
+          child.exitCode !== null ||
+          child.signalCode !== null,
+        5000,
+      )
+      const active = recordedEvents().filter((event) => event.kind === 'start')
+      if (
+        active.length !== fixture.capacity ||
+        active.length >= fixture.count ||
+        child.exitCode !== null ||
+        child.signalCode !== null
+      )
+        throw new Error('Verification fixture did not reach a live interruption boundary')
+      startCountAtInterruption = active.length
+      if (kind === 'crash') write(fixture.root, `crash-${active[0]!.id}`, 'go')
+      if (kind === 'cancel') child.kill('SIGINT')
     }
     const status = await closed
     const report = JSON.parse(stdout || stderr)
-    const events: Event[] = existsSync(join(fixture.root, 'events'))
-      ? readFileSync(join(fixture.root, 'events'), 'utf8')
-          .trim()
-          .split('\n')
-          .filter(Boolean)
-          .map((line) => JSON.parse(line))
-      : []
+    const events = recordedEvents()
     const pids = started().map((name) => Number(readFileSync(join(fixture.root, name), 'utf8')))
     await until(() => pids.every((pid) => !alive(pid)))
     return {
@@ -115,10 +148,10 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
           .map((event) => event.id)
           .sort((a, b) => a - b),
         started: pids.length > 0,
-        queuedInputsStarted: started()
-          .map((name) => Number(name.slice('started-'.length)))
-          .filter((id) => id >= fixture.capacity)
-          .sort((a, b) => a - b),
+        queuedInputsStarted:
+          startCountAtInterruption === undefined
+            ? []
+            : startedAfterInterruption(events, startCountAtInterruption),
         runningPids: pids.filter(alive),
       },
     }

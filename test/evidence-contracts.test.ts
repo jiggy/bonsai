@@ -1,6 +1,21 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { checkVerification } from '../features/support/verification.ts'
+import { checkVerification, startedAfterInterruption } from '../features/support/verification.ts'
+
+test('interruption observer distinguishes held calls from later starts regardless of input IDs', () => {
+  const held = [
+    { kind: 'start', id: 7, pid: 100 },
+    { kind: 'start', id: 4, pid: 101 },
+  ] as const
+  assert.deepEqual(startedAfterInterruption(held, held.length), [])
+  const later = [
+    ...held,
+    { kind: 'finish', id: 7, pid: 100 },
+    { kind: 'start', id: 0, pid: 102 },
+    { kind: 'start', id: 4, pid: 103 },
+  ] as const
+  assert.deepEqual(startedAfterInterruption(later, held.length), [0, 4])
+})
 
 // CPU-sized pool fill, worker bounds, fresh profiles, exact check IDs/order, and
 // malformed shard reports belong to evidence-parallel.test.ts. These regressions

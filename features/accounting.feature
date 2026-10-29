@@ -46,9 +46,16 @@ Feature: Earn one global allowance from observable product surface
     And response "inputValues" equals [0, 1]
 
   Scenario: Pruning obsolete source makes the unchanged allowance sufficient
-    The base revision contains a shared wrapper and an unused declaration.
-    The candidate removes both and keeps the same required behavior and 213-token allowance.
-    When I invoke "check" with {"fixture": "accounting", "case": "compaction"}
+    The base revision fulfills both required operations. Its retained code exceeds
+    the reviewed 213-token allowance by 19 tokens.
+    The candidate removes a shared wrapper and an unused declaration while keeping
+    the same required behavior and policy.
+    When I invoke "check" with {"fixture": "accounting", "case": "compaction", "revision": "base"}
+    Then response "exitCode" equals 1
+    And response "decision.status" equals "reject"
+    And response "decision.ceiling" equals 213
+    And response "decision.requiredReduction" equals 19
+    When I invoke "check" with {"fixture": "accounting", "case": "compaction", "revision": "pruned"}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
     And response "decision.ceiling" equals 213

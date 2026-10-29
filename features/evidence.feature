@@ -13,6 +13,8 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.runningPids" equals []
 
   Scenario: A crashed scenario cancels its peers without starting queued work
+    Application calls are held active while another required call awaits execution.
+    One of the active calls then exits before returning its required response.
     When I invoke "check" with {"fixture": "verification", "case": "crash"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -21,6 +23,8 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.runningPids" equals []
 
   Scenario: The shared feedback deadline stops all active scenarios
+    Application calls remain blocked while another required call awaits execution.
+    They must stop when the existing shared feedback deadline expires.
     When I invoke "check" with {"fixture": "verification", "case": "timeout"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -29,6 +33,8 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.runningPids" equals []
 
   Scenario: Cancelling a command stops active scenarios and leaves queued work unstarted
+    Application calls are held active while another required call awaits execution.
+    The maintainer interrupts the command with SIGINT.
     When I invoke "check" with {"fixture": "verification", "case": "cancel"}
     Then response "exitCode" equals 130
     And response "code" equals "SIGINT"
@@ -37,6 +43,9 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.runningPids" equals []
 
   Scenario: Changing maintained inputs invalidates otherwise passing observations
+    A required action returns its expected status "ok", but also changes the maintained
+    data.json from revision 1 to revision 2 during verification. Its passing observation
+    cannot authorize the changed project inputs.
     When I invoke "check" with {"fixture": "verification", "case": "source-change"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"

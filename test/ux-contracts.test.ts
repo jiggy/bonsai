@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { stripVTControlCharacters } from 'node:util'
 import { checkUx } from '../features/support/ux.ts'
 import { cliEnvironment, runCli } from './cli.ts'
 
@@ -29,7 +30,7 @@ test('machine-readable help retains its command identity and engine flag scope',
 })
 
 test('the narrow subprocess blocker preserves its exact copy and semantic ANSI state', () => {
-  const report = checkUx({ case: 'human-blocker' })
+  const report = checkUx({ case: 'verbose-blocker' })
   assert.equal(report.exitCode, 2)
   assert.equal(report.stdout, '')
   assert.equal(report.title, "Can't trace 1 local subprocess entry point")
@@ -39,24 +40,31 @@ test('the narrow subprocess blocker preserves its exact copy and semantic ANSI s
   assert.equal(report.hasSourceLocation, true)
   assert.equal(report.hasFix, true)
   assert.equal(report.hasTimings, true)
-  assert.equal(report.recoveryExitCode, 2)
-  assert.equal(report.recoveryDecision, 'incomplete')
+  const plain = stripVTControlCharacters(report.stderr)
+  assert.match(plain, /^Timing$/m)
+  assert.match(plain, /^Feedback window:/m)
+  assert.match(plain, /\belapsed\b/)
+  const retry = checkUx({ case: 'copied-retry' })
+  assert.equal(retry.exitCode, 2)
+  assert.equal(retry.decision.status, 'incomplete')
+  assert.equal(retry.handlerExecuted, false)
   assert.equal(report.handlerExecuted, false)
 })
 
 test('blocked JSON keeps every source problem uncolored and quiet output suppresses measurements', () => {
-  const report = checkUx({ case: 'machine-quiet' })
-  assert.equal(report.machine.exitCode, 2)
-  assert.equal(report.machine.report.decision.status, 'incomplete')
-  assert.equal(report.machine.report.snapshot.source.problems.length, 1)
-  assert.equal(report.machine.stderr, '')
-  assert.equal(report.machine.hasAnsi, false)
-  assert.equal(report.quiet.exitCode, 2)
-  assert.equal(report.quiet.stdout, '')
-  assert.equal(report.quiet.hasBlocker, true)
-  assert.equal(report.quiet.hasFix, true)
-  assert.equal(report.quiet.hasProgress, false)
-  assert.equal(report.quiet.hasMeasurements, false)
+  const machine = checkUx({ case: 'machine' })
+  assert.equal(machine.exitCode, 2)
+  assert.equal(machine.decision.status, 'incomplete')
+  assert.equal(machine.snapshot.source.problems.length, 1)
+  assert.equal(machine.stderr, '')
+  assert.equal(machine.hasAnsi, false)
+  const quiet = checkUx({ case: 'quiet' })
+  assert.equal(quiet.exitCode, 2)
+  assert.equal(quiet.stdout, '')
+  assert.equal(quiet.hasBlocker, true)
+  assert.equal(quiet.hasFix, true)
+  assert.equal(quiet.hasProgress, false)
+  assert.equal(quiet.hasMeasurements, false)
 })
 
 test('completion scripts retain all shell grammars and the check-only serial option', () => {
