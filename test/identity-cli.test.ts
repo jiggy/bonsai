@@ -22,6 +22,7 @@ test('checker bytes changed during real native analysis cannot label earlier fac
   const checker = mkdtempSync(join(tmpdir(), 'bonsai-identity-cli-'))
   const repository = fileURLToPath(new URL('../', import.meta.url))
   const project = createProject({
+    'package.json': '{"type":"module"}\n',
     'handler.ts':
       "import { writeFileSync } from 'node:fs'\nexport function ready() { writeFileSync(new URL('./handler-ran', import.meta.url), 'executed'); return { status: 'ok' } }\n",
     'bindings.ts':
