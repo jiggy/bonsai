@@ -206,10 +206,7 @@ test('a required TypeScript metric cannot claim empty Python/Rust or mixed execu
     controlDepthSupported([{ file: 'app.ts' }, { file: 'app.custom', executable: true }]),
     false,
   )
-  assert.equal(
-    controlDepthSupported([{ file: 'app.ts', executable: 'yes' as never }]),
-    false,
-  )
+  assert.equal(controlDepthSupported([{ file: 'app.ts', executable: 'yes' as never }]), false)
 })
 
 test('structural policy has an explicit metric and nonnegative integral limit without changing legacy defaults', () => {

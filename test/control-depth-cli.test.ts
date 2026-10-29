@@ -108,7 +108,9 @@ test('mixed maintained Python files leave optional diagnostics partial and a req
     assert.equal(legacy.status, 0, legacy.stderr)
     const baseline = JSON.parse(legacy.stdout)
     assert.equal(baseline.snapshot.source.controlDepth.complete, false)
-    assert.ok(baseline.snapshot.source.files.some((file: { file: string }) => file.file === 'support.py'))
+    assert.ok(
+      baseline.snapshot.source.files.some((file: { file: string }) => file.file === 'support.py'),
+    )
     writeFileSync(
       join(fixture.root, 'bonsai.json'),
       JSON.stringify({
@@ -128,7 +130,11 @@ test('mixed maintained Python files leave optional diagnostics partial and a req
     assert.equal(required.status, 2, required.stderr)
     const incomplete = JSON.parse(required.stdout)
     assert.equal(incomplete.decision.status, 'incomplete')
-    assert.ok(incomplete.decision.violations.includes('Required control-depth-v1 measurement is missing or incomplete'))
+    assert.ok(
+      incomplete.decision.violations.includes(
+        'Required control-depth-v1 measurement is missing or incomplete',
+      ),
+    )
   } finally {
     fixture.dispose()
   }

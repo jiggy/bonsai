@@ -45,8 +45,7 @@ export function controlDepthSupported(
     files.some(({ file }) => typescript(file)) &&
     !files.some(
       ({ file, executable }) =>
-        !typescript(file) &&
-        (executable === true || /\.(?:py[wi]?|rs|[cm]?jsx?|tsx)$/.test(file)),
+        !typescript(file) && (executable === true || /\.(?:py[wi]?|rs|[cm]?jsx?|tsx)$/.test(file)),
     )
   )
 }
