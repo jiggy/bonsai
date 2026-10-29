@@ -61,7 +61,8 @@ test('warm sessions cannot reuse loaded checker or SDK modules after their insta
   const sdk = join(modules, 'tsrs')
   const candidate = createProject({
     'handler.ts': "export function ready() { return { status: 'ok' } }\n",
-    'bindings.ts': "import { ready } from './handler.ts'\nexport const actions = { ready: ready }\n",
+    'bindings.ts':
+      "import { ready } from './handler.ts'\nexport const actions = { ready: ready }\n",
     'ready.feature':
       'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
   })
@@ -208,22 +209,24 @@ if (process.argv[1]?.endsWith('tsrs-worker.ts')) {
       first.snapshot.fingerprint,
       'The consuming candidate did not change',
     )
-    assert.notEqual(changed.snapshot.identity.checker.digest, first.snapshot.identity.checker.digest)
+    assert.notEqual(
+      changed.snapshot.identity.checker.digest,
+      first.snapshot.identity.checker.digest,
+    )
     assert.equal(records().length, 2)
     assert.equal(records()[1]!.shared, false)
     writeFileSync(source, originalSource)
     const restored = await check()
     assert.equal(tokens(restored), tokens(first))
-    assert.equal(
-      records().length,
-      2,
-      'Restored exact code may reuse the unchanged original owner',
-    )
+    assert.equal(records().length, 2, 'Restored exact code may reuse the unchanged original owner')
     const sdkEntry = join(sdk, 'dist', 'api', 'async', 'api.js')
     writeFileSync(sdkEntry, readFileSync(sdkEntry, 'utf8') + '\n// installed SDK content changed\n')
     const changedSdk = await check()
     assert.equal(changedSdk.snapshot.fingerprint, first.snapshot.fingerprint)
-    assert.notEqual(changedSdk.snapshot.identity.compiler.digest, first.snapshot.identity.compiler.digest)
+    assert.notEqual(
+      changedSdk.snapshot.identity.compiler.digest,
+      first.snapshot.identity.compiler.digest,
+    )
     assert.equal(records().length, 3)
     assert.equal(
       records()[2]!.shared,

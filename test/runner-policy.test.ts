@@ -177,7 +177,8 @@ test('report and coverage destinations cannot delete maintained inputs before ex
   const fixture = createProject({
     'app.ts': "export function ready() { return { status: 'ok' } }\n",
     'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
-    'ready.feature': 'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
+    'ready.feature':
+      'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
   })
   try {
     const config = readConfig(fixture.root)
@@ -187,8 +188,13 @@ test('report and coverage destinations cannot delete maintained inputs before ex
       { ...requirement, coverage: { report: 'app.ts', lines: 80 } },
     ]) {
       config.runners = [runner]
-      await assert.rejects(snapshot(fixture.root, config), /Runner report overlaps maintained input: app.ts/)
+      await assert.rejects(
+        snapshot(fixture.root, config),
+        /Runner report overlaps maintained input: app.ts/,
+      )
       assert.deepEqual(readFileSync(join(fixture.root, 'app.ts')), before)
     }
-  } finally { fixture.dispose() }
+  } finally {
+    fixture.dispose()
+  }
 })
