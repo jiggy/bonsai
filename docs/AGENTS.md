@@ -8,6 +8,8 @@ GitHub Action adoption (`github-action.md`), design baseline, BDD workflow (`bdd
 
 README's optional structural-policy section owns `control-depth-v1` counting and limit semantics. Keep configured enforcement distinct from additive source diagnostics and retained-token accounting; no default depth limit is implied.
 
+`rust-adapter.md` owns the bounded development-only Rust semantic-backend experiment and its production-integration gate; it must not imply Rust source is already supported.
+
 `verification.md` owns concrete supporting-runner configuration, exercised format/runtime versions, quality-floor semantics, snapshot/evidence identities, and their authentication limits.
 
 ## Local Contracts
