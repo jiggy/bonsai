@@ -104,8 +104,9 @@ replace the checker's resolved toolchain. Root lockfile presence/content and the
 effective project configuration remain bound through the candidate fingerprint.
 The final integrity check also detects changes to the checker or toolchain.
 Native analysis captures the context before work and checks it afterward.
-Application workers independently compare checker bytes and Bun/preload context,
-and carry the parent's validated compiler receipt: they do not run that compiler.
+The verifier compares checker bytes and Bun/preload context before opening the
+application boundary and carries the validated compiler receipt. Application
+handlers do not run that compiler.
 Warm native scopes bind loaded checker/SDK/lexical code content, so changed code
 at unchanged paths needs a fresh worker. This shares initialization, never source
 facts or application evidence.

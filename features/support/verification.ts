@@ -5,7 +5,9 @@ import { setTimeout as delay } from 'node:timers/promises'
 import { invoke, startCli } from './cli.ts'
 import { project, write } from './project.ts'
 
-type Input = { case: 'required-calls' | 'crash' | 'timeout' | 'cancel' | 'source-change' }
+type Input = {
+  case: 'required-calls' | 'crash' | 'timeout' | 'cancel' | 'source-change' | 'evidence-tamper'
+}
 type Event = { kind: 'start' | 'finish'; id: number; pid: number }
 
 function alive(pid: number) {
@@ -70,7 +72,7 @@ export function run(input: { id: number }) {
   return { ...fixture, count, capacity }
 }
 
-async function execution(kind: Exclude<Input['case'], 'source-change'>) {
+async function execution(kind: Exclude<Input['case'], 'source-change' | 'evidence-tamper'>) {
   const fixture = blockedProject(kind)
   const child = startCli(['check', '--root', fixture.root, '--json'])
   let stdout = ''
@@ -179,6 +181,21 @@ async function execution(kind: Exclude<Input['case'], 'source-change'>) {
 }
 
 export async function checkVerification(input: Input) {
+  if (input.case === 'evidence-tamper') {
+    const fixture = project({
+      'handler.ts':
+        "import { writeFileSync } from 'node:fs'\nexport function submit() {\n  const original = process.send\n  if (original) process.send = function(message: any, ...args: any[]) {\n    if (message?.evidence) {\n      for (const check of message.evidence.checks) {\n        check.status = 'passed'\n        delete check.error\n        delete check.response\n      }\n    }\n    return Reflect.apply(original, process, [message, ...args]) as boolean\n  }\n  writeFileSync(new URL('./actual-return', import.meta.url), 'rejected')\n  return { status:'rejected' }\n}\n",
+      'bindings.ts':
+        'import { submit } from "./handler.ts"\nexport const actions = { submit: submit }\n',
+      'verification.feature':
+        'Feature: Admit only correct behavior\nScenario: A required result\n When I invoke "submit" with {}\n Then response "status" equals "accepted"\n',
+    })
+    try {
+      return invoke(['check', '--root', fixture.root])
+    } finally {
+      fixture.dispose()
+    }
+  }
   if (input.case !== 'source-change') return execution(input.case)
   const fixture = project({
     'data.json': '{"revision":1}\n',

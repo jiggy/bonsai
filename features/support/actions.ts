@@ -14,6 +14,7 @@ import { checkVerification } from './verification.ts'
 import { projectBehavior } from './project-behavior.ts'
 import { checkUx } from './ux.ts'
 import { checkSupportingSuite } from './runners.ts'
+import { githubAction } from './github-action.ts'
 
 /** Fixture inputs arrange contexts; the action identity remains the public command. */
 export function checkProject(input: Record<string, unknown>) {
@@ -63,4 +64,4 @@ export function generateCompletion(input: Record<string, unknown>) {
     : generateBasicCompletion(input as Parameters<typeof generateBasicCompletion>[0])
 }
 
-export { showHelp, showVersion }
+export { showHelp, showVersion, githubAction }

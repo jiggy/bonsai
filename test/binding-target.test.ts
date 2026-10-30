@@ -168,8 +168,8 @@ test('a supported loader boundary requires the matching binding import receipt',
     assert.deepEqual(candidate.source.problems, [])
     candidate.source.bindingImports = [
       {
-        from: 'src/evidence.ts#collectEvidence',
-        file: 'src/evidence.ts',
+        from: 'src/worker.ts#loadActions',
+        file: 'src/worker.ts',
         line: 32,
         adapter: 'project-bindings-v1',
         bindings: config.bindings,
@@ -224,12 +224,12 @@ test('the binding adapter follows unchanged implementations into archives and re
     const files = inventory(root, ['src', 'package.json', 'bonsai.bindings.ts'])
     const source = analyzeSource(root, files, 'bonsai.bindings.ts')
     assert.deepEqual(source.problems, [])
-    const collector = readFileSync(join(root, 'src/evidence.ts'), 'utf8')
+    const collector = readFileSync(join(root, 'src/worker.ts'), 'utf8')
     const line = collector.slice(0, collector.indexOf('import(target.url)')).split('\n').length
     assert.deepEqual(source.bindingImports, [
       {
-        from: 'src/evidence.ts#collectEvidence',
-        file: 'src/evidence.ts',
+        from: 'src/worker.ts#loadActions',
+        file: 'src/worker.ts',
         line,
         adapter: 'project-bindings-v1',
         bindings: 'bonsai.bindings.ts',
@@ -238,7 +238,7 @@ test('the binding adapter follows unchanged implementations into archives and re
     const registryTargets = new Set([source.registry, ...Object.values(source.actions)])
     assert.equal(
       source.relationships.some(
-        (edge) => edge.from === 'src/evidence.ts#collectEvidence' && registryTargets.has(edge.to),
+        (edge) => edge.from === 'src/worker.ts#loadActions' && registryTargets.has(edge.to),
       ),
       false,
       'Recognizing a loader boundary must not grant ancestry to registry handlers',
@@ -252,7 +252,7 @@ test('the binding adapter follows unchanged implementations into archives and re
     assert.equal(changed.bindingImports, undefined)
     assert.ok(
       changed.problems.some((problem) =>
-        /^Dynamic import requires an adapter: src\/evidence\.ts#collectEvidence.*import\(target\.url\)/.test(
+        /^Dynamic import requires an adapter: src\/worker\.ts#loadActions.*import\(target\.url\)/.test(
           problem,
         ),
       ),

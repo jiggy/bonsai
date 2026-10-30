@@ -412,10 +412,11 @@ test('isolated cancellation and deadlines stop descendants of synchronous handle
   }
 })
 
-test('isolated verification rejects incomplete, mismatched, and malformed shard reports', async () => {
+test('candidate-authored shard reports cannot replace verifier-owned evidence', async () => {
   const fixture = createProject({
     'package.json': '{"type":"module"}',
-    'bindings.ts': `import { writeFileSync } from 'node:fs'
+    'bindings.ts': `import { parentPort } from 'node:worker_threads'
+import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { executionIdentity } from ${JSON.stringify(new URL('../src/identity.ts', import.meta.url).href)}
 const fingerprint = new URL(import.meta.url).searchParams.get('snapshot')
@@ -446,9 +447,10 @@ function forge(input: { mode: string }) {
     case 'response-size': evidence.checks[0].status = 'failed'; evidence.checks[0].response = 'x'.repeat(2049); break
     case 'passed-response': evidence.checks[0].response = 'unrelated response'; break
   }
-  // Exercise the local worker protocol validator, not a hostile-code boundary.
+  // Both legacy IPC and the public thread channel are outside the verifier's private port.
   process.send?.({ evidence })
-  return { status: 'ok' }
+  parentPort?.postMessage({ evidence })
+  return { status: 'wrong' }
 }
 function later() {
   writeFileSync(fileURLToPath(new URL('./later', import.meta.url)), 'executed')
@@ -486,20 +488,40 @@ Scenario: Queued scenario
 `
       writeFileSync(join(fixture.root, 'protocol.feature'), text)
       const contracts = compileContracts([{ file: 'protocol.feature', text }])
-      await assert.rejects(
-        runEvidence(
-          fixture.root,
-          config,
-          contracts,
-          identity(fixture.root, config),
-          15000,
-          undefined,
-          isolated(1),
-        ),
-        /Invalid isolated scenario evidence|Invalid or duplicate isolated scenario check|Missing isolated scenario checks|Invalid worker report/,
+      const hash = identity(fixture.root, config)
+      const evidence = await runEvidence(
+        fixture.root,
+        config,
+        contracts,
+        hash,
+        15000,
+        undefined,
+        isolated(1),
+      )
+      assert.equal(evidence.schema, 'bonsai-evidence-v2', mode)
+      assert.equal(evidence.fingerprint, hash, mode)
+      assert.equal(evidence.profile, 'isolated-scenarios-v1', mode)
+      assert.equal(evidence.complete, true, mode)
+      assert.deepEqual(
+        evidence.bindingImport,
+        {
+          adapter: 'project-bindings-v1',
+          file: 'bindings.ts',
+          fingerprint: hash,
+        },
         mode,
       )
-      assert.equal(existsSync(join(fixture.root, 'later')), false, mode)
+      assert.deepEqual(
+        evidence.checks.map((check) => check.id),
+        contracts.checks.map((check) => check.id),
+        mode,
+      )
+      assert.deepEqual(
+        evidence.checks.map((check) => check.status),
+        ['failed', 'passed'],
+        mode,
+      )
+      assert.equal(readFileSync(join(fixture.root, 'later'), 'utf8'), 'executed', mode)
     }
   } finally {
     fixture.dispose()

@@ -24,9 +24,10 @@ Scenario: Another promise
 test('specification bindings preserve public command identities rather than fixture aliases', () => {
   assert.deepEqual(
     Object.keys(actions).sort(),
-    Object.keys(commands)
-      .map((command) => (command === 'config' ? 'config-show' : command))
-      .sort(),
+    [
+      ...Object.keys(commands).map((command) => (command === 'config' ? 'config-show' : command)),
+      'jiggy/bonsai',
+    ].sort(),
   )
 })
 
