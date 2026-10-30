@@ -90,6 +90,34 @@ class Example {
   )
 })
 
+test('destructured parameter bindings measure nested defaults and independent closures', () => {
+  for (const parameters of [
+    '{ value = first ? (second ? 1 : 2) : 3 }',
+    '[value = first ? (second ? 1 : 2) : 3]',
+    '{ nested: { value = first ? (second ? 1 : 2) : 3 } = {} }',
+    '{ values: [value = first ? (second ? 1 : 2) : 3] = [] } = {}',
+    '{ [first ? (second ? "a" : "b") : "c"]: value }',
+  ]) {
+    const result = facts(`function ready(${parameters}) { return value }`)
+    assert.equal(result.regions.length, 2, parameters)
+    assert.equal(result.regions[0]!.depth, 0, parameters)
+    assert.equal(result.regions[1]!.name, 'ready')
+    assert.equal(result.regions[1]!.depth, 2, parameters)
+    assert.ok(validControlDepth(result, [{ file: 'app.ts' }]))
+  }
+  for (const parameters of [
+    '{ value = first ? (() => second ? (third ? 1 : 2) : 3) : fallback }',
+    '[value = first ? (() => second ? (third ? 1 : 2) : 3) : fallback]',
+  ]) {
+    const result = facts(`function ready(${parameters}) { return value }`)
+    assert.equal(result.regions.length, 3, parameters)
+    assert.equal(result.regions.find((region) => region.kind === 'module')!.depth, 0)
+    assert.equal(result.regions.find((region) => region.name === 'ready')!.depth, 1)
+    assert.equal(result.regions.find((region) => region.name === '<anonymous>')!.depth, 2)
+    assert.ok(validControlDepth(result, [{ file: 'app.ts' }]))
+  }
+})
+
 function candidate(depth = 4): Snapshot {
   const contracts = compileContracts([
     {
@@ -264,3 +292,4 @@ test('structural blockers provide cause-specific repairs using the existing crit
     ),
   )
 })
+

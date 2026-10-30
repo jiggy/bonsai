@@ -182,6 +182,17 @@ regression report for evidence and timing comparisons without running another ch
 The root's saved 15-second feedback ceiling and retained-code limits remain in
 force; passing the regression does not assert full root acceptance.
 
+Literal text resource reads use resolved named `node:fs` `readFileSync` imports,
+direct unshadowed global module-relative URL literals, and literal UTF-8 encoding.
+A generated whole-file data component receives the read owner's static reference;
+it never roots executable declarations in a file read as text. Inventory file
+cost remains authoritative and deduplicated. The initial production/binding-only
+slice validates supported textual formats, UTF-8 bytes, regular canonical inventory
+membership, and URL bounds. Recognized computed URL forms are unsupported;
+ordinary runtime inputs and test fixture ownership remain outside this adapter.
+Removing the final recognized reader removes its generated dependency facts, not
+the maintained file's cost. See the README for the precise syntax and formats.
+
 ## Native semantic backend
 
 `check` and `explain` use the pinned tsrs compiler for
@@ -249,3 +260,4 @@ aliases as different engines. See [native scope and commands](native-prototype.m
 The original design calls for broader evidence and trusted CI integration than this first adapter provides. The README documents the executable scope precisely. Keep unsupported capabilities incomplete or explicitly outside the configured deployment scope; do not manufacture passing coverage, mutation, unit-runner, or framework evidence.
 
 A policy change is an explicit change to the rules. Loading base policy is useful but does not make a candidate-controlled executable trustworthy. A production merge gate must obtain its checker and effective policy independently, review scope and inventory changes, and run candidate code in suitable isolation.
+

@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, relative, sep } from 'node:path'
 import type { Source, Component } from './model.ts'
 import { createSubprocessAdapter, executesAtEntry } from './subprocess.ts'
+import { createResourceAdapter } from './resources.ts'
 
 export { inventory, fingerprint } from './inventory.ts'
 
@@ -141,6 +142,8 @@ export function collectSourceGraph(
     })
   }
   const subprocess = createSubprocessAdapter(root, files, program)
+  const resource = createResourceAdapter(root, files, program)
+  const resources = new Map<string, Component>()
   const entries = new Map<string, Component[]>()
   for (const [node, component] of nodes)
     if (executesAtEntry(node))
@@ -151,12 +154,10 @@ export function collectSourceGraph(
   // export of this project's registry. Evidence must contain its loading receipt.
   // Compare implementation contents as well as symbols: archives and separate
   // checkouts have different absolute paths, while lookalikes are not adapters.
-  const implementations = new Map(
-    ['evidence.ts', 'binding-target.ts'].map((file) => [
-      file,
-      readFileSync(new URL(file, import.meta.url), 'utf8'),
-    ]),
-  )
+  const implementations = new Map([
+    ['evidence.ts', readFileSync(new URL('./evidence.ts', import.meta.url), 'utf8')],
+    ['binding-target.ts', readFileSync(new URL('./binding-target.ts', import.meta.url), 'utf8')],
+  ])
   const bindingImport = (call: ts.CallExpression, owner: ts.Node): boolean => {
     if (
       !ts.isFunctionDeclaration(owner) ||
@@ -201,6 +202,33 @@ export function collectSourceGraph(
   }
   for (const [node, owner] of nodes) {
     const visit = (child: ts.Node): void => {
+      if (ts.isCallExpression(child) && owner.kind !== 'test') {
+        const selected = resource(child)
+        if (selected && 'problem' in selected)
+          source.problems.push(`${selected.problem} at ${owner.file}:${reference(child).line}`)
+        else if (selected) {
+          let target = resources.get(selected.file)
+          if (!target) {
+            const measured = source.files.find((entry) => entry.file === selected.file)!
+            target = {
+              file: selected.file,
+              line: 1,
+              id: selected.file + '#<resource>',
+              name: '<resource>',
+              kind:
+                selected.file === bindings
+                  ? 'binding'
+                  : /(?:^|\/)(?:test|tests)\/|\.(?:test|spec)\./.test(selected.file)
+                    ? 'test'
+                    : 'production',
+              tokens: measured.tokens,
+            }
+            resources.set(selected.file, target)
+            source.components.push(target)
+          }
+          connect(owner, target, child)
+        }
+      }
       if (ts.isCallExpression(child)) {
         const launch = subprocess(child)
         if (launch && 'problem' in launch)
@@ -342,3 +370,4 @@ export function collectSourceGraph(
   source.controlDepth.complete = controlDepthSupported(source.files)
   return source
 }
+

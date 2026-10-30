@@ -189,11 +189,14 @@ export function measureControlDepth(
       } else syntax.forEachChild(node, (child) => visit(child, next))
     }
     if (fn) {
-      for (const parameter of fn.parameters)
+      for (const parameter of fn.parameters) {
+        visit(parameter.name, 0)
         if (parameter.initializer) visit(parameter.initializer, 0)
+      }
       visit(fn.body!, 0)
     } else for (const statement of ast.statements) visit(statement, 0)
   }
   collect()
   return regions
 }
+

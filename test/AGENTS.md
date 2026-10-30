@@ -49,7 +49,15 @@ bounded human details and complete machine facts.
 
 `subprocess-ancestry.test.ts` compares complete native source facts with the development oracle and exercises real child execution plus read-only explain. Preserve unused-export, uncontracted launch, test-to-production, builtin/global shadowing, launch-option, and missing-inventory regressions. Test-helper subject discovery must handle chains and cycles without propagating inherited support ancestry into unrelated tests or dead production.
 
-`control-depth.test.ts` covers source-level decisions, transparent formatting/blocks, else-if chains, closures, lexical module regions, metric validation, legacy compatibility, and the optional boundary. `control-depth-cli.test.ts` checks genuine native behavior/ancestry/size separately from structural rejection and proves protected-base limits survive candidate relaxation. Keep syntax permutations here; the product examples describe the reviewed quality rule.
+`control-depth.test.ts` covers source-level decisions, transparent formatting/blocks, else-if chains, closures, destructured parameter defaults, lexical module regions, metric validation, legacy compatibility, and the optional boundary. `control-depth-cli.test.ts` checks genuine native behavior/ancestry/size separately from structural rejection, including parameter defaults, and proves protected-base limits survive candidate relaxation. Keep syntax permutations here; the product examples describe the reviewed quality rule.
+
+`resource-dependencies.test.ts` compares native and oracle facts for literal UTF-8
+resource reads, deduplication, provenance, and source-as-data boundaries. Exercise
+actual native verification and read-only explain with independently observed
+handler execution. Missing/unmaintained, computed, malformed, binary, and symlink
+cases must block without running handlers; lookalikes, tests, and runtime input
+paths must not manufacture resource ancestry. These are technical regressions
+under the existing dependency-scope promise and grant no product allowance.
 
 `class-startup.test.ts` checks definition-time class effects against dormant bodies and compares native/oracle child ancestry while preserving inert sibling rejection. Its real native CLI regression preserves successful exit, passing decision, independently observed handler execution, and complete product evidence in a disposable consuming project. Class-syntax cases remain technical regressions rather than additional product specifications.
 
@@ -82,3 +90,5 @@ Use asynchronous child invocations while a test owns the broker, so its event lo
 ## Child DOX Index
 
 - [native/AGENTS.md](native/AGENTS.md): development-only native comparisons, fixtures, and fresh-command benchmarks.
+
+

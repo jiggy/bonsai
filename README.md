@@ -645,7 +645,7 @@ for exact supported formats, runtime requirements, limits, and configuration.
 
 ## Limits and next steps
 
-This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. General computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
+This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, general asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. General computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
 
 Bonsai's internal binding-loader adapter recognizes the exact collector pattern
 that imports a validated project target. Before importing, it checks the selected
@@ -663,6 +663,42 @@ ambient type discovery and blocks known semantic gaps, including disabling the
 default library through a source directive. This is not universal compiler
 compatibility. See [native scope and commands](docs/native-prototype.md) and
 [performance measurements](docs/performance.md).
+
+### Literal text resources
+
+A production or binding component can read a maintained text file through a named
+`node:fs` `readFileSync` import, including a named alias:
+
+```ts
+import { readFileSync } from 'node:fs'
+
+export function greeting() {
+  return readFileSync(new URL('./message.txt', import.meta.url), 'utf8')
+}
+```
+
+Include the resource in maintained inventory. The adapter follows only a direct,
+unshadowed global `new URL(literal, import.meta.url)` and literal `'utf8'` or
+`'utf-8'` encoding. It creates one `message.txt#<resource>` file-data component,
+with a static reference from each read owner and the actual call location.
+`explain` can trace that component without executing the reader. Reading source
+as text does not retain any functions or exports in that source.
+
+Supported suffixes are `.txt`, `.json`, `.sql`, `.md`, `.markdown`, `.html`,
+`.htm`, `.css`, `.svg`, `.yaml`, `.yml`, `.toml`, `.ini`, `.xml`,
+`.graphql`, `.gql`, `.csv`, `.tsv`, `.ts`, `.mts`, and `.cts`. Bytes must
+be valid UTF-8 without binary control characters. Unknown formats and binary
+assets need a separate metric. Missing, unmaintained, symlinked, or escaping
+targets block analysis; search, fragments, encoded separators, and computed
+module-relative URL selections are unsupported.
+
+This is a bounded static dependency adapter. URL aliases, imported URL
+constructors, namespace/default filesystem imports, asynchronous reads, and
+ordinary runtime input paths are outside its claim. Test fixture ownership is
+also outside this slice: test-only reads add no resource component or production
+ancestry. Every maintained file still counts once at full cost. A dormant reader
+cannot justify a resource; after deleting its last recognized reader, the file
+remains fully charged but has no automatic orphan-resource finding.
 
 ### Fixed child entry points
 
@@ -714,3 +750,4 @@ enforcement, and branch protection remain unfinished. The repository's CI checks
 the implementation, its executable product contracts, its example, and explicit
 release smoke tests; it is not the trusted admission system described in the
 design. See [the design](docs/design.md) and [the implementation roadmap](docs/roadmap.md).
+

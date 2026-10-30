@@ -33,6 +33,36 @@ test('real native checks distinguish excessive nesting from passing behavior, si
   }
 })
 
+test('native checks enforce nesting inside destructured parameter defaults', () => {
+  const fixture = createProject(
+    {
+      'app.ts':
+        'export function ready({ status = true ? (false ? "bad" : "ok") : "bad" } = {}) { return { status } }',
+      'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
+      'ready.feature':
+        'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
+    },
+    { structural: { metric: 'control-depth-v1', maxDepth: 1 } },
+  )
+  try {
+    const checked = runCli(['check', '--root', fixture.root, '--json'])
+    assert.equal(checked.status, 1, checked.stderr)
+    const rejected = JSON.parse(checked.stdout)
+    assert.equal(rejected.decision.status, 'reject')
+    assert.deepEqual(rejected.snapshot.source.problems, [])
+    assert.deepEqual(rejected.snapshot.unrooted, [])
+    assert.equal(rejected.snapshot.evidence.complete, true)
+    assert.equal(rejected.snapshot.evidence.checks.length, 1)
+    assert.equal(rejected.snapshot.evidence.checks[0].status, 'passed')
+    assert.ok(rejected.decision.retained < rejected.decision.ceiling)
+    assert.equal(rejected.snapshot.source.controlDepth.complete, true)
+    assert.equal(rejected.decision.violations.length, 1)
+    assert.match(rejected.decision.violations[0], /Control-flow depth 2 exceeds 1 at app.ts:/)
+  } finally {
+    fixture.dispose()
+  }
+})
+
 test('trusted base structural policy cannot be relaxed by the candidate configuration', () => {
   const fixture = createProject(
     {
@@ -139,3 +169,4 @@ test('mixed maintained Python files leave optional diagnostics partial and a req
     fixture.dispose()
   }
 })
+

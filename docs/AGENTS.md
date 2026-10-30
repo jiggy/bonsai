@@ -24,6 +24,12 @@ Keep the BDD guide authoritative for discovering stakeholder rules, reviewing im
 
 Document fixed subprocess entry-point syntax separately from runtime coverage. Child launches root executable startup, not entire modules or exports. Keep unsupported launch forms and general import side effects explicit; distinguish definition-time class effects from dormant bodies. Test-helper subject discovery uses established production ancestry; supporting helper ancestry cannot justify unrelated callers.
 
+Document literal text resource reads as a bounded production/binding adapter:
+whole-file data references never root executable exports, and retained file cost
+stays independent. Keep exact supported URL, filesystem API, encoding, and text
+format limits explicit. Test fixture ownership and universal dependency
+completeness remain separate gaps.
+
 Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
 
 Document concurrent isolated verification as the default, with runtime CPU-sized workers bounded by scenario count, fresh application processes, sequential steps, and one overall deadline. `check --serial` preserves shared application modules across ordered scenarios. Execution mode is an invocation choice, not project configuration. Process separation does not isolate external resources. Compare profiles on identical inventories and obligations; label historical configuration/fingerprint differences separately from current runtime metadata and changed outcomes.
@@ -45,3 +51,4 @@ Compare examples with `bun run bonsai --help` and the executable
 ## Child DOX Index
 
 None. This file owns the full subtree.
+
