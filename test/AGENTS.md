@@ -16,6 +16,10 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 ## Work Guidance
 
+`evidence-authenticity.test.ts` covers handler attempts to rewrite genuine evidence using process IPC, raw descriptor frames, prototype setters, heap-key recovery, event-dispatch hooks, port-start replacement during binding import, and forged public parent-port messages, through both verification profiles and the real CLI. Its direct action-plan probe verifies genuine selected values without compiler or broker setup and requires deadline rejection when a raw-descriptor attacker never settles. Result authentication belongs to the subprocess main heap, after the candidate thread stops; no verifier descriptor may remain in candidate reach. Preserve public evidence schemas, failure previews, every observation, state profiles, cancellation, and descendant cleanup.
+
+`github-action.test.ts` exercises the real action entry point against independent Git consumers. Preserve strict base policy/inventory, over-budget growth and pruning, failed/incomplete verification, serial invocation, missing history, actual metrics, and rejection of missing/malformed/contradictory reports. Hosted composite smoke checks live in `.github/workflows/action.yml`; setup failures do not establish the intended gate behavior.
+
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs. `verification-policy.test.ts` checks schema and malformed serialized evidence rejection; `fingerprint.test.ts` checks excluded root lockfile presence, content, and removal as evidence inputs.
 
 `identity.test.ts` and `snapshot-schema.test.ts` cover content identity, relocation, runtime options, and nested serialized facts. `identity-fixture.ts` supplies explicitly assumed identities only to pure evaluator fixtures. `runner-adapters.test.ts` checks concrete report correlation, counts/floors, stale files, containment, and actual command cancellation. `runner-real.test.ts` is the opt-in pinned-framework consumer smoke; ordinary tests skip its network installation.

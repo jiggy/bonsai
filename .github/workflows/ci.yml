@@ -82,7 +82,7 @@ jobs:
       always() && !cancelled() &&
       (needs.format.result == 'success' || needs.format.result == 'skipped') &&
       (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4

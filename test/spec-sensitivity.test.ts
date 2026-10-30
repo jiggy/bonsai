@@ -162,12 +162,12 @@ test('the authored ancestry example detects production retained through a unit t
 })
 
 test('the authored obligation example detects duplicate handler execution', async () => {
-  const call = 'response = await module.actions[step.action](structuredClone(step.input))'
+  const call = 'const response = await actions[action]!(input)'
   await detectsFault(
     { examples: 5 },
-    'src/evidence.ts',
+    'src/worker.ts',
     call,
-    `await module.actions[step.action](structuredClone(step.input))\n            ${call}`,
+    `await actions[action]!(input)\n            ${call}`,
     'invocationCount',
   )
 })

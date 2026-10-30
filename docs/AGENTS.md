@@ -4,13 +4,15 @@ Explain Bonsai’s supported behavior and limits.
 
 ## Ownership
 
-Design baseline, BDD workflow (`bdd.md`), roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), performance profiling and native checker research (`performance.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
+GitHub Action adoption (`github-action.md`), design baseline, BDD workflow (`bdd.md`), roadmap, command reference, CLI review evidence (`check-ux-review.md`), native collector evaluation (`native-prototype.md`), performance profiling and native checker research (`performance.md`), and the distinction between executable behavior contracts and full self-budget acceptance.
 
 `verification.md` owns concrete supporting-runner configuration, exercised format/runtime versions, quality-floor semantics, snapshot/evidence identities, and their authentication limits.
 
 ## Local Contracts
 
 Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and development oracle comparisons from native full-root admission checks under the saved deadline.
+
+GitHub Action adoption requires an independently protected required-workflow definition. Include the disposable same-name no-op probe for confirming enforcement; the Action cannot configure or attest organization rulesets. Keep trusted-owner review explicitly weaker than automatic required-workflow enforcement.
 
 The roadmap treats Bonsai's own allowance overrun as non-blocking development
 information until the first mature release. Preserve and report the real gate
@@ -29,6 +31,8 @@ format limits explicit. Test fixture ownership and universal dependency
 completeness remain separate gaps.
 
 Keep command elapsed time, candidate phase durations, and policy feedback measurements distinct. Document timing endpoints and partial/interrupted measurements; profiling doesn't change acceptance or deadline limits.
+
+Document the descriptor-free application boundary, closed bootstrap input, and authenticated result delivered only after candidate termination. Keep OS and filesystem isolation limits explicit.
 
 Document concurrent isolated verification as the default, with runtime CPU-sized workers bounded by scenario count, fresh application processes, sequential steps, and one overall deadline. `check --serial` preserves shared application modules across ordered scenarios. Execution mode is an invocation choice, not project configuration. Process separation does not isolate external resources. Compare profiles on identical inventories and obligations; label historical configuration/fingerprint differences separately from current runtime metadata and changed outcomes.
 

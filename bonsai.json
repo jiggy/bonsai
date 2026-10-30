@@ -6,6 +6,7 @@
     ".gitignore",
     "AGENTS.md",
     "README.md",
+    "action.yml",
     "biome.json",
     "bonsai.bindings.ts",
     "bonsai.json",

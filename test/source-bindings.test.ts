@@ -80,7 +80,7 @@ test('Bonsai recognizes every action in its formatter-produced own registry', as
   const { source } = await snapshot(root, config, false)
   const { actions } = await import('../bonsai.bindings.ts')
   assert.deepEqual(Object.keys(source.actions).sort(), Object.keys(actions).sort())
-  assert.equal(Object.keys(source.actions).length, 7)
+  assert.equal(Object.keys(source.actions).length, 8)
   assert.ok(
     !source.problems.includes('Each action binding must be a literal key and named handler'),
   )
