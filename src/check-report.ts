@@ -194,7 +194,9 @@ export function checkReport(candidate: Snapshot, decision: Decision, options: Op
         detail: [],
         fix: message.startsWith('Feedback time')
           ? 'Shorten verification while preserving required checks. Treat any policy change as a separate decision'
-          : 'Inspect the reported requirement and restore its required verification',
+          : message.startsWith('Control-flow depth ')
+            ? 'Reduce control-flow nesting at the reported location while preserving required behavior'
+            : 'Inspect the reported requirement and restore its required verification',
       })
   }
   const problems: HumanLine[] = bounded(diagnostics, limit).flatMap((diagnostic) => [

@@ -1,3 +1,4 @@
+import { validControlDepth } from './control-depth.ts'
 import { createRequire } from 'node:module'
 import type { Snapshot, Source, Timing, TimingStage } from './model.ts'
 import type { Timer } from './timing.ts'
@@ -63,6 +64,7 @@ function validSource(value: unknown): value is Source {
     'actions',
     'registry',
     'bindingImports',
+    'controlDepth',
     'problems',
   ]
   return (
@@ -112,6 +114,8 @@ function validSource(value: unknown): value is Source {
             boundary.adapter === 'project-bindings-v1' &&
             typeof boundary.bindings === 'string',
         ))) &&
+    (value.controlDepth === undefined ||
+      validControlDepth(value.controlDepth, value.files as { file: string }[])) &&
     Array.isArray(value.problems) &&
     value.problems.every((problem) => typeof problem === 'string')
   )

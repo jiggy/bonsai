@@ -4,7 +4,7 @@ Guide pull request review, automate formatting, verify proposed changes, and pub
 
 ## Ownership
 
-`pull_request_template.md`, `workflows/ci.yml`, `workflows/pages.yml`, and the development-only `workflows/rust-backend.yml`.
+`pull_request_template.md`, `workflows/ci.yml`, `workflows/action.yml`, `workflows/pages.yml`, and the development-only `workflows/rust-backend.yml`.
 
 The root `action.yml` delegates checker execution and GitHub summaries to `action/run.ts`.
 

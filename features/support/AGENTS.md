@@ -4,7 +4,7 @@ Arrange isolated projects and observe Bonsai's public CLI and reusable GitHub Ac
 
 ## Ownership
 
-`cli.ts` owns real synchronous and asynchronous CLI launches. `project.ts` owns disposable fixture files and policies. Domain helpers arrange inputs and return CLI reports or independently observed filesystem/process facts. `actions.ts` binds the stable public command identities and the reusable `jiggy/bonsai` operation. `github-action.ts` runs the same action entry point used by the composite, against an independent Git consumer; it reports real exit codes and action outputs without deriving acceptance.
+`cli.ts` owns real synchronous and asynchronous CLI launches. `project.ts` owns disposable fixture files and policies. Domain helpers arrange inputs and return CLI reports or independently observed filesystem/process facts. `actions.ts` binds the stable public command identities and the reusable `jiggy/bonsai` operation. `github-action.ts` runs the same action entry point used by the composite, against an independent Git consumer; it reports real exit codes and action outputs without deriving acceptance. `control-depth.ts` arranges equivalent nested and guard-clause applications under an explicit structural policy. Its real nested check explicitly uses the supported serial mode: both application observations still execute, while worker isolation remains covered by its dedicated contracts and regressions.
 
 ## Local Contracts
 

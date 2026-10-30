@@ -1,4 +1,5 @@
 import ts from 'typescript'
+import { controlDepthSupported, measureControlDepth } from './control-depth.ts'
 import { readFileSync } from 'node:fs'
 import { resolve, relative, sep } from 'node:path'
 import type { Source, Component } from './model.ts'
@@ -63,6 +64,7 @@ export function collectSourceGraph(
   program: ts.Program,
 ): Source {
   const scriptFiles = files.filter((file) => /\.[cm]?ts$/.test(file))
+  source.controlDepth = { metric: 'control-depth-v1', complete: false, regions: [] }
   const checker = program.getTypeChecker()
   const nodes = new Map<ts.Node, Component>()
   const symbols = new Map<ts.Symbol, Component>()
@@ -74,6 +76,7 @@ export function collectSourceGraph(
   })
   for (const file of scriptFiles) {
     const ast = program.getSourceFile(resolve(root, file))!
+    source.controlDepth.regions.push(...measureControlDepth(ts, ast, file))
     for (const statement of ast.statements) {
       if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) continue
       const declarations = ts.isVariableStatement(statement)
@@ -357,5 +360,13 @@ export function collectSourceGraph(
     }
   }
   if (!source.registry) source.problems.push('No exported actions registry found')
+  source.controlDepth.regions.sort(
+    (left, right) =>
+      (left.file < right.file ? -1 : left.file > right.file ? 1 : 0) ||
+      left.line - right.line ||
+      left.column - right.column ||
+      (left.kind === right.kind ? 0 : left.kind === 'module' ? -1 : 1),
+  )
+  source.controlDepth.complete = controlDepthSupported(source.files)
   return source
 }

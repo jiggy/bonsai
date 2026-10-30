@@ -105,6 +105,16 @@ mutation results remain separate evidence facts. Missing or insufficient configu
 results block the one evaluator; they never create ancestry or allowance. See
 [supporting verification](verification.md) for actual format/runtime boundaries.
 
+## Optional structural quality
+
+`policy.structural` can require the versioned `control-depth-v1` source metric.
+The collector uses its existing lexical AST to measure lexical module regions
+and independent function-like bodies; no compiler loads in policy evaluation.
+Snapshots expose validated additive facts, not execution observations.
+Only an explicit depth limit affects acceptance: missing required facts are
+incomplete, and an established excess rejects. Legacy configurations and
+whole-file retained costs are unchanged. README defines the counting boundaries.
+
 ## Timing boundaries
 
 The command profile measures elapsed wall time from the runtime clock origin through

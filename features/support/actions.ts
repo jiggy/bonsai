@@ -14,6 +14,7 @@ import { checkVerification } from './verification.ts'
 import { projectBehavior } from './project-behavior.ts'
 import { checkUx } from './ux.ts'
 import { checkSupportingSuite } from './runners.ts'
+import { checkControlDepth } from './control-depth.ts'
 import { githubAction } from './github-action.ts'
 
 /** Fixture inputs arrange contexts; the action identity remains the public command. */
@@ -27,6 +28,8 @@ export function checkProject(input: Record<string, unknown>) {
       return checkVerification(input as Parameters<typeof checkVerification>[0])
     case 'ux':
       return checkUx(input as Parameters<typeof checkUx>[0])
+    case 'control-depth':
+      return checkControlDepth(input as Parameters<typeof checkControlDepth>[0])
     case 'supporting-suite':
       return checkSupportingSuite(input as Parameters<typeof checkSupportingSuite>[0])
     case 'scenario-state':
