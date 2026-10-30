@@ -94,13 +94,13 @@ function fulfilled(
   assert.deepEqual(candidate.unrooted, [], 'Every retained component needs contract ancestry')
   assert.deepEqual(candidate.contracts, required)
   assert.equal(candidate.source.bindingImports?.length, 1)
-  assert.equal(candidate.source.bindingImports[0]!.from, 'src/evidence.ts#collectEvidence')
-  assert.equal(candidate.source.bindingImports[0]!.file, 'src/evidence.ts')
+  assert.equal(candidate.source.bindingImports[0]!.from, 'src/worker.ts#loadActions')
+  assert.equal(candidate.source.bindingImports[0]!.file, 'src/worker.ts')
   assert.equal(candidate.source.bindingImports[0]!.bindings, config.bindings)
   for (const [from, file] of [
     ['features/support/cli.ts#runCli', 'src/cli.ts'],
     ['features/support/cli.ts#startCli', 'src/cli.ts'],
-    ['src/evidence.ts#forkEvidence', 'src/worker.ts'],
+    ['src/action-process.ts#runActionPlan', 'src/worker.ts'],
     ['src/native-session.ts#spawnNativeWorker', 'src/tsrs-worker.ts'],
   ] as const) {
     const entry = candidate.source.components

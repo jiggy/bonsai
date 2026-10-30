@@ -74,3 +74,12 @@ Feature: Verify every required behavior without leaving application work running
     When I invoke "check" with {"fixture": "supporting-suite", "case": "input-overlap"}
     Then response "exitCode" equals 2
     And response "maintainedText" equals "Authored project notes\n"
+
+  Scenario: A candidate cannot turn failed behavior into a passing verification report
+    A PR returns a rejected result where the reviewed contract requires acceptance.
+    Its handler also intercepts the worker transport and rewrites failed checks
+    to passed while keeping the genuine verification metadata.
+    The maintainer must still receive a rejection for the incorrect behavior.
+    When I invoke "check" with {"fixture": "verification", "case": "evidence-tamper"}
+    Then response "exitCode" equals 1
+    And response "decision.status" equals "reject"

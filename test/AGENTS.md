@@ -16,6 +16,10 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 ## Work Guidance
 
+`evidence-authenticity.test.ts` covers handler attempts to rewrite genuine evidence using process IPC, raw descriptor frames, prototype setters, heap-key recovery, event-dispatch hooks, port-start replacement during binding import, and forged public parent-port messages, through both verification profiles and the real CLI. Its direct action-plan probe verifies genuine selected values without compiler or broker setup and requires deadline rejection when a raw-descriptor attacker never settles. Result authentication belongs to the subprocess main heap, after the candidate thread stops; no verifier descriptor may remain in candidate reach. Preserve public evidence schemas, failure previews, every observation, state profiles, cancellation, and descendant cleanup.
+
+`github-action.test.ts` exercises the real action entry point against independent Git consumers. Preserve strict base policy/inventory, over-budget growth and pruning, failed/incomplete verification, serial invocation, missing history, actual metrics, and rejection of missing/malformed/contradictory reports. Hosted composite smoke checks live in `.github/workflows/action.yml`; setup failures do not establish the intended gate behavior.
+
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs. `verification-policy.test.ts` checks schema and malformed serialized evidence rejection; `fingerprint.test.ts` checks excluded root lockfile presence, content, and removal as evidence inputs.
 
 `identity.test.ts` and `snapshot-schema.test.ts` cover content identity, relocation, runtime options, and nested serialized facts. `identity-fixture.ts` supplies explicitly assumed identities only to pure evaluator fixtures. `runner-adapters.test.ts` checks concrete report correlation, counts/floors, stale files, containment, and actual command cancellation. `runner-real.test.ts` is the opt-in pinned-framework consumer smoke; ordinary tests skip its network installation. `rust-backend.test.ts` offers a `BONSAI_RUST_PROBE=1` semantic/backend experiment against a disposable Cargo consumer; ordinary tests require no Rust toolchain. Existing native CLI regressions retain the production Rust-incomplete boundary. The probe is not production Rust acceptance.
@@ -48,6 +52,14 @@ bounded human details and complete machine facts.
 `package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled, then exercises `bunx` and missing-dependency recovery. Compare GNU/musl behavior while validating each report's own execution identity; different selected binary bytes must change the compiler content digest. Only this explicit release check uses the package registry.
 
 `subprocess-ancestry.test.ts` compares complete native source facts with the development oracle and exercises real child execution plus read-only explain. Preserve unused-export, uncontracted launch, test-to-production, builtin/global shadowing, launch-option, and missing-inventory regressions. Test-helper subject discovery must handle chains and cycles without propagating inherited support ancestry into unrelated tests or dead production.
+
+`resource-dependencies.test.ts` compares native and oracle facts for literal UTF-8
+resource reads, deduplication, provenance, and source-as-data boundaries. Exercise
+actual native verification and read-only explain with independently observed
+handler execution. Missing/unmaintained, computed, malformed, binary, and symlink
+cases must block without running handlers; lookalikes, tests, and runtime input
+paths must not manufacture resource ancestry. These are technical regressions
+under the existing dependency-scope promise and grant no product allowance.
 
 `class-startup.test.ts` checks definition-time class effects against dormant bodies and compares native/oracle child ancestry while preserving inert sibling rejection. Its real native CLI regression preserves successful exit, passing decision, independently observed handler execution, and complete product evidence in a disposable consuming project. Class-syntax cases remain technical regressions rather than additional product specifications.
 

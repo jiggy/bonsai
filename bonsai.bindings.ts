@@ -1,5 +1,6 @@
 import {
   checkProject,
+  githubAction,
   inspectConfiguration,
   explainComponent,
   initializeProject,
@@ -10,6 +11,7 @@ import {
 
 export const actions = {
   check: checkProject,
+  'jiggy/bonsai': githubAction,
   'config-show': inspectConfiguration,
   explain: explainComponent,
   init: initializeProject,

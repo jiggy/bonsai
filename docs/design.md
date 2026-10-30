@@ -52,7 +52,7 @@ One package, with six principal modules:
 | `policy` | Pure evaluation of candidate facts under the configured ceiling and admission requirements. |
 | `cli` | Collect facts, compare a base, explain components, and return actionable output. |
 
-`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts execution. `compiler-options.ts` defines the native and development oracle's shared options. `features/support/` owns development acceptance arrangements and actual CLI launches; `test/compiler.ts` and `test/reference.ts` own the separate JavaScript compiler oracle. Neither belongs to the published runtime. There is no database, persistent daemon, LLM call, or external service.
+`model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts application invocation; assertions and evidence construction remain in the verifier process. A private native message port connects a separate application heap without exposing expected outcomes, evidence records, or signing keys to handlers. `compiler-options.ts` defines the native and development oracle's shared options. `features/support/` owns development acceptance arrangements and actual CLI launches; `test/compiler.ts` and `test/reference.ts` own the separate JavaScript compiler oracle. Neither belongs to the published runtime. There is no database, persistent daemon, LLM call, or external service.
 
 ## Initial adapter choices
 
@@ -172,6 +172,17 @@ regression report for evidence and timing comparisons without running another ch
 The root's saved 15-second feedback ceiling and retained-code limits remain in
 force; passing the regression does not assert full root acceptance.
 
+Literal text resource reads use resolved named `node:fs` `readFileSync` imports,
+direct unshadowed global module-relative URL literals, and literal UTF-8 encoding.
+A generated whole-file data component receives the read owner's static reference;
+it never roots executable declarations in a file read as text. Inventory file
+cost remains authoritative and deduplicated. The initial production/binding-only
+slice validates supported textual formats, UTF-8 bytes, regular canonical inventory
+membership, and URL bounds. Recognized computed URL forms are unsupported;
+ordinary runtime inputs and test fixture ownership remain outside this adapter.
+Removing the final recognized reader removes its generated dependency facts, not
+the maintained file's cost. See the README for the precise syntax and formats.
+
 ## Native semantic backend
 
 `check` and `explain` use the pinned tsrs compiler for
@@ -239,3 +250,29 @@ aliases as different engines. See [native scope and commands](native-prototype.m
 The original design calls for broader evidence and trusted CI integration than this first adapter provides. The README documents the executable scope precisely. Keep unsupported capabilities incomplete or explicitly outside the configured deployment scope; do not manufacture passing coverage, mutation, unit-runner, or framework evidence.
 
 A policy change is an explicit change to the rules. Loading base policy is useful but does not make a candidate-controlled executable trustworthy. A production merge gate must obtain its checker and effective policy independently, review scope and inventory changes, and run candidate code in suitable isolation.
+
+## Application and verifier boundary
+
+The verifier owns required observation IDs, expected values, assertions, binding
+receipts, identity, and evidence serialization. It never imports candidate handlers.
+Each application subprocess hosts a separate worker runtime. Only the subprocess's
+main runtime receives the action plan and a fresh result-authentication key through
+bootstrap input. It closes that input and replaces it with a null descriptor before
+starting the candidate runtime. No verifier IPC channel is inherited. Once every
+action finishes, the main runtime terminates the candidate thread, then opens an
+exclusive result file and writes the authenticated plan. The verifier waits for
+successful process exit and validates its MAC, size, action order, and selectors.
+Raw descriptor writes cannot impersonate this completed result.
+The candidate runtime receives a private transferred native message port before
+binding import. Its public parent port is unused after bootstrap. No signing key
+or evidence record enters the candidate heap, including heap snapshots.
+
+The invocation bridge captures native channel and cloning operations before
+application import and uses envelopes without prototypes. The verifier validates
+action IDs, order, selectors, and every returned value before evaluating assertions.
+Unsolicited or mismatched frames stop verification. Non-transferable selected
+values fail their observations. Unrelated accessors, proxies, and non-transferable
+fields do not run merely to render a diagnostic preview. All observations and both
+execution profiles retain their obligations and deadline. The subprocess still
+provides process-group cleanup; this runtime boundary does not sandbox OS
+privileges, filesystem access, or native debugger access.

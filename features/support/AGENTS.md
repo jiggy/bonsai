@@ -1,10 +1,10 @@
 # Purpose
 
-Arrange isolated projects and observe Bonsai's actual public CLI for its executable specifications.
+Arrange isolated projects and observe Bonsai's public CLI and reusable GitHub Action for its executable specifications.
 
 ## Ownership
 
-`cli.ts` owns real synchronous and asynchronous CLI launches. `project.ts` owns disposable fixture files and policies. Domain helpers arrange inputs and return CLI reports or independently observed filesystem/process facts. `actions.ts` binds the stable public command identities.
+`cli.ts` owns real synchronous and asynchronous CLI launches. `project.ts` owns disposable fixture files and policies. Domain helpers arrange inputs and return CLI reports or independently observed filesystem/process facts. `actions.ts` binds the stable public command identities and the reusable `jiggy/bonsai` operation. `github-action.ts` runs the same action entry point used by the composite, against an independent Git consumer; it reports real exit codes and action outputs without deriving acceptance.
 
 ## Local Contracts
 
@@ -14,6 +14,8 @@ Arrange isolated projects and observe Bonsai's actual public CLI for its executa
 - Preserve product promises and regression coverage across layers. Move technical assertions into explicit tests rather than preserving them as allowance-earning selectors. Name the destinations in review.
 - Keep network installation checks in release validation, outside ordinary feature verification.
 - Do not raise the root deadline, change its coefficients, or exclude authored files to accommodate these specifications.
+
+The evidence-tamper arrangement invokes a handler that returns the wrong result and replaces its process transport to rewrite outgoing evidence. Return the actual CLI report; do not interpret a transport mutation as a test verdict.
 
 ## Work Guidance
 

@@ -6,7 +6,7 @@
 
 Bonsai gives a codebase a finite space to grow. Executable product contracts earn a global allowance; retained code consumes it. Code without contract ancestry blocks acceptance, even when its own unit test imports it.
 
-This is an initial working prototype for **TypeScript with in-process application handlers**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It does not yet provide a hardened merge gate or general framework support.
+This is an initial working prototype for **TypeScript with in-process application handlers**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It includes a reusable [GitHub Action](docs/github-action.md) for PR allowance checks. It does not yet provide a hostile-code sandbox, independently published admission service, or general framework support.
 
 The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`](website/README.md) and published to GitHub Pages by the Website Actions workflow after changes merge into `main`.
 
@@ -27,6 +27,20 @@ bun run demo
 bun run bonsai explain src/checkout.ts --root examples/checkout
 bun run bonsai check --root examples/checkout --json
 ```
+
+## Verify pull requests with GitHub Actions
+
+Use `jiggy/bonsai@<reviewed-commit-sha>` in a read-only PR workflow to check the
+combined merge candidate against the base branch's policy and inventory. The
+action fails when retained tokens exceed the allowance, required behavior fails,
+or analysis/evidence is incomplete. Growth within the allowance can pass;
+pruning that still leaves an overage fails.
+
+It publishes a job summary with token usage, allowance, required reduction, and
+the reviewed base commit, plus a JSON report for artifacts. Enforce a protected
+required-workflow definition to block merging. A required job name alone can be
+replaced by a PR; the guide explains required workflows and enforced ownership.
+See the [complete workflow, inputs, outputs, and execution limits](docs/github-action.md).
 
 ## Commands
 
@@ -140,6 +154,16 @@ verification workers and remove temporary base archives. Candidate handlers stil
 run with the caller's privileges, as described under Limits.
 
 ### Concurrent and serial verification
+
+Assertions and evidence construction run in the verifier process, which never
+imports candidate handlers. Application handlers run in a separate worker heap with
+a private native message port and no open verifier IPC descriptor. Bootstrap input
+is closed before that heap starts. The subprocess writes an authenticated result
+only after the handler runtime terminates; its authentication key stays in the main
+runtime. Wrapping `process.send`, writing raw IPC frames, posting to the public
+parent port, and inspecting the candidate heap cannot replace verifier evidence.
+Selected values must be transferable across the process boundary. This protects
+the JavaScript evidence path, not the runner's OS privileges or filesystem access.
 
 `bonsai check` runs scenarios concurrently by default. It selects one worker per
 available CPU using the runtime's `availableParallelism()`, bounded by the number
@@ -604,7 +628,7 @@ for exact supported formats, runtime requirements, limits, and configuration.
 
 ## Limits and next steps
 
-This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. General computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
+This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, general asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. General computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
 
 Bonsai's internal binding-loader adapter recognizes the exact collector pattern
 that imports a validated project target. Before importing, it checks the selected
@@ -622,6 +646,42 @@ ambient type discovery and blocks known semantic gaps, including disabling the
 default library through a source directive. This is not universal compiler
 compatibility. See [native scope and commands](docs/native-prototype.md) and
 [performance measurements](docs/performance.md).
+
+### Literal text resources
+
+A production or binding component can read a maintained text file through a named
+`node:fs` `readFileSync` import, including a named alias:
+
+```ts
+import { readFileSync } from 'node:fs'
+
+export function greeting() {
+  return readFileSync(new URL('./message.txt', import.meta.url), 'utf8')
+}
+```
+
+Include the resource in maintained inventory. The adapter follows only a direct,
+unshadowed global `new URL(literal, import.meta.url)` and literal `'utf8'` or
+`'utf-8'` encoding. It creates one `message.txt#<resource>` file-data component,
+with a static reference from each read owner and the actual call location.
+`explain` can trace that component without executing the reader. Reading source
+as text does not retain any functions or exports in that source.
+
+Supported suffixes are `.txt`, `.json`, `.sql`, `.md`, `.markdown`, `.html`,
+`.htm`, `.css`, `.svg`, `.yaml`, `.yml`, `.toml`, `.ini`, `.xml`,
+`.graphql`, `.gql`, `.csv`, `.tsv`, `.ts`, `.mts`, and `.cts`. Bytes must
+be valid UTF-8 without binary control characters. Unknown formats and binary
+assets need a separate metric. Missing, unmaintained, symlinked, or escaping
+targets block analysis; search, fragments, encoded separators, and computed
+module-relative URL selections are unsupported.
+
+This is a bounded static dependency adapter. URL aliases, imported URL
+constructors, namespace/default filesystem imports, asynchronous reads, and
+ordinary runtime input paths are outside its claim. Test fixture ownership is
+also outside this slice: test-only reads add no resource component or production
+ancestry. Every maintained file still counts once at full cost. A dormant reader
+cannot justify a resource; after deleting its last recognized reader, the file
+remains fully charged but has no automatic orphan-resource finding.
 
 ### Fixed child entry points
 
@@ -664,7 +724,7 @@ APIs, and shell-selected commands receive no entry-point relationship. A recogni
 local target outside inventory or in an unsupported language blocks verification.
 General import side effects need further adapters.
 
-The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
+The worker executes project code with the developer's privileges. The private JavaScript evidence channel, timeout, and module-cache separation do not sandbox OS privileges, filesystem access, or native debuggers. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 
 Configured supporting-runner evidence and explicit coverage/mutation floors are
 implemented for the formats documented above. Structural quality floors, execution-aware

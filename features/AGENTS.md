@@ -4,7 +4,9 @@ Specify the developer outcomes and domain rules that make Bonsai useful, through
 
 ## Ownership
 
-`check.feature` covers trustworthy admission and executable behavior. `accounting.feature` specifies allowance, required calls, and compaction under unchanged rules. `ancestry.feature` covers production justification and reviewed policy scope. `evidence.feature` specifies required execution, freshness, and shutdown. `project.feature` covers safe adoption; `ux.feature` covers useful diagnostics and automation. `inspect.feature` covers read-only answers; `discover.feature` covers help, version, and usable completion. Root `bonsai.bindings.ts` connects stable public command identities to `support/actions.ts`.
+`check.feature` covers trustworthy admission and executable behavior. `accounting.feature` specifies allowance, required calls, and compaction under unchanged rules. `ancestry.feature` covers production justification and reviewed policy scope. `evidence.feature` specifies required execution, freshness, shutdown, and rejection of candidate attempts to rewrite verification outcomes. `project.feature` covers safe adoption; `ux.feature` covers useful diagnostics and automation. `inspect.feature` covers read-only answers; `discover.feature` covers help, version, and usable completion. `github-action.feature` covers a maintainer's PR allowance gate, including base-policy integrity and incomplete verification. Its canonical public action is the reusable repository identity `jiggy/bonsai`.
+
+Root `bonsai.bindings.ts` connects stable public command identities to `support/actions.ts`.
 
 Technical compiler, parser, protocol, schema, scheduling, and presentation regressions belong in `test/`. They preserve detailed proof without adding product allowance.
 
