@@ -155,14 +155,14 @@ export function collectSourceGraph(
   // Compare implementation contents as well as symbols: archives and separate
   // checkouts have different absolute paths, while lookalikes are not adapters.
   const implementations = new Map([
-    ['evidence.ts', readFileSync(new URL('./evidence.ts', import.meta.url), 'utf8')],
+    ['worker.ts', readFileSync(new URL('./worker.ts', import.meta.url), 'utf8')],
     ['binding-target.ts', readFileSync(new URL('./binding-target.ts', import.meta.url), 'utf8')],
   ])
   const bindingImport = (call: ts.CallExpression, owner: ts.Node): boolean => {
     if (
       !ts.isFunctionDeclaration(owner) ||
-      owner.name?.text !== 'collectEvidence' ||
-      owner.getSourceFile().text !== implementations.get('evidence.ts') ||
+      owner.name?.text !== 'loadActions' ||
+      owner.getSourceFile().text !== implementations.get('worker.ts') ||
       call.arguments.length !== 1
     )
       return false
@@ -189,7 +189,7 @@ export function collectSourceGraph(
       initializer.arguments.length !== 3
     )
       return false
-    return [0, 1, 3].every((parameter, index) => {
+    return [0, 1, 2].every((parameter, index) => {
       const name = owner.parameters[parameter]?.name
       const value = initializer.arguments[index]!
       return (

@@ -590,7 +590,7 @@ test('native binding-loader provenance follows exact archived implementations', 
     assert.equal(modified.source.bindingImports, undefined)
     assert.ok(
       modified.source.problems.some((problem) =>
-        /^Dynamic import requires an adapter: src\/evidence\.ts#collectEvidence/.test(problem),
+        /^Dynamic import requires an adapter: src\/worker\.ts#loadActions/.test(problem),
       ),
     )
   } finally {

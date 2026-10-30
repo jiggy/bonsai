@@ -6,7 +6,7 @@
 
 Bonsai gives a codebase a finite space to grow. Executable product contracts earn a global allowance; retained code consumes it. Code without contract ancestry blocks acceptance, even when its own unit test imports it.
 
-This is an initial working prototype for **TypeScript with in-process application handlers**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It does not yet provide a hardened merge gate or general framework support.
+This is an initial working prototype for **TypeScript with in-process application handlers**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It includes a reusable [GitHub Action](docs/github-action.md) for PR allowance checks. It does not yet provide a hostile-code sandbox, independently published admission service, or general framework support.
 
 The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`](website/README.md) and published to GitHub Pages by the Website Actions workflow after changes merge into `main`.
 
@@ -27,6 +27,20 @@ bun run demo
 bun run bonsai explain src/checkout.ts --root examples/checkout
 bun run bonsai check --root examples/checkout --json
 ```
+
+## Verify pull requests with GitHub Actions
+
+Use `jiggy/bonsai@<reviewed-commit-sha>` in a read-only PR workflow to check the
+combined merge candidate against the base branch's policy and inventory. The
+action fails when retained tokens exceed the allowance, required behavior fails,
+or analysis/evidence is incomplete. Growth within the allowance can pass;
+pruning that still leaves an overage fails.
+
+It publishes a job summary with token usage, allowance, required reduction, and
+the reviewed base commit, plus a JSON report for artifacts. Enforce a protected
+required-workflow definition to block merging. A required job name alone can be
+replaced by a PR; the guide explains required workflows and enforced ownership.
+See the [complete workflow, inputs, outputs, and execution limits](docs/github-action.md).
 
 ## Commands
 
@@ -140,6 +154,16 @@ verification workers and remove temporary base archives. Candidate handlers stil
 run with the caller's privileges, as described under Limits.
 
 ### Concurrent and serial verification
+
+Assertions and evidence construction run in the verifier process, which never
+imports candidate handlers. Application handlers run in a separate worker heap with
+a private native message port and no open verifier IPC descriptor. Bootstrap input
+is closed before that heap starts. The subprocess writes an authenticated result
+only after the handler runtime terminates; its authentication key stays in the main
+runtime. Wrapping `process.send`, writing raw IPC frames, posting to the public
+parent port, and inspecting the candidate heap cannot replace verifier evidence.
+Selected values must be transferable across the process boundary. This protects
+the JavaScript evidence path, not the runner's OS privileges or filesystem access.
 
 `bonsai check` runs scenarios concurrently by default. It selects one worker per
 available CPU using the runtime's `availableParallelism()`, bounded by the number
@@ -741,7 +765,7 @@ APIs, and shell-selected commands receive no entry-point relationship. A recogni
 local target outside inventory or in an unsupported language blocks verification.
 General import side effects need further adapters.
 
-The worker executes project code with the developer's privileges. Its process boundary provides timeout and module-cache separation, **not isolation from hostile code**. It does not attest runtime identity or defend against malicious code forging process messages. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
+The worker executes project code with the developer's privileges. The private JavaScript evidence channel, timeout, and module-cache separation do not sandbox OS privileges, filesystem access, or native debuggers. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 
 Configured supporting-runner evidence and explicit coverage/mutation floors are
 implemented for the formats documented above. The optional control-depth guard is the first concrete structural quality rule; broader structural requirements, execution-aware
@@ -750,4 +774,3 @@ enforcement, and branch protection remain unfinished. The repository's CI checks
 the implementation, its executable product contracts, its example, and explicit
 release smoke tests; it is not the trusted admission system described in the
 design. See [the design](docs/design.md) and [the implementation roadmap](docs/roadmap.md).
-

@@ -1,10 +1,23 @@
 import { deepStrictEqual } from 'node:assert'
 import { availableParallelism } from 'node:os'
-import { inspect, types } from 'node:util'
 import { projectBindingTarget } from './binding-target.ts'
+import { runActionPlan } from './action-process.ts'
 import { validateVerification, validEvidence } from './policy.ts'
-import { executionIdentity, sameExecutionIdentity, type ExecutionIdentity } from './identity.ts'
-import type { Config, Contracts, Evidence, Verification } from './model.ts'
+import {
+  applicationIdentity,
+  executionIdentity,
+  sameExecutionIdentity,
+  type ExecutionIdentity,
+} from './identity.ts'
+import type {
+  Config,
+  Contracts,
+  Evidence,
+  Verification,
+  ActionSelection,
+  ActionResult,
+  ActionRequest,
+} from './model.ts'
 
 /** Use runtime CPU capacity, bounded by the number of scenarios that can execute. */
 export function verificationPlan(contracts: Contracts, serial = false): Verification {
@@ -16,89 +29,20 @@ export function verificationPlan(contracts: Contracts, serial = false): Verifica
       }
 }
 
-function observe(response: unknown, selector: string): unknown {
-  let value = response
-  for (const key of selector.replace(/\[(\d+)\]/g, '.$1').split('.')) {
-    if (value === null || typeof value !== 'object' || !Object.hasOwn(value, key))
-      throw new Error(`Missing response field: ${selector}`)
-    value = (value as Record<string, unknown>)[key]
-  }
-  return value
-}
+type Execution = { timeoutMs?: number; signal?: AbortSignal; session?: string; isolated?: boolean }
 
-/** A failed observation needs its returned context, without running inspection hooks. */
-function responsePreview(response: unknown): string {
-  let remaining = 32
-  let truncated = false
-  const seen = new WeakSet<object>()
-  const bounded = (value: unknown, depth: number): unknown => {
-    if (typeof value === 'string') {
-      if (value.length <= 256) return value
-      truncated = true
-      return value.slice(0, 256).replace(/[\uD800-\uDBFF]$/, '') + '…'
-    }
-    if (typeof value === 'function') return '[Function]'
-    if (typeof value === 'symbol') return '[Symbol]'
-    if (typeof value === 'bigint') return '[BigInt]'
-    if (value === null || typeof value !== 'object') return value
-    if (types.isProxy(value)) return '[Proxy]'
-    if (types.isTypedArray(value)) return '[TypedArray]'
-    if (seen.has(value)) return '[Reference]'
-    if (!depth || remaining <= 0) {
-      truncated = true
-      return Array.isArray(value) ? '[Array]' : '[Object]'
-    }
-    seen.add(value)
-    const array = Array.isArray(value)
-    const names = array ? [] : Object.keys(value)
-    if (array ? value.length > 5 : names.length > 8) truncated = true
-    const keys = array
-      ? Array.from({ length: Math.min(value.length, 5) }, (_, index) => String(index))
-      : names.slice(0, 8)
-    const entries: [string, unknown][] = []
-    for (const key of keys) {
-      if (remaining <= 0) {
-        truncated = true
-        break
-      }
-      remaining--
-      const property = Object.getOwnPropertyDescriptor(value, key)
-      if (key.length > 64) truncated = true
-      const label = key.length > 64 ? key.slice(0, 64).replace(/[\uD800-\uDBFF]$/, '') + '…' : key
-      entries.push([
-        label,
-        property && 'value' in property ? bounded(property.value, depth - 1) : '[Accessor]',
-      ])
-    }
-    return array ? entries.map(([, item]) => item) : Object.fromEntries(entries)
-  }
-  try {
-    const preview = bounded(response, 2)
-    const text = inspect(preview, {
-      customInspect: false,
-      getters: false,
-      colors: false,
-      depth: 3,
-      compact: true,
-      breakLength: Infinity,
-    })
-    const marked = text + (truncated ? ' …' : '')
-    const points = Array.from(marked)
-    return points.length > 512 ? points.slice(0, 511).join('') + '…' : marked
-  } catch {
-    return '[Response preview unavailable]'
-  }
-}
-
-/** Trusted local execution: assertions are owned by Bonsai, not the action binding. */
+/** Only this verifier process evaluates observations or constructs evidence. */
 export async function collectEvidence(
   root: string,
   config: Config,
   contracts: Contracts,
   fingerprint: string,
   identity = executionIdentity(),
+  execution: Execution = {},
 ): Promise<Evidence> {
   const started = performance.now()
+  identity = applicationIdentity(identity)
+  const target = projectBindingTarget(root, config, fingerprint)
   const evidence: Evidence = {
     schema: 'bonsai-evidence-v2',
     identity,
@@ -106,56 +50,76 @@ export async function collectEvidence(
     profile: 'in-process-v1',
     complete: false,
     elapsedMs: 0,
+    bindingImport: { adapter: target.adapter, file: target.file, fingerprint: target.fingerprint },
     checks: contracts.checks.map((check) => ({ id: check.id, status: 'missing' })),
   }
+  const requests: ActionRequest[] = []
+  for (const scenario of contracts.cases) {
+    for (let index = 0; index < scenario.steps.length; index++) {
+      const step = scenario.steps[index]!
+      if (step.kind !== 'action') continue
+      const selections: ActionSelection[] = []
+      for (let next = index + 1; next < scenario.steps.length; next++) {
+        const observation = scenario.steps[next]!
+        if (observation.kind === 'action') break
+        selections.push({
+          selector: observation.check.selector,
+          keys: observation.check.selector.replace(/\[(\d+)\]/g, '.$1').split('.'),
+        })
+      }
+      requests.push({
+        kind: 'invoke',
+        id: requests.length + 1,
+        action: step.action,
+        input: structuredClone(step.input),
+        selections,
+      })
+    }
+  }
+  const results = await runActionPlan(
+    root,
+    config,
+    fingerprint,
+    requests,
+    (execution.timeoutMs ?? config.policy.maxFeedbackMs) - (performance.now() - started),
+    execution.signal,
+    execution.session,
+    execution.isolated,
+  )
+  let next = 0
   try {
-    const target = projectBindingTarget(root, config, fingerprint)
-    const module = (await import(target.url)) as {
-      actions: Record<string, (input: unknown) => unknown>
-    }
-    evidence.bindingImport = {
-      adapter: target.adapter,
-      file: target.file,
-      fingerprint: target.fingerprint,
-    }
     for (const scenario of contracts.cases) {
-      let response: unknown
-      let actionError: string | undefined
-      let responseText: string | undefined
-      for (const step of scenario.steps) {
+      let result: ActionResult | undefined
+      let observed = 0
+      for (let index = 0; index < scenario.steps.length; index++) {
+        const step = scenario.steps[index]!
         if (step.kind === 'action') {
-          actionError = undefined
-          response = undefined
-          responseText = undefined
-          try {
-            if (
-              !Object.hasOwn(module.actions, step.action) ||
-              typeof module.actions[step.action] !== 'function'
-            )
-              throw new Error(`Unbound action: ${step.action}`)
-            response = await module.actions[step.action](structuredClone(step.input))
-          } catch (error) {
-            actionError = String(error)
-          }
+          result = results[next]!
+          validateActionResult(result, requests[next++]!)
+          observed = 0
         } else {
           const record = evidence.checks.find((check) => check.id === step.check.id)!
+          const observation = result?.observations?.[observed++]
           try {
-            if (actionError) throw new Error(actionError)
-            deepStrictEqual(observe(response, step.check.selector), step.check.expected)
+            if (result?.error !== undefined) throw new Error(result.error)
+            if (!observation) throw new Error(`Missing response field: ${step.check.selector}`)
+            if (observation.error !== undefined) throw observation.error
+            deepStrictEqual(observation.value, step.check.expected)
             record.status = 'passed'
           } catch (error) {
             record.status = 'failed'
             record.error = String(error)
-            if (!actionError) record.response = responseText ??= responsePreview(response)
+            if (result?.error === undefined && result?.preview !== undefined)
+              record.response = result.preview
           }
         }
       }
     }
     evidence.complete = true
+    return evidence
   } finally {
     evidence.elapsedMs = performance.now() - started
   }
-  return evidence
 }
 
 /** A child process gives each run a fresh module cache and an enforceable wall-clock timeout. */
@@ -173,7 +137,7 @@ export async function runEvidence(
   validateVerification(verification)
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
-  const currentIdentity = executionIdentity()
+  const currentIdentity = identity ? applicationIdentity(identity) : executionIdentity()
   if (identity !== undefined && !sameExecutionIdentity(identity, currentIdentity))
     throw new Error('Verification checker or toolchain identity changed')
   identity = currentIdentity
@@ -194,17 +158,12 @@ export async function runEvidence(
   const { openNativeSession } = await import('./native-session.ts')
   const session = await openNativeSession()
   try {
-    return await forkEvidence(
-      root,
-      config,
-      contracts,
-      fingerprint,
-      timeoutMs - (performance.now() - serialBegan),
+    return await collectEvidence(root, config, contracts, fingerprint, identity, {
+      timeoutMs: timeoutMs - (performance.now() - serialBegan),
       signal,
-      session.value,
-      false,
-      identity,
-    )
+      session: session.value,
+      isolated: false,
+    })
   } finally {
     await session.close()
   }
@@ -274,17 +233,12 @@ async function isolatedEvidence(
           remaining()
           const index = queue[next++]!
           const shard = shards[index]!
-          const evidence = await forkEvidence(
-            root,
-            config,
-            shard,
-            fingerprint,
-            remaining(),
-            cancellation.signal,
-            session.value,
-            true,
-            identity,
-          )
+          const evidence = await collectEvidence(root, config, shard, fingerprint, identity, {
+            timeoutMs: remaining(),
+            signal: cancellation.signal,
+            session: session.value,
+            isolated: true,
+          })
           validateScenarioEvidence(evidence, shard, config, fingerprint, identity)
           results[index] = evidence
         }
@@ -366,94 +320,35 @@ function validateScenarioEvidence(
   if (seen.size !== expected.size) throw new Error('Missing isolated scenario checks')
 }
 
-async function forkEvidence(
-  root: string,
-  config: Config,
-  contracts: Contracts,
-  fingerprint: string,
-  timeoutMs: number,
-  signal: AbortSignal | undefined,
-  session?: string,
-  isolated = false,
-  identity?: ExecutionIdentity,
-): Promise<Evidence> {
-  const { fork } = await import('node:child_process')
-  return new Promise((resolveResult, reject) => {
-    if (timeoutMs <= 0) {
-      reject(new Error('Verification feedback deadline expired'))
-      return
-    }
-    const { NODE_TEST_CONTEXT: _testContext, ...workerEnv } = process.env
-    const child = fork(new URL('./worker.ts', import.meta.url), [], {
-      env: {
-        ...workerEnv,
-        ...(session !== undefined && { BONSAI_NATIVE_SESSION: session }),
-      },
-      execArgv: [],
-      detached: isolated && process.platform !== 'win32',
-      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-    })
-    const closed = new Promise<void>((done) => child.once('close', () => done()))
-    const signalWorker = (signal: 'SIGTERM' | 'SIGKILL') => {
-      if (isolated && child.pid && process.platform !== 'win32') {
-        try {
-          process.kill(-child.pid, signal)
-        } catch {
-          /* The scenario process group has already exited. */
-        }
-      }
-      child.kill(signal)
-    }
-    const stopWorker = () => signalWorker('SIGKILL')
-    process.once('exit', stopWorker)
-    let settled = false
-    const finish = (error?: Error, evidence?: Evidence) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', abort)
-      const done = async () => {
-        // Give nested CLIs a bounded opportunity to reap their detached native
-        // workers before forcibly stopping the scenario's ordinary descendants.
-        if (error && isolated) {
-          signalWorker('SIGTERM')
-          await new Promise<void>((done) => setTimeout(done, 250))
-        }
-        stopWorker()
-        await closed
-        process.removeListener('exit', stopWorker)
-        if (error) reject(error)
-        else resolveResult(evidence!)
-      }
-      void done()
-    }
-    const timer = setTimeout(
-      () => finish(new Error('Verification feedback deadline expired')),
-      timeoutMs,
+/** Authenticate transport separately from validating each requested action and selector. */
+function validateActionResult(result: ActionResult, request: ActionRequest): void {
+  if (result.kind !== 'result' || result.id !== request.id || result.action !== request.action)
+    throw new Error('Invalid worker report: unsolicited or mismatched action response')
+  if (result.error !== undefined) {
+    if (
+      typeof result.error !== 'string' ||
+      result.observations !== undefined ||
+      result.preview !== undefined
     )
-    const abort = () => finish(new Error('Verification interrupted'))
-    signal?.addEventListener('abort', abort, { once: true })
-    child.once('error', (error) => finish(error))
-    child.once('exit', () =>
-      finish(new Error('Verification worker exited without a complete report')),
+      throw new Error('Invalid worker report: malformed action error')
+  } else {
+    if (
+      !Array.isArray(result.observations) ||
+      result.observations.length !== request.selections.length ||
+      typeof result.preview !== 'string' ||
+      Buffer.byteLength(result.preview) > 2048
     )
-    child.once('message', (message) => {
-      const result = message as { evidence?: Evidence; error?: string }
+      throw new Error('Invalid worker report: incomplete action observations')
+    for (let index = 0; index < result.observations.length; index++) {
+      const observation = result.observations[index]!
       if (
-        validEvidence(result?.evidence) &&
-        sameExecutionIdentity(result.evidence.identity, identity)
+        !observation ||
+        observation.selector !== request.selections[index]!.selector ||
+        (observation.error !== undefined
+          ? typeof observation.error !== 'string' || observation.value !== undefined
+          : !Object.hasOwn(observation, 'value'))
       )
-        finish(undefined, result.evidence)
-      else
-        finish(
-          new Error(
-            typeof result?.error === 'string'
-              ? result.error
-              : 'Invalid worker report: invalid evidence schema',
-          ),
-        )
-    })
-    child.send({ root, config, contracts, fingerprint, identity })
-    if (signal?.aborted) abort()
-  })
+        throw new Error('Invalid worker report: malformed observed value')
+    }
+  }
 }

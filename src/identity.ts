@@ -148,7 +148,7 @@ function runtimeIdentity(): ExecutionIdentity['runtime'] {
   }
 }
 
-/** Application workers execute assertions, carrying the parent's already-validated analysis context. */
+/** The verifier checks its execution context before opening the application boundary. */
 export function applicationIdentity(expected: ExecutionIdentity): ExecutionIdentity {
   if (!validExecutionIdentity(expected))
     throw new Error('Verification checker or toolchain identity changed')

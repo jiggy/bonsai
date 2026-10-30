@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, writeFileSync } from 'node:fs'
+import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { checkSupportingSuite } from '../features/support/runners.ts'
 import { compileContracts } from '../src/contracts.ts'
@@ -8,7 +8,7 @@ import { fingerprint } from '../src/inventory.ts'
 import { sameExecutionIdentity } from '../src/identity.ts'
 import { runEvidence } from '../src/evidence.ts'
 import { parseSnapshot } from '../src/snapshot-schema.ts'
-import { readConfig } from '../src/project.ts'
+import { readConfig, snapshot } from '../src/project.ts'
 import { createProject } from './project.ts'
 import { runCli } from './cli.ts'
 import { assumedIdentity } from './identity-fixture.ts'
@@ -87,6 +87,66 @@ test('a different expected checker identity blocks the worker before loading its
     )
     assert.equal(existsSync(join(project.root, 'binding-loaded')), false)
   } finally {
+    project.dispose()
+  }
+})
+
+test('verification carries completed native analysis receipts without reopening the unused compiler', async () => {
+  const text =
+    'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n'
+  const project = createProject({
+    'package.json': '{"type":"module"}\n',
+    'app.ts':
+      "import { writeFileSync } from 'node:fs'\nexport function ready() { writeFileSync(new URL('./handler-ran', import.meta.url), 'executed'); return { status: 'ok' } }\n",
+    'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
+    'ready.feature': text,
+  })
+  const original = process.env.BONSAI_NATIVE_BINARY
+  const marker = join(project.root, 'handler-ran')
+  try {
+    const config = readConfig(project.root)
+    const analyzed = await snapshot(project.root, config, false)
+    assert.deepEqual(analyzed.source.problems, [])
+    assert.ok(analyzed.identity)
+    assert.equal(existsSync(marker), false)
+    process.env.BONSAI_NATIVE_BINARY = join(project.root, 'unavailable-unused-compiler')
+    for (const profile of ['in-process-v1', 'isolated-scenarios-v1'] as const) {
+      rmSync(marker, { force: true })
+      const evidence = await runEvidence(
+        project.root,
+        config,
+        analyzed.contracts,
+        analyzed.fingerprint,
+        15000,
+        undefined,
+        { profile, workers: 1 },
+        analyzed.identity,
+      )
+      assert.equal(evidence.complete, true)
+      assert.equal(sameExecutionIdentity(evidence.identity, analyzed.identity), true)
+      assert.deepEqual(
+        evidence.checks.map((check) => check.status),
+        ['passed'],
+      )
+      assert.equal(existsSync(marker), true)
+    }
+    rmSync(marker, { force: true })
+    await assert.rejects(
+      runEvidence(
+        project.root,
+        config,
+        analyzed.contracts,
+        analyzed.fingerprint,
+        15000,
+        undefined,
+        { profile: 'in-process-v1', workers: 1 },
+      ),
+      /unavailable-unused-compiler/,
+    )
+    assert.equal(existsSync(marker), false)
+  } finally {
+    if (original === undefined) delete process.env.BONSAI_NATIVE_BINARY
+    else process.env.BONSAI_NATIVE_BINARY = original
     project.dispose()
   }
 })

@@ -1,0 +1,59 @@
+name: Bonsai code allowance
+description: Check required behavior, ancestry, and retained tokens against the reviewed base policy.
+author: Jiggy
+branding:
+  icon: scissors
+  color: green
+inputs:
+  working-directory:
+    description: Git repository root containing bonsai.json, relative to the workspace or absolute.
+    default: .
+  base:
+    description: Reviewed base commit. Defaults to the PR or merge queue base; required explicitly for other events.
+    default: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+  serial:
+    description: Run ordered scenarios with shared application state.
+    default: 'false'
+outputs:
+  status:
+    description: Actual verdict (pass, reject, incomplete), or error when no valid report is available.
+    value: ${{ steps.check.outputs.status }}
+  exit-code:
+    description: Exit code returned by the Bonsai CLI, when it ran.
+    value: ${{ steps.check.outputs.exit-code }}
+  retained-tokens:
+    description: Full retained token cost of the candidate.
+    value: ${{ steps.check.outputs.retained-tokens }}
+  allowance:
+    description: Global token ceiling under the base policy.
+    value: ${{ steps.check.outputs.allowance }}
+  required-reduction:
+    description: Tokens that must be reclaimed to fit the ceiling.
+    value: ${{ steps.check.outputs.required-reduction }}
+  report-path:
+    description: Absolute path to the raw JSON report in the runner temporary directory.
+    value: ${{ steps.check.outputs.report-path }}
+runs:
+  using: composite
+  steps:
+    - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      with:
+        bun-version: 1.4.3
+    - name: Install the pinned checker
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        cd "$ACTION_PATH"
+        bun install --frozen-lockfile --ignore-scripts --no-env-file
+    - name: Check the merge candidate
+      id: check
+      shell: bash
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        BONSAI_ACTION_ROOT: ${{ inputs.working-directory }}
+        BONSAI_ACTION_BASE: ${{ inputs.base }}
+        BONSAI_ACTION_SERIAL: ${{ inputs.serial }}
+      run: |
+        cd "$ACTION_PATH"
+        bun --no-env-file --no-install .github/action/run.ts

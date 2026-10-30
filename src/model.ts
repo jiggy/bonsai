@@ -115,3 +115,21 @@ export type Decision = {
   violations: string[]
   base?: { retained: number; surface: number; additionalCapacity: number; retainedChange: number }
 }
+
+/** Selected application facts crossing the private runtime channel. */
+export type ActionSelection = { selector: string; keys: string[] }
+export type ActionRequest = {
+  kind: 'invoke'
+  id: number
+  action: string
+  input: unknown
+  selections: ActionSelection[]
+}
+export type ActionResult = {
+  kind: 'result'
+  id: number
+  action: string
+  observations?: { selector: string; value?: unknown; error?: string }[]
+  preview?: string
+  error?: string
+}

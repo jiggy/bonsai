@@ -1,0 +1,128 @@
+name: Bonsai action
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: bonsai-action-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  consumer:
+    name: Action consumer (${{ matrix.case }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - case: pass
+            status: pass
+            exit: '0'
+            outcome: success
+          - case: reject
+            status: reject
+            exit: '1'
+            outcome: failure
+          - case: incomplete
+            status: incomplete
+            exit: '2'
+            outcome: failure
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prepare an independent consuming repository
+        env:
+          CASE: ${{ matrix.case }}
+        run: |
+          cp -R examples/checkout "$RUNNER_TEMP/bonsai consumer"
+          python3 - <<'PY'
+          import json, os, pathlib
+          root = pathlib.Path(os.environ["RUNNER_TEMP"]) / "bonsai consumer"
+          path = root / "bonsai.json"
+          config = json.loads(path.read_text())
+          ceiling = 1 if os.environ["CASE"] == "reject" else 10000
+          config["policy"]["bootstrap"] = ceiling
+          config["policy"]["hardLimit"] = ceiling
+          path.write_text(json.dumps(config))
+          if os.environ["CASE"] == "incomplete":
+              (root / "src/checkout.ts").write_text("export function checkout() { return missingValue }")
+          PY
+          git -C "$RUNNER_TEMP/bonsai consumer" init -b main
+          git -C "$RUNNER_TEMP/bonsai consumer" -c core.hooksPath=/dev/null add .
+          git -C "$RUNNER_TEMP/bonsai consumer" -c core.hooksPath=/dev/null -c user.name='Bonsai CI' -c user.email=ci@example.invalid -c commit.gpgSign=false commit -m 'Reviewed consumer'
+      - name: Run the reusable action
+        id: bonsai
+        continue-on-error: true
+        uses: ./
+        with:
+          working-directory: ${{ runner.temp }}/bonsai consumer
+          base: HEAD
+      - name: Assert the action result
+        env:
+          ACTUAL_OUTCOME: ${{ steps.bonsai.outcome }}
+          ACTUAL_STATUS: ${{ steps.bonsai.outputs.status }}
+          ACTUAL_EXIT: ${{ steps.bonsai.outputs.exit-code }}
+          EXPECTED_OUTCOME: ${{ matrix.outcome }}
+          EXPECTED_STATUS: ${{ matrix.status }}
+          EXPECTED_EXIT: ${{ matrix.exit }}
+        run: |
+          test "$ACTUAL_OUTCOME" = "$EXPECTED_OUTCOME"
+          test "$ACTUAL_STATUS" = "$EXPECTED_STATUS"
+          test "$ACTUAL_EXIT" = "$EXPECTED_EXIT"
+      - name: Save the actual consumer report
+        if: always() && steps.bonsai.outputs.report-path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonsai-consumer-${{ matrix.case }}
+          path: ${{ steps.bonsai.outputs.report-path }}
+
+  regressions:
+    name: Action and root regressions
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Verify the action and complete self-checks
+        env:
+          BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
+        run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
+      - name: Save the actual self-check report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonsai-action-regression
+          path: ${{ runner.temp }}/bonsai-action-regression.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+  root:
+    name: Root allowance (development measurement)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Measure the actual root verdict
+        id: bonsai
+        continue-on-error: true
+        uses: ./
+        with:
+          base: ${{ github.event.pull_request.base.sha || github.sha }}
+      - name: Save the root action report
+        if: always() && steps.bonsai.outputs.report-path != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonsai-root-action
+          path: ${{ steps.bonsai.outputs.report-path }}
+          retention-days: 14

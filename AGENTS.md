@@ -126,7 +126,7 @@ Default section order:
 
 ## Child DOX Index
 
-The root owns package metadata, runtime dependencies, environment setup, repository-wide contracts, and the legacy `native/README.md` migration note.
+The root owns the reusable `action.yml` manifest, package metadata, runtime dependencies, environment setup, repository-wide contracts, and the legacy `native/README.md` migration note.
 
 `bun run test:runners` is an explicit network-dependent release check for pinned supporting-runner compatibility. Ordinary tests stay network-free; no runner install belongs in product checks.
 
@@ -137,5 +137,5 @@ The root owns package metadata, runtime dependencies, environment setup, reposit
 - [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture
 - [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai adoption skill
 - [.agents/skills/AGENTS.md](.agents/skills/AGENTS.md): installed CLI design and review skills
-- [.github/AGENTS.md](.github/AGENTS.md): pull request review guidance, CI formatting, validation, permissions, and website deployment
+- [.github/AGENTS.md](.github/AGENTS.md): the reusable action implementation, pull request review guidance, CI formatting, validation, permissions, and website deployment
 - [website/AGENTS.md](website/AGENTS.md): landing page, static assets, and GitHub Pages artifact
