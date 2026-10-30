@@ -370,4 +370,3 @@ export function collectSourceGraph(
   source.controlDepth.complete = controlDepthSupported(source.files)
   return source
 }
-
