@@ -127,7 +127,7 @@ export function checkBasicProject(input: ProjectInput) {
   const { root, marker, childMarker, applicationMarker } = project(input)
   try {
     const report = invoke(
-      ['check', '--root', root, ...(input.engine ? ['--engine', input.engine] : [])],
+      ['check', '--serial', '--root', root, ...(input.engine ? ['--engine', input.engine] : [])],
       input.missingNative ? { BONSAI_NATIVE_BINARY: join(root, 'missing-collector') } : {},
     )
     return {
