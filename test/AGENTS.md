@@ -115,4 +115,4 @@ Annotation-only declarations retain eager ancestry without inventing a runtime n
 `runner-cli.test.ts` performs actual native analysis before verifying both application profiles with the now-unused compiler unavailable; the carried identity must match the analysis receipt. A direct call without that receipt must still capture the compiler and reject before executing its handler. The consuming fixture declares its ES-module package context.
 
 
-Python conftest controls classify root/package-local/case-variant pytest hooks as test support, keep their bytes charged, and block production/binding imports before initialization. A live raw-runner mutation and trusted initializer marker prove the attack probe before requiring no marker or evidence from the actual CLI in either profile.
+Python test-module controls classify root/package-local/case-variant conftest.py, test.py, and tests.py as test support, keep their bytes charged, and block production/binding imports before initialization. A live raw-runner mutation and trusted initializer marker prove the attack probe before requiring no marker or evidence from the actual CLI in either profile.
