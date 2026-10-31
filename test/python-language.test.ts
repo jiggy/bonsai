@@ -669,6 +669,57 @@ test('eager Python module annotations receive initialization ancestry', () => {
   }
 })
 
+test('nested Python type expressions remain annotations in both execution profiles', () => {
+  const sources = [
+    handler.replace('request):', 'request: dict[str, int]) -> dict[str, str]:'),
+    'from typing import Optional as Maybe\n' +
+      handler.replace('request):', 'request: Maybe[dict[str, int]]):'),
+    'import typing\n' +
+      handler.replace('request):', 'request: typing.Optional[typing.Dict[str, int]]):'),
+    handler.replace('request):', 'request: dict[str, list[tuple[int, str]]] | None):'),
+    'value: dict[str, int] = {"quantity": 1}\n' +
+      handler.replace('request["quantity"]', 'value["quantity"]'),
+    handler.replace(
+      '    return',
+      '    value: dict[str, int] = request\n    return',
+    ).replace('request["quantity"]', 'value["quantity"]'),
+  ]
+  const project = fixture()
+  try {
+    for (const code of sources) {
+      writeFileSync(join(project.root, 'orders.py'), code)
+      for (const serial of [false, true]) {
+        const report = assertStatus(project.root, 'pass', serial)
+        assert.equal(report.snapshot.evidence.checks[0].status, 'passed')
+      }
+    }
+  } finally {
+    project.dispose()
+  }
+})
+
+test('Python annotation contexts cannot hide reflection or callable escapes', () => {
+  const sources = [
+    'def keep(value):\n    return value\n' +
+      handler.replace('request):', 'request: keep(dict)):'),
+    handler.replace('request):', 'request: dict[str, eval("int")]):'),
+    handler.replace('    return', '    value: object = dict\n    return'),
+  ]
+  const project = fixture()
+  try {
+    for (const code of sources) {
+      writeFileSync(join(project.root, 'orders.py'), code)
+      for (const serial of [false, true]) {
+        const report = assertStatus(project.root, 'incomplete', serial)
+        assert.match(report.snapshot.source.problems.join('\n'), /reflection|escaped/)
+        assert.equal(report.snapshot.evidence, undefined)
+      }
+    }
+  } finally {
+    project.dispose()
+  }
+})
+
 test('Python startup deadline retains measured inventory and interrupted timings', () => {
   const project = fixture({}, { maxFeedbackMs: 1 })
   try {

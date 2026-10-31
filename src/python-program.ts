@@ -290,6 +290,17 @@ def analyze(request):
     forbidden = {"eval", "exec", "compile", "__import__", "globals", "locals", "getattr", "setattr", "delattr", "vars", "dir", "import_module", "input", "breakpoint", "help"}
     for file, module in modules.items():
         parents = {child: parent for parent in ast.walk(module["tree"]) for child in ast.iter_child_nodes(parent)}
+        def annotation_use(node):
+            while node in parents:
+                parent = parents[node]
+                if isinstance(parent, (ast.arg, ast.AnnAssign)) and parent.annotation is node:
+                    return True
+                if isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)) and parent.returns is node:
+                    return True
+                if not (isinstance(parent, (ast.Subscript, ast.Tuple, ast.List)) or (isinstance(parent, ast.BinOp) and isinstance(parent.op, ast.BitOr)) or (isinstance(parent, ast.Attribute) and parent.value is node)):
+                    return False
+                node = parent
+            return False
         def qualified(node, locals):
             if isinstance(node, ast.Name) and node.id not in locals:
                 target = resolved(file, node.id)
@@ -318,7 +329,7 @@ def analyze(request):
                         parent = parents.get(item)
                         direct = isinstance(parent, ast.Call) and parent.func is item
                         attribute = isinstance(parent, ast.Attribute) and parent.value is item and target[0] == "@stdlib"
-                        annotation = (isinstance(parent, (ast.arg, ast.AnnAssign)) and parent.annotation is item) or (isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)) and parent.returns is item)
+                        annotation = annotation_use(item)
                         if not (direct or attribute or annotation or (target[0] == "@stdlib" and data_export(target[1])) or target[1] in ("True", "False", "None", "__name__", "__file__", "__package__")):
                             problem(file, item, "escaped standard-library or builtin values require a source adapter")
                     if target is None:
@@ -332,7 +343,7 @@ def analyze(request):
                         prefix = isinstance(parent, ast.Attribute) and parent.value is item
                         if not supported_export(selected_export):
                             problem(file, item, "unsupported standard-library export: " + selected_export)
-                        if not (isinstance(parent, ast.Call) and parent.func is item) and not prefix and not data_export(selected_export):
+                        if not (isinstance(parent, ast.Call) and parent.func is item) and not prefix and not data_export(selected_export) and not annotation_use(item):
                             problem(file, item, "escaped standard-library values require a source adapter")
                     if isinstance(item.ctx, (ast.Store, ast.Del)):
                         problem(file, item, "attribute mutation requires a source adapter")

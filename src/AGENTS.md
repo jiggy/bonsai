@@ -97,6 +97,8 @@ Application code never runs in the runtime that owns assertions, required IDs, i
 
 ## Work Guidance
 
+Python builtin and standard-library type names may appear inside supported nested annotation expressions, including subscriptions, tuples, qualified names, and unions. Annotation context stops at calls and other executable expressions; reflection restrictions and ordinary callable-escape checks still apply.
+
 Follow the root BDD loop before changing acceptance, ancestry, accounting, or verification behavior. Exercise the public promise through a real CLI feature; keep exhaustive compiler/protocol cases in lower-level tests. Specification support must observe the implementation rather than reimplement its policy. Use sandboxed product faults to demonstrate sensitivity when adding contracts for existing behavior.
 
 Use the repository CLI skills for changes to the command contract and presentation. Keep policy overrides explicit and preserve trusted base rules.
