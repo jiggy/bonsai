@@ -2,6 +2,7 @@
   "name": "@jigging/bonsai",
   "version": "0.0.0-alpha.1",
   "description": "Deliberate growth. Continuous pruning. A contract-rooted code budget gate.",
+  "license": "SEE LICENSE IN LICENSE.md",
   "type": "module",
   "engines": {
     "bun": ">=1.4.3"
@@ -45,6 +46,11 @@
     "src/",
     "skills/",
     "docs/",
-    "examples/"
+    "examples/",
+    "LICENSE.md",
+    "LICENSES.md",
+    "LICENSE-ACTION",
+    "PRICING.md",
+    "bun.lock"
   ]
 }

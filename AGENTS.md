@@ -16,6 +16,19 @@ Use Bun by default for dependency installation and package scripts. Install with
 
 Work on a topic branch and open a pull request against `main` for repository changes. Do not push directly to `main`. Leave merging to the user unless explicitly requested.
 
+## Licensing and releases
+
+The root owns `LICENSE.md` (Bonsai adoption, additional generated-output permission,
+and verbatim Bread License 1.0), `PRICING.md`, `LICENSES.md`, and `LICENSE-ACTION`.
+Keep the retained standard unchanged; adopter facts and additional grants stay
+separate. Only `action.yml` and `.github/action/run.ts` use the MIT adapter license;
+their checker imports retain the terms in `LICENSES.md`. Preserve third-party notices.
+Ship licensing records and the lockfile with the npm source package. Preserve
+official release IDs, source commits, and first-publication UTC timestamps;
+development snapshots are not automatically official releases. Never replace
+published release contents or revoke earlier valid permissions. Keep public
+licensing summaries aligned with the adoption and project-specific prices.
+
 Until the first mature release, the root retained-code allowance overrun is not a
 development delivery blocker. Continue measuring and reporting the actual verdict;
 do not relax policy, omit inventory, or turn an over-budget check into a pass.

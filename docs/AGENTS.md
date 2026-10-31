@@ -18,6 +18,11 @@ Document actual commands, defaults, streams, and exit codes. Keep unsupported ad
 
 GitHub Action adoption requires an independently protected required-workflow definition. Include the disposable same-name no-op probe for confirming enforcement; the Action cannot configure or attest organization rulesets. Keep trusted-owner review explicitly weaker than automatic required-workflow enforcement.
 
+Keep the Action adapter's MIT grant distinct from the Bread-licensed checker.
+For company purchases, use the full commit identified by a covered official
+release; raw development snapshots and moving tags do not establish coverage.
+Root licensing documents own eligibility, pricing, exceptions, and output grants.
+
 The roadmap treats Bonsai's own allowance overrun as non-blocking development
 information until the first mature release. Preserve and report the real gate
 verdict without relaxing policy. Trusted-admission plans must distinguish
