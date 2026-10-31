@@ -26,7 +26,7 @@ policy, sandbox execution, and required-status publication.
 
 Keep the BDD guide authoritative for discovering stakeholder rules, reviewing implementation-independent examples, and deciding which product observations qualify for the global allowance. Distinguish BDD from red/green implementation discipline: Gherkin, public JSON, real CLI execution, and fault sensitivity alone do not qualify a feature. Describe the literal action–selector counter and human eligibility review accurately; do not claim automatic semantic counting. Preserve technical regression assertions when moving them out of features, and report allowance changes separately from code savings. Neither structural ancestry nor selected fault checks prove complete behavioral coverage.
 
-Document fixed subprocess entry-point syntax separately from runtime coverage. Child launches root executable startup, not entire modules or exports. Keep unsupported launch forms and general import side effects explicit; distinguish definition-time class effects from dormant bodies. Test-helper subject discovery uses established production ancestry; supporting helper ancestry cannot justify unrelated callers.
+Document fixed subprocess entry-point syntax separately from runtime coverage. Child launches root executable startup, not entire modules or exports. Keep unsupported launch forms explicit; distinguish runtime import initialization from type ancestry and computed loading; distinguish definition-time class effects from dormant bodies. Test-helper subject discovery uses established production ancestry; supporting helper ancestry cannot justify unrelated callers.
 
 Document literal text resource reads as a bounded production/binding adapter:
 whole-file data references never root executable exports, and retained file cost
@@ -57,3 +57,5 @@ Compare examples with `bun run bonsai --help` and the executable
 ## Child DOX Index
 
 None. This file owns the full subtree.
+
+

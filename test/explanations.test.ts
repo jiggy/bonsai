@@ -103,3 +103,26 @@ test('explanation paths do not justify unrelated tests, dead production or regis
   ])
   assert.deepEqual(explain(snapshot, 'absent'), [])
 })
+
+// A single requested explanation must retain predecessors, not every path prefix.
+test('explanations reconstruct a deep dependency path from state-aware predecessors', () => {
+  const snapshot = fixture()
+  const length = 6000
+  snapshot.source.components = Array.from({ length }, (_, index) => ({
+    id: `node${index}`, name: `node${index}`, file: 'chain.ts', line: index + 1,
+    tokens: 1, kind: 'production' as const,
+  }))
+  snapshot.source.registry = undefined
+  snapshot.source.actions = { order: 'node0' }
+  snapshot.source.relationships = Array.from({ length: length - 1 }, (_, index) => ({
+    from: `node${index}`, to: `node${index + 1}`, kind: 'reference' as const,
+    origin: 'static' as const, sourceRef: { file: 'chain.ts', line: index + 1 },
+  }))
+  const rebuilt = buildSnapshot('candidate', snapshot.contracts, snapshot.source)
+  const [result] = explain(rebuilt, `node${length - 1}`)
+  for (const route of result!.contractPaths) {
+    assert.equal(route.components.length, length)
+    assert.deepEqual(route.components, snapshot.source.components.map(({ id }) => id))
+  }
+  assert.equal(result!.contractPaths.length, 2)
+})

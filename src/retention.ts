@@ -4,26 +4,47 @@ import type { Contracts, Source, Snapshot } from './model.ts'
 export function buildSnapshot(fingerprint: string, contracts: Contracts, source: Source): Snapshot {
   const ancestry: Record<string, string[]> = Object.create(null)
   const membership: Record<string, Set<string>> = Object.create(null)
+  const traversed = new Map<string, Set<string>>()
   const components = new Map(source.components.map((c) => [c.id, c]))
-  const outgoing = new Map<string, string[]>()
+  const outgoing = new Map<string, Source['relationships']>()
   for (const edge of source.relationships) {
     const targets = outgoing.get(edge.from)
-    if (targets) targets.push(edge.to)
-    else outgoing.set(edge.from, [edge.to])
+    if (targets) targets.push(edge)
+    else outgoing.set(edge.from, [edge])
   }
   const attach = (id: string, contract: string, allowProduction: boolean): void => {
-    const queue = [id]
+    const queue: { id: string; runtime: boolean; production: boolean }[] = [
+      { id, runtime: true, production: allowProduction },
+    ]
     while (queue.length) {
       const next = queue.pop()!
-      const target = components.get(next)
-      if (!target || (!allowProduction && target.kind === 'production')) continue
-      const existing = (ancestry[next] ??= [])
-      const seen = (membership[next] ??= new Set<string>())
-      if (seen.has(contract)) continue
-      seen.add(contract)
-      existing.push(contract)
-      // The registry contains other actions too; only contracted actions establish roots.
-      if (next !== source.registry) queue.push(...(outgoing.get(next) ?? []))
+      const target = components.get(next.id)
+      if (!target || (!next.production && target.kind === 'production')) continue
+      const state = contract + '\0' + next.runtime + '\0' + next.production
+      let visited = traversed.get(next.id)
+      if (!visited) traversed.set(next.id, (visited = new Set()))
+      if (visited.has(state)) continue
+      visited.add(state)
+      const existing = (ancestry[next.id] ??= [])
+      const seen = (membership[next.id] ??= new Set<string>())
+      if (!seen.has(contract)) {
+        seen.add(contract)
+        existing.push(contract)
+      }
+      for (const edge of outgoing.get(next.id) ?? []) {
+        const initialization = edge.kind === 'module-initialization'
+        if ((initialization || edge.kind === 'entry-point') && !next.runtime) continue
+        // Loading the registry can initialize modules, but never admits all its handlers.
+        if (next.id === source.registry && !initialization) continue
+        const destination = components.get(edge.to)
+        queue.push({
+          id: edge.to,
+          runtime: next.runtime && edge.runtime !== false,
+          production:
+            destination?.kind !== 'test' &&
+            (next.production || (next.id === source.registry && initialization)),
+        })
+      }
     }
   }
   for (const check of contracts.checks) {
@@ -43,7 +64,8 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
       const kind = components.get(subject)?.kind
       if (kind === 'production') {
         for (const contract of ancestry[subject] ?? []) attach(component.id, contract, false)
-      } else if (kind === 'test') queue.push(...(outgoing.get(subject) ?? []))
+      } else if (kind === 'test')
+        queue.push(...(outgoing.get(subject) ?? []).map((edge) => edge.to))
     }
   }
   return {
@@ -61,50 +83,77 @@ export function explain(snapshot: Snapshot, query: string) {
   const components = new Map(
     snapshot.source.components.map((component) => [component.id, component]),
   )
-  const outgoing = new Map<string, string[]>()
+  const outgoing = new Map<string, Source['relationships']>()
   for (const edge of snapshot.source.relationships) {
     const targets = outgoing.get(edge.from) ?? []
-    targets.push(edge.to)
+    targets.push(edge)
     outgoing.set(edge.from, targets)
   }
-  // A predecessor tree gives one concrete shortest route, without enumerating cycles.
-  const routes = (start: string, descend: (id: string) => boolean) => {
-    const parents = new Map<string, string | undefined>([[start, undefined]])
-    const queue = [start]
+  // Explanation routes preserve runtime and production eligibility, like ancestry.
+  type Route = { id: string; runtime: boolean; production: boolean; previous?: Route }
+  const routes = (start: string, descend: (id: string) => boolean, productionGraph = false) => {
+    const paths = new Map<string, Route>()
+    const visited = new Set<string>()
+    const queue: Route[] = [
+      { id: start, runtime: true, production: start !== snapshot.source.registry },
+    ]
     for (let index = 0; index < queue.length; index++) {
-      const from = queue[index]!
-      if (from === snapshot.source.registry || !descend(from)) continue
-      for (const to of outgoing.get(from) ?? []) {
-        if (!components.has(to) || parents.has(to)) continue
-        parents.set(to, from)
-        queue.push(to)
+      const current = queue[index]!
+      if (
+        productionGraph &&
+        !current.production &&
+        components.get(current.id)?.kind === 'production'
+      )
+        continue
+      const key = current.id + '\0' + current.runtime + '\0' + current.production
+      if (visited.has(key)) continue
+      visited.add(key)
+      if (!paths.has(current.id)) paths.set(current.id, current)
+      if (!descend(current.id)) continue
+      for (const edge of outgoing.get(current.id) ?? []) {
+        if (!components.has(edge.to)) continue
+        const initialization = edge.kind === 'module-initialization'
+        if ((initialization || edge.kind === 'entry-point') && !current.runtime) continue
+        if (current.id === snapshot.source.registry && !initialization) continue
+        queue.push({
+          id: edge.to,
+          runtime: current.runtime && edge.runtime !== false,
+          production:
+            components.get(edge.to)?.kind !== 'test' &&
+            (current.production || (current.id === snapshot.source.registry && initialization)),
+          previous: current,
+        })
       }
     }
-    return parents
+    return paths
   }
-  const path = (parents: Map<string, string | undefined>, target: string) => {
-    if (!parents.has(target)) return undefined
+  const path = (paths: Map<string, Route>, target: string) => {
+    let route = paths.get(target)
+    if (!route) return undefined
     const result: string[] = []
-    let next: string | undefined = target
-    while (next !== undefined) {
-      result.push(next)
-      next = parents.get(next)
+    while (route) {
+      result.push(route.id)
+      route = route.previous
     }
     return result.reverse()
   }
-  const handlerRoutes = new Map<string, Map<string, string | undefined>>()
+  const handlerRoutes = new Map<string, Map<string, Route>>()
+  let registryRoutes: Map<string, Route> | undefined
   const productionPath = (action: string, target: string) => {
     const handler = snapshot.source.actions[action]
     if (!handler) return undefined
     let parents = handlerRoutes.get(handler)
-    if (!parents) handlerRoutes.set(handler, (parents = routes(handler, () => true)))
-    return path(parents, target)
+    if (!parents) handlerRoutes.set(handler, (parents = routes(handler, () => true, true)))
+    const direct = path(parents, target)
+    if (direct || !snapshot.source.registry || target === snapshot.source.registry) return direct
+    registryRoutes ??= routes(snapshot.source.registry, () => true, true)
+    return path(registryRoutes, target)
   }
   const testRoutes = new Map<
     string,
     {
-      support: Map<string, string | undefined>
-      subjects: Map<string, string | undefined>
+      support: Map<string, Route>
+      subjects: Map<string, Route>
     }
   >()
   return matches.map((component) => {

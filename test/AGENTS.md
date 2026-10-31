@@ -45,7 +45,7 @@ Source-analysis and CLI regressions must exercise the production Rust collector 
 Explanation regressions cover actual reference paths, cycles, registry boundaries,
 test subject discovery, and inherited support without granting ancestry to
 unrelated tests. Pair pure graph tests with real CLI JSON and read-only checks;
-structural explanation facts never claim test execution.
+structural explanation facts never claim test execution. Deep single-target explanations retain state-aware predecessor links and reconstruct only requested paths.
 Check route-name foreground and dim state after narrow wrapping, plus independently
 bounded human details and complete machine facts.
 
@@ -54,6 +54,7 @@ bounded human details and complete machine facts.
 `subprocess-ancestry.test.ts` compares complete native source facts with the development oracle and exercises real child execution plus read-only explain. Preserve unused-export, uncontracted launch, test-to-production, builtin/global shadowing, launch-option, and missing-inventory regressions. Test-helper subject discovery must handle chains and cycles without propagating inherited support ancestry into unrelated tests or dead production.
 
 `control-depth.test.ts` covers source-level decisions, transparent formatting/blocks, else-if chains, closures, destructured parameter defaults, lexical module regions, metric validation, legacy compatibility, and the optional boundary. `control-depth-cli.test.ts` checks genuine native behavior/ancestry/size separately from structural rejection, including parameter defaults, and proves protected-base limits survive candidate relaxation. Keep syntax permutations here; the product examples describe the reviewed quality rule.
+`module-initialization.test.ts` checks real native CLI startup, read-only explanation, native/oracle parity, erased and explicit type-only imports, re-export loading, cycles, mixed runtime/type traversal, registry isolation, and test-to-production barriers. Actual evidence-worker Bun execution independently probes import and re-export erasure in default and candidate-preserved configs; unsupported worker-context modes block analysis. Preserve type-only subprocess startup rejection, unrelated same-file test isolation, direct shared startup routing, and the original sensitivity mutation after traversal changes. Syntax and traversal permutations remain technical regressions.
 
 `resource-dependencies.test.ts` compares native and oracle facts for literal UTF-8
 resource reads, deduplication, provenance, and source-as-data boundaries. Exercise
@@ -94,3 +95,7 @@ Use asynchronous child invocations while a test owns the broker, so its event lo
 ## Child DOX Index
 
 - [native/AGENTS.md](native/AGENTS.md): development-only native comparisons, fixtures, and fresh-command benchmarks.
+
+
+
+`identity.test.ts` and `snapshot-schema.test.ts` cover content identity, relocation, runtime options, and nested serialized facts. `runner-cli.test.ts` exercises completed analysis receipts through both actual verification profiles with an unavailable unused compiler, and requires fresh context capture when no receipt is supplied. `identity-fixture.ts` supplies explicitly assumed identities only to pure evaluator fixtures. `runner-adapters.test.ts` checks concrete report correlation, counts/floors, stale files, containment, and actual command cancellation. `runner-real.test.ts` is the opt-in pinned-framework consumer smoke; ordinary tests skip its network installation. `rust-backend.test.ts` offers a `BONSAI_RUST_PROBE=1` semantic/backend experiment against a disposable Cargo consumer; ordinary tests require no Rust toolchain. Existing native CLI regressions retain the production Rust-incomplete boundary. The probe is not production Rust acceptance.

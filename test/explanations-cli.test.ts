@@ -42,15 +42,14 @@ Scenario: Place an order
 })
 
 test('inspection markers observe real execution before an ancestry rejection', () => {
-  const report = checkBasicProject({ observeApplicationLoad: true })
-  // The standalone load marker has no ancestry under the current adapter.
-  // This control observes execution before the final ancestry rejection.
+  const report = checkBasicProject({ observeApplicationLoad: true, unrooted: true })
+  // The real startup marker is retained; a separate dormant export rejects ancestry.
   assert.equal(report.exitCode, 1, JSON.stringify(report))
   assert.equal(report.decision.status, 'reject')
   assert.equal(report.snapshot.analysis.status, 'complete')
   assert.deepEqual(report.snapshot.source.problems, [])
   assert.equal(report.snapshot.unrooted.length, 1)
-  assert.match(report.snapshot.unrooted[0], /^orders\.ts#<top-level:/)
+  assert.equal(report.snapshot.unrooted[0], 'orders.ts#unused')
   assert.deepEqual(report.decision.violations, [
     `No contract ancestry: ${report.snapshot.unrooted[0]}`,
   ])

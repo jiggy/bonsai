@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve, relative, sep } from 'node:path'
 import type { Source, Component } from './model.ts'
 import { createSubprocessAdapter, executesAtEntry } from './subprocess.ts'
+import { moduleInitialization, runtimeReference } from './module-initialization.ts'
 import { createResourceAdapter } from './resources.ts'
 
 export { inventory, fingerprint } from './inventory.ts'
@@ -122,24 +123,34 @@ export function collectSourceGraph(
       }
     }
   }
-  const seen = new Set<string>()
+  const seen = new Map<string, Source['relationships'][number]>()
   const connect = (
     owner: Component,
     target: Component | undefined,
     node: ts.Node,
-    kind: 'reference' | 'entry-point' = 'reference',
+    kind: 'reference' | 'entry-point' | 'module-initialization' = 'reference',
+    runtime = true,
   ) => {
     if (!target || target.id === owner.id) return
     const key = `${owner.id}\0${target.id}\0${kind}`
-    if (seen.has(key)) return
-    seen.add(key)
-    source.relationships.push({
+    const existing = seen.get(key)
+    if (existing) {
+      if (runtime && existing.runtime === false) {
+        delete existing.runtime
+        existing.sourceRef = reference(node)
+      }
+      return
+    }
+    const edge: Source['relationships'][number] = {
       from: owner.id,
       to: target.id,
       kind,
       origin: 'static',
       sourceRef: reference(node),
-    })
+      ...(runtime ? {} : { runtime: false as const }),
+    }
+    seen.set(key, edge)
+    source.relationships.push(edge)
   }
   const subprocess = createSubprocessAdapter(root, files, program)
   const resource = createResourceAdapter(root, files, program)
@@ -200,6 +211,8 @@ export function collectSourceGraph(
       )
     })
   }
+  const runtimeUses = new Set<ts.Symbol>()
+  const launches: { owner: Component; node: ts.Node; file: string }[] = []
   for (const [node, owner] of nodes) {
     const visit = (child: ts.Node): void => {
       if (ts.isCallExpression(child) && owner.kind !== 'test') {
@@ -233,9 +246,11 @@ export function collectSourceGraph(
         const launch = subprocess(child)
         if (launch && 'problem' in launch)
           source.problems.push(`${launch.problem} at ${owner.file}:${reference(child).line}`)
-        else if (launch)
+        else if (launch) {
+          launches.push({ owner, node: child, file: launch.file })
           for (const entry of entries.get(launch.file) ?? [])
             connect(owner, entry, child, 'entry-point')
+        }
       }
       if (ts.isCallExpression(child) && child.expression.kind === ts.SyntaxKind.ImportKeyword) {
         const specifier = child.arguments[0]
@@ -305,7 +320,13 @@ export function collectSourceGraph(
             const selected = unalias(
               checker.getPropertyOfType(namespace, child.argumentExpression.text),
             )
-            connect(owner, selected && symbols.get(selected), child)
+            connect(
+              owner,
+              selected && symbols.get(selected),
+              child,
+              'reference',
+              runtimeReference(child),
+            )
           } else {
             source.problems.push(
               `Unsupported dynamic import selection: ${owner.id} at ${owner.file}:${reference(child).line} — ${child.getText()}`,
@@ -314,9 +335,12 @@ export function collectSourceGraph(
         }
       }
       if (ts.isIdentifier(child)) {
-        const symbol = unalias(checker.getSymbolAtLocation(child))
+        const original = checker.getSymbolAtLocation(child)
+        const runtime = runtimeReference(child)
+        if (original && runtime) runtimeUses.add(original)
+        const symbol = unalias(original)
         const target = symbol && symbols.get(symbol)
-        connect(owner, target, child)
+        connect(owner, target, child, 'reference', runtime)
       }
       ts.forEachChild(child, visit)
     }
@@ -346,6 +370,7 @@ export function collectSourceGraph(
       }
     }
   }
+  moduleInitialization(root, source, program, nodes, entries, runtimeUses, launches, connect)
   // Imported local modules must be inside the measured inventory.
   const included = new Set(files.map((file) => resolve(root, file)))
   for (const ast of program.getSourceFiles()) {
