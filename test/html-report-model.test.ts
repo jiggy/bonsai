@@ -36,10 +36,35 @@ function fixture() {
     actions: { place: 'place', cancel: 'cancel', unused: 'legacy' },
     registry: 'registry',
     relationships: [
-      { from: 'place', to: 'resource', kind: 'reference', origin: 'static', sourceRef: { file: 'src/orders.ts', line: 2 } },
-      { from: 'place', to: 'cancel', kind: 'reference', runtime: false, origin: 'static', sourceRef: { file: 'src/orders.ts', line: 3 } },
-      { from: 'registry', to: 'startup', kind: 'module-initialization', origin: 'static', sourceRef: { file: 'bindings.ts', line: 1 } },
-      { from: 'test', to: 'place', kind: 'reference', origin: 'static', sourceRef: { file: 'test/order.test.ts', line: 2 } },
+      {
+        from: 'place',
+        to: 'resource',
+        kind: 'reference',
+        origin: 'static',
+        sourceRef: { file: 'src/orders.ts', line: 2 },
+      },
+      {
+        from: 'place',
+        to: 'cancel',
+        kind: 'reference',
+        runtime: false,
+        origin: 'static',
+        sourceRef: { file: 'src/orders.ts', line: 3 },
+      },
+      {
+        from: 'registry',
+        to: 'startup',
+        kind: 'module-initialization',
+        origin: 'static',
+        sourceRef: { file: 'bindings.ts', line: 1 },
+      },
+      {
+        from: 'test',
+        to: 'place',
+        kind: 'reference',
+        origin: 'static',
+        sourceRef: { file: 'test/order.test.ts', line: 2 },
+      },
     ],
     problems: [],
   }
@@ -48,24 +73,47 @@ function fixture() {
     cases: [],
     problems: [],
     checks: ['place', 'cancel', '__proto__'].map((action, index) => ({
-      id: `features/orders.feature:${index}:1`, file: 'features/orders.feature', line: index + 3,
-      action, selector: 'status', expected: 'ok',
+      id: `features/orders.feature:${index}:1`,
+      file: 'features/orders.feature',
+      line: index + 3,
+      action,
+      selector: 'status',
+      expected: 'ok',
     })),
   }
   const snapshot = buildSnapshot('candidate-fingerprint', contracts, source)
   const config: Config = {
-    maintained: ['src', 'src/orders.ts', 'bindings.ts', 'message.txt', 'test', 'features', 'README.md'],
+    maintained: [
+      'src',
+      'src/orders.ts',
+      'bindings.ts',
+      'message.txt',
+      'test',
+      'features',
+      'README.md',
+    ],
     exclude: ['.bonsai/'],
     bindings: 'bindings.ts',
-    policy: { bootstrap: 100, bootstrapSurface: 2, perDoubling: 10, hardLimit: 200, maxFeedbackMs: 1500 },
+    policy: {
+      bootstrap: 100,
+      bootstrapSurface: 2,
+      perDoubling: 10,
+      hardLimit: 200,
+      maxFeedbackMs: 1500,
+    },
   }
   const context: ReportContext = {
-    config, root: '/project', configFile: 'git:reviewed-base:bonsai.json',
+    config,
+    root: '/project',
+    configFile: 'git:reviewed-base:bonsai.json',
     origin: { root: 'flag', base: 'environment', policy: 'base' },
-    base: 'reviewed-base', project: 'orders', generatedAt: '2026-10-31T12:00:00.000Z',
+    base: 'reviewed-base',
+    project: 'orders',
+    generatedAt: '2026-10-31T12:00:00.000Z',
   }
   const input: ReportInput = {
-    snapshot, decision: evaluate(undefined, snapshot, config.policy),
+    snapshot,
+    decision: evaluate(undefined, snapshot, config.policy),
     timing: { elapsedMs: 35, stages: [] },
   }
   return { input, context }
@@ -75,8 +123,17 @@ test('report keeps complete file costs and unknown classifications without inven
   const { input, context } = fixture()
   const data = buildReportData(input, context)
   assert.equal(data.files.length, input.snapshot.source.files.length)
-  assert.equal(data.files.reduce((sum, file) => sum + file.tokens, 0), input.decision.retained)
-  assert.deepEqual(data.files[0], { path: 'src/orders.ts', tokens: 1000, kind: 'production', executable: true, components: ['place', 'cancel', 'legacy', 'startup'] })
+  assert.equal(
+    data.files.reduce((sum, file) => sum + file.tokens, 0),
+    input.decision.retained,
+  )
+  assert.deepEqual(data.files[0], {
+    path: 'src/orders.ts',
+    tokens: 1000,
+    kind: 'production',
+    executable: true,
+    components: ['place', 'cancel', 'legacy', 'startup'],
+  })
   const readme = data.files.find((file) => file.path === 'README.md')!
   assert.deepEqual(readme.components, [])
   assert.equal(Object.hasOwn(readme, 'kind'), false)
@@ -88,13 +145,18 @@ test('report keeps complete file costs and unknown classifications without inven
 test('feature grouping retains empty indexed specifications and never expands exact ancestry', () => {
   const { input, context } = fixture()
   const data = buildReportData(input, context)
-  assert.deepEqual(data.features.map(({ id, name, path }) => ({ id, name, path })), [
-    { id: 'features/orders.feature', path: 'features/orders.feature', name: 'orders.feature' },
-    { id: 'features/draft.feature', path: 'features/draft.feature', name: 'draft.feature' },
-  ])
+  assert.deepEqual(
+    data.features.map(({ id, name, path }) => ({ id, name, path })),
+    [
+      { id: 'features/orders.feature', path: 'features/orders.feature', name: 'orders.feature' },
+      { id: 'features/draft.feature', path: 'features/draft.feature', name: 'draft.feature' },
+    ],
+  )
   assert.deepEqual(data.features[1]!.checks, [])
   assert.deepEqual(data.features[1]!.actions, [])
-  assert.deepEqual(data.components.find((component) => component.id === 'place')!.features, ['features/orders.feature'])
+  assert.deepEqual(data.components.find((component) => component.id === 'place')!.features, [
+    'features/orders.feature',
+  ])
   assert.deepEqual(data.ancestry.place, ['features/orders.feature:0:1'])
   assert.equal(data.features[0]!.checks.length, 3)
   assert.deepEqual(data.components.find((component) => component.id === 'legacy')!.features, [])
@@ -108,11 +170,19 @@ test('bindings include unused registrations and mark absent own properties expli
   const { input, context } = fixture()
   const missing = buildReportData(input, context).bindings
   assert.deepEqual(missing, [
-    { action: 'place', handler: 'place' }, { action: 'cancel', handler: 'cancel' },
-    { action: '__proto__', handler: null }, { action: 'unused', handler: 'legacy' },
+    { action: 'place', handler: 'place' },
+    { action: 'cancel', handler: 'cancel' },
+    { action: '__proto__', handler: null },
+    { action: 'unused', handler: 'legacy' },
   ])
-  Object.defineProperty(input.snapshot.source.actions, '__proto__', { value: 'cancel', enumerable: true })
-  assert.deepEqual(buildReportData(input, context).bindings[2], { action: '__proto__', handler: 'cancel' })
+  Object.defineProperty(input.snapshot.source.actions, '__proto__', {
+    value: 'cancel',
+    enumerable: true,
+  })
+  assert.deepEqual(buildReportData(input, context).bindings[2], {
+    action: '__proto__',
+    handler: 'cancel',
+  })
 })
 
 test('missing evidence and feedback remain absent rather than fabricated successful or not-run results', () => {
@@ -124,7 +194,10 @@ test('missing evidence and feedback remain absent rather than fabricated success
   assert.equal(Object.hasOwn(data, 'evidence'), false)
   assert.equal(data.evidenceState, 'unavailable')
   assert.equal(data.feedbackMs, null)
-  assert.equal(data.features.some((feature) => feature.checks.some((check) => Object.hasOwn(check, 'status'))), false)
+  assert.equal(
+    data.features.some((feature) => feature.checks.some((check) => Object.hasOwn(check, 'status'))),
+    false,
+  )
   assert.equal(JSON.stringify(data).includes('not-run'), false)
   assert.equal(JSON.stringify({ input, context }), before)
 })
@@ -134,16 +207,57 @@ test('raw evidence, supporting requirements, structural facts, and incomplete an
   const { snapshot } = input
   snapshot.identity = assumedIdentity
   snapshot.evidence = {
-    schema: 'bonsai-evidence-v2', identity: assumedIdentity, fingerprint: 'stale-candidate',
-    profile: 'isolated-scenarios-v1', complete: false, elapsedMs: 12,
-    checks: [{ id: snapshot.contracts.checks[0]!.id, status: 'failed', error: 'wrong status', response: '{"status":"error"}' }],
+    schema: 'bonsai-evidence-v2',
+    identity: assumedIdentity,
+    fingerprint: 'stale-candidate',
+    profile: 'isolated-scenarios-v1',
+    complete: false,
+    elapsedMs: 12,
+    checks: [
+      {
+        id: snapshot.contracts.checks[0]!.id,
+        status: 'failed',
+        error: 'wrong status',
+        response: '{"status":"error"}',
+      },
+    ],
   }
-  snapshot.runners = [{ id: 'tests', adapter: 'vitest-json', command: ['bun', 'test'], report: '.bonsai/tests.json', coverage: { report: '.bonsai/coverage.json', scope: 'maintained-production', lines: 80 } }]
+  snapshot.runners = [
+    {
+      id: 'tests',
+      adapter: 'vitest-json',
+      command: ['bun', 'test'],
+      report: '.bonsai/tests.json',
+      coverage: { report: '.bonsai/coverage.json', scope: 'maintained-production', lines: 80 },
+    },
+  ]
   context.config.runners = snapshot.runners
   context.config.policy.structural = { metric: 'control-depth-v1', maxDepth: 3 }
   snapshot.source.controlDepth = { metric: 'control-depth-v1', complete: false, regions: [] }
-  snapshot.runnerEvidence = [{ schema: 'bonsai-runner-evidence-v1', id: 'tests', adapter: 'vitest-json', fingerprint: snapshot.fingerprint, status: 'incomplete', complete: false, elapsedMs: 5, exitCode: null, total: 0, passed: 0, failed: 0, skipped: 0, problems: ['Report unavailable'] }]
-  snapshot.analysis = { engine: 'rust', backend: 'tsrs', validation: 'native-diagnostics', status: 'unsupported', version: 'fixture' }
+  snapshot.runnerEvidence = [
+    {
+      schema: 'bonsai-runner-evidence-v1',
+      id: 'tests',
+      adapter: 'vitest-json',
+      fingerprint: snapshot.fingerprint,
+      status: 'incomplete',
+      complete: false,
+      elapsedMs: 5,
+      exitCode: null,
+      total: 0,
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      problems: ['Report unavailable'],
+    },
+  ]
+  snapshot.analysis = {
+    engine: 'rust',
+    backend: 'tsrs',
+    validation: 'native-diagnostics',
+    status: 'unsupported',
+    version: 'fixture',
+  }
   snapshot.source.problems.push('Unsupported source')
   snapshot.contracts.problems.push('Draft scenario')
   input.decision = evaluate(undefined, snapshot, context.config.policy)
@@ -164,20 +278,36 @@ test('raw evidence, supporting requirements, structural facts, and incomplete an
 
 test('same-invocation configuration and timing retain policy provenance and a measured zero', () => {
   const { input, context } = fixture()
-  input.snapshot.timing = { elapsedMs: 0, stages: [{ name: 'verification', elapsedMs: null, status: 'skipped' }], feedback: { elapsedMs: 0, limitMs: 1500 } }
+  input.snapshot.timing = {
+    elapsedMs: 0,
+    stages: [{ name: 'verification', elapsedMs: null, status: 'skipped' }],
+    feedback: { elapsedMs: 0, limitMs: 1500 },
+  }
   const data = buildReportData(input, context)
   assert.equal(data.feedbackMs, 0)
   assert.equal(data.timing, input.timing)
   assert.equal(data.candidateTiming, input.snapshot.timing)
   assert.deepEqual(data.config, { ...context.config, origin: context.configFile })
-  assert.deepEqual(data.provenance, { root: '/project', configFile: context.configFile, base: 'reviewed-base', origin: context.origin })
+  assert.deepEqual(data.provenance, {
+    root: '/project',
+    configFile: context.configFile,
+    base: 'reviewed-base',
+    origin: context.origin,
+  })
   assert.equal(Object.hasOwn(data, 'commit'), false)
   assert.equal(Object.hasOwn(data, 'illustrative'), false)
 })
 
 test('maintained membership normalizes selected paths without losing overlap or empty entries', () => {
   const { input, context } = fixture()
-  context.config.maintained = ['./src/', 'src/orders.ts', '/project/src', 'test/../features', 'empty', 'src-other']
+  context.config.maintained = [
+    './src/',
+    'src/orders.ts',
+    '/project/src',
+    'test/../features',
+    'empty',
+    'src-other',
+  ]
   const data = buildReportData(input, context)
   assert.deepEqual(data.maintainedEntries, [
     { entry: './src/', files: ['src/orders.ts'] },
@@ -195,16 +325,23 @@ test('evidence compatibility preserves partial current records and distinguishes
   const { snapshot } = input
   snapshot.identity = assumedIdentity
   snapshot.evidence = {
-    schema: 'bonsai-evidence-v2', identity: assumedIdentity,
-    fingerprint: snapshot.fingerprint, profile: 'isolated-scenarios-v1',
-    complete: false, elapsedMs: 3, checks: [],
+    schema: 'bonsai-evidence-v2',
+    identity: assumedIdentity,
+    fingerprint: snapshot.fingerprint,
+    profile: 'isolated-scenarios-v1',
+    complete: false,
+    elapsedMs: 3,
+    checks: [],
   }
   assert.equal(buildReportData(input, context).evidenceState, 'matched')
   assert.equal(buildReportData(input, context).evidence!.complete, false)
   snapshot.evidence.fingerprint = 'other-candidate'
   assert.equal(buildReportData(input, context).evidenceState, 'mismatched')
   snapshot.evidence.fingerprint = snapshot.fingerprint
-  snapshot.evidence.identity = { ...assumedIdentity, runtime: { ...assumedIdentity.runtime, version: 'other-runtime' } }
+  snapshot.evidence.identity = {
+    ...assumedIdentity,
+    runtime: { ...assumedIdentity.runtime, version: 'other-runtime' },
+  }
   assert.equal(buildReportData(input, context).evidenceState, 'mismatched')
   snapshot.evidence.identity = assumedIdentity
   snapshot.verification = { profile: 'in-process-v1', workers: 1 }
@@ -222,17 +359,47 @@ test('supporting compatibility exposes unavailable, partial current, stale, dupl
   const { input, context } = fixture()
   const { snapshot } = input
   snapshot.identity = assumedIdentity
-  context.config.runners = [{ id: 'tests', adapter: 'vitest-json', command: ['bun', 'test'], report: '.bonsai/tests.json' }]
-  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [{ id: 'tests', state: 'unavailable' }])
-  snapshot.runnerEvidence = [{ schema: 'bonsai-runner-evidence-v1', id: 'tests', adapter: 'vitest-json', fingerprint: snapshot.fingerprint, identity: assumedIdentity, status: 'incomplete', complete: false, elapsedMs: 5, exitCode: null, total: 0, passed: 0, failed: 0, skipped: 0, problems: ['Interrupted'] }]
-  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [{ id: 'tests', state: 'matched' }])
+  context.config.runners = [
+    { id: 'tests', adapter: 'vitest-json', command: ['bun', 'test'], report: '.bonsai/tests.json' },
+  ]
+  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [
+    { id: 'tests', state: 'unavailable' },
+  ])
+  snapshot.runnerEvidence = [
+    {
+      schema: 'bonsai-runner-evidence-v1',
+      id: 'tests',
+      adapter: 'vitest-json',
+      fingerprint: snapshot.fingerprint,
+      identity: assumedIdentity,
+      status: 'incomplete',
+      complete: false,
+      elapsedMs: 5,
+      exitCode: null,
+      total: 0,
+      passed: 0,
+      failed: 0,
+      skipped: 0,
+      problems: ['Interrupted'],
+    },
+  ]
+  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [
+    { id: 'tests', state: 'matched' },
+  ])
   snapshot.runnerEvidence[0]!.fingerprint = 'other-candidate'
-  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [{ id: 'tests', state: 'mismatched' }])
+  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [
+    { id: 'tests', state: 'mismatched' },
+  ])
   snapshot.runnerEvidence[0]!.fingerprint = snapshot.fingerprint
   snapshot.runnerEvidence.push(snapshot.runnerEvidence[0]!)
-  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [{ id: 'tests', state: 'mismatched' }])
+  assert.deepEqual(buildReportData(input, context).runnerEvidenceStates, [
+    { id: 'tests', state: 'mismatched' },
+  ])
   snapshot.runnerEvidence = [{ ...snapshot.runnerEvidence[0]!, id: 'unexpected' }]
   const data = buildReportData(input, context)
-  assert.deepEqual(data.runnerEvidenceStates, [{ id: 'tests', state: 'unavailable' }, { id: 'unexpected', state: 'mismatched' }])
+  assert.deepEqual(data.runnerEvidenceStates, [
+    { id: 'tests', state: 'unavailable' },
+    { id: 'unexpected', state: 'mismatched' },
+  ])
   assert.equal(data.runnerEvidence, snapshot.runnerEvidence)
 })

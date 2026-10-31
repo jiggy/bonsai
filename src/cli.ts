@@ -776,7 +776,12 @@ async function main(): Promise<void> {
     const { resolveReportDestination } = await import('./report/output.ts')
     try {
       reportDestination = resolveReportDestination(root, config, requestedReport)
-      if (isAbsolute(configFile) && existsSync(configFile) && existsSync(reportDestination) && realpathSync(configFile) === realpathSync(reportDestination))
+      if (
+        isAbsolute(configFile) &&
+        existsSync(configFile) &&
+        existsSync(reportDestination) &&
+        realpathSync(configFile) === realpathSync(reportDestination)
+      )
         throw new Error('HTML report overlaps the effective policy file')
       if (isAbsolute(configFile) && resolve(configFile) === resolve(reportDestination))
         throw new Error('HTML report overlaps the effective policy file')
@@ -1001,23 +1006,33 @@ async function main(): Promise<void> {
       const { writeHtmlReport, resolveReportDestination } = await import('./report/output.ts')
       checkDeadline()
       const { renderHtmlReport } = await import('./report/render.ts')
-      const html = renderHtmlReport({ decision, snapshot: candidate, timing }, {
-        config,
-        root,
-        configFile,
-        origin: {
-          root: source('root', 'BONSAI_ROOT'),
-          base: source('base', 'BONSAI_BASE'),
-          policy: source('policy', 'BONSAI_POLICY') === 'default' ? baseSha ? 'base' : 'project' : source('policy', 'BONSAI_POLICY'),
+      const html = renderHtmlReport(
+        { decision, snapshot: candidate, timing },
+        {
+          config,
+          root,
+          configFile,
+          origin: {
+            root: source('root', 'BONSAI_ROOT'),
+            base: source('base', 'BONSAI_BASE'),
+            policy:
+              source('policy', 'BONSAI_POLICY') === 'default'
+                ? baseSha
+                  ? 'base'
+                  : 'project'
+                : source('policy', 'BONSAI_POLICY'),
+          },
+          ...(baseSha && { base: baseSha }),
+          project: basename(resolve(root)) || root,
+          generatedAt: new Date(invokedAt).toISOString(),
         },
-        ...(baseSha && { base: baseSha }),
-        project: basename(resolve(root)) || root,
-        generatedAt: new Date(invokedAt).toISOString(),
-      })
+      )
       await writeHtmlReport(reportDestination, html, {
         signal: cancellation.signal,
         checkDeadline,
-        validatePath: path => { resolveReportDestination(root, config, path) },
+        validatePath: (path) => {
+          resolveReportDestination(root, config, path)
+        },
       })
       reportSaved = true
       checkDeadline()
@@ -1028,15 +1043,18 @@ async function main(): Promise<void> {
         return
       }
       const errno = (error as NodeJS.ErrnoException).code
-      reportError(new CliError(
-        `Can't save HTML report '${reportDestination}': ${error instanceof Error ? error.message : String(error)}`,
-        'REPORT_WRITE',
-        'Choose a writable report path with --report PATH; the previous report was not replaced',
-        gateExitCode || (errno === 'EACCES' || errno === 'EPERM' ? 3 : 1),
-      ))
+      reportError(
+        new CliError(
+          `Can't save HTML report '${reportDestination}': ${error instanceof Error ? error.message : String(error)}`,
+          'REPORT_WRITE',
+          'Choose a writable report path with --report PATH; the previous report was not replaced',
+          gateExitCode || (errno === 'EACCES' || errno === 'EPERM' ? 3 : 1),
+        ),
+      )
     }
   }
-  if (reportSaved && human && !quiet) await writeReport(`HTML report: ${reportDestination}`, process.stderr)
+  if (reportSaved && human && !quiet)
+    await writeReport(`HTML report: ${reportDestination}`, process.stderr)
 }
 
 main()

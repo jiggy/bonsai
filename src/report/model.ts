@@ -113,8 +113,7 @@ export function buildReportData(input: ReportInput, context: ReportContext): Rep
       : validEvidence(snapshot.evidence) &&
           snapshot.evidence.fingerprint === snapshot.fingerprint &&
           sameExecutionIdentity(snapshot.identity, snapshot.evidence.identity) &&
-          snapshot.evidence.profile ===
-            (snapshot.verification?.profile ?? 'isolated-scenarios-v1')
+          snapshot.evidence.profile === (snapshot.verification?.profile ?? 'isolated-scenarios-v1')
         ? 'matched'
         : 'mismatched'
   const runnerIds = new Set([
@@ -128,17 +127,16 @@ export function buildReportData(input: ReportInput, context: ReportContext): Rep
       context.config.runners?.find((runner) => runner.id === id)
     const results = snapshot.runnerEvidence?.filter((result) => result.id === id) ?? []
     const result = results[0]
-    const state: ReportEvidenceState =
-      !result
-        ? 'unavailable'
-        : results.length === 1 &&
-            requirement &&
-            validRunnerEvidence(result) &&
-            result.adapter === requirement.adapter &&
-            result.fingerprint === snapshot.fingerprint &&
-            sameExecutionIdentity(snapshot.identity, result.identity)
-          ? 'matched'
-          : 'mismatched'
+    const state: ReportEvidenceState = !result
+      ? 'unavailable'
+      : results.length === 1 &&
+          requirement &&
+          validRunnerEvidence(result) &&
+          result.adapter === requirement.adapter &&
+          result.fingerprint === snapshot.fingerprint &&
+          sameExecutionIdentity(snapshot.identity, result.identity)
+        ? 'matched'
+        : 'mismatched'
     return { id, state }
   })
   return {
