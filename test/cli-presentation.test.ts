@@ -13,7 +13,7 @@ import {
   wrap,
 } from '../src/cli-interface.ts'
 import { cliEnvironment, executable, runCli } from './cli.ts'
-import { hasPty, quote } from './terminal.ts'
+import { characters, hasPty, quote } from './terminal.ts'
 
 const example = resolve('examples/checkout')
 
@@ -86,6 +86,35 @@ test('canonical help and generated documentation stay unstyled when redirected',
   assert.match(markdown.stdout, /maximum human results \(default 20, 0 shows all\)/)
 })
 
+test('conflicting report flags keep wrapped alert text readable without relying on color', {
+  skip: !hasPty,
+}, () => {
+  const args = ['check', '--report', 'report.html', '--no-report']
+  const styled = run(args, { COLUMNS: '40' }, true)
+  assert.equal(styled.status, 2, styled.stderr)
+  const visible = characters(styled.stdout)
+  const plain = visible.map((character) => character.value).join('')
+  assert.match(plain, /Can't combine --report with\n\s+--no-report/)
+  const start = plain.indexOf("Can't combine")
+  const end = plain.indexOf('  Next →', start)
+  assert.ok(end > start)
+  for (const character of visible.slice(start, end).filter((character) => character.value.trim())) {
+    assert.equal(character.color, 31, 'Every alert continuation stays red')
+    assert.equal(character.dim, false, 'Every alert continuation stays readable')
+  }
+  for (const line of plain.trimEnd().split('\n')) assert.ok(displayWidth(line) <= 40, line)
+  const monochrome = run([...args, '--no-color'], { COLUMNS: '40' }, true)
+  assert.equal(monochrome.status, 2, monochrome.stderr)
+  assert.doesNotMatch(monochrome.stdout, /\x1b\[/)
+  const elapsedLine = /^([ \t]*)\d+(?:\.\d+)?(?:ms|s)( elapsed)$/m
+  assert.match(plain, elapsedLine)
+  assert.match(monochrome.stdout, elapsedLine)
+  assert.equal(
+    plain.replace(elapsedLine, '$1<duration>$2'),
+    monochrome.stdout.replace(elapsedLine, '$1<duration>$2'),
+  )
+})
+
 test('human errors wrap to the diagnostic width and ASCII mode covers every structural glyph', () => {
   const result = run(
     ['check', '--root', '/tmp/bonsai-missing-project-with-a-long-directory-name'],
@@ -136,4 +165,24 @@ test('human recovery links remain intact at narrow terminal widths', () => {
   })
   assert.ok(result.includes(url))
   assert.doesNotMatch(result, /…/)
+})
+
+test('narrow report hints keep the filename visible in the primary text role', () => {
+  const line = {
+    text: 'HTML report: /tmp/a-long-consuming-project/.bonsai/report.html',
+    role: 'text' as const,
+  }
+  for (const width of [40, 80]) {
+    const rendered = renderHuman('check', [line], { width, color: true })
+    const visible = characters(rendered)
+    const plain = visible.map((character) => character.value).join('')
+    const filename = plain.indexOf('report.html')
+    assert.ok(filename >= 0, plain)
+    for (const part of plain.split('\n')) assert.ok(displayWidth(part) <= width, part)
+    for (const character of visible.slice(filename, filename + 'report.html'.length)) {
+      assert.equal(character.color, 37)
+      assert.equal(character.dim, false)
+    }
+    assert.equal(stripVTControlCharacters(rendered), renderHuman('check', [line], { width }))
+  }
 })

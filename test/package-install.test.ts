@@ -145,10 +145,20 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
       '--root',
       project,
       '--json',
+      '--report',
+      '.bonsai/report.html',
     ]
     const checked = run(args)
     assert.equal(checked.status, 0, checked.stderr)
     const report = JSON.parse(checked.stdout)
+    const html = readFileSync(join(project, '.bonsai/report.html'), 'utf8')
+    const embedded = html.match(
+      /<script[^>]*id="bonsai-report-data"[^>]*>([\s\S]*?)<\/script>/,
+    )?.[1]
+    assert.ok(embedded, 'The installed package includes its standalone report renderer')
+    assert.deepEqual(JSON.parse(embedded).decision, report.decision)
+    assert.equal((html.match(/data:font\/woff2;base64,/g) ?? []).length, 3)
+    assert.doesNotMatch(html, /<script[^>]+src=|<link[^>]+rel="stylesheet"/)
     assert.equal(report.decision.status, 'pass')
     assert.equal(report.snapshot.analysis.backend, 'tsrs')
     assert.equal(report.snapshot.evidence.complete, true)

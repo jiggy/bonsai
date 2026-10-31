@@ -38,6 +38,8 @@ Keep project orchestration independent of eager compiler and Gherkin imports. St
 
 Preserve the published check/explain JSON keys and 0 pass, 1 reject, 2 incomplete gate codes. Help and version never load projects or run handlers. Keep diagnostics on stderr and machine data on stdout. Candidate code must not run during explain or config inspection. Formatting remains CI automation, not an agent invocation requirement.
 
+Evaluated checks save `.bonsai/report.html` by default. `--report PATH` selects another destination; check-only `--no-report` skips generation and all destination work. Reject combining these flags before project work. Preserve effective inventory protection, unchanged console formats, and quiet suppression of report hints.
+
 Compare canonical filesystem paths when validating a Git root for `--base`. A symlink or macOS temporary-directory alias can identify the same checkout. Preserve the caller's root spelling in reports and recovery commands, retain invocation-relative policy resolution, and reject actual subdirectories of the checkout.
 
 Deadlines include startup, stdin waits, and stdout delivery; await report writes before clearing them. Cancel blocked output on timeout or signal, and preserve the first failure status through late stream errors. Expired commands cannot succeed. File targets normalize against the project root. Recovery commands preserve effective project options and shell quoting. Bound human check details and explanations with `--limit` (20 by default, 0 for all); machine reports stay complete. Human failed check reports go to stderr, successful reports to stdout; JSON/plain gate records stay on stdout. Carry semantic roles through wrapping: red critical alerts, amber incomplete/provisional states, primary values, neutral detail, muted structure, and cyan whole commands. Quiet mode keeps errors and repairs while suppressing progress, metrics, and next-step hints. Terminal rendering uses stream-specific capabilities; canonical redirected help and generated documentation stay unstyled.
@@ -105,7 +107,7 @@ Use the repository CLI skills for changes to the command contract and presentati
 
 ## Child DOX Index
 
-None. This file owns the full subtree.
+- [report/AGENTS.md](report/AGENTS.md): offline dashboard projection, browser interaction, embedded assets, and artifact delivery.
 
 Supporting coverage may opt into `coverage.scope: "maintained-production"`. File `kind` and optional `executable` metadata come from the collector, independently of report selection. Reuse one built-in Bun transpiler per collection with the TypeScript loader and Bun target, then inspect emitted lexical syntax; only empty statements and local empty export markers are erased. After context, lexical-parse, and macro guards, definite runtime function/class/variable declarations and direct call statements can skip duplicate emission; ambiguous forms keep the Bun path. Explicitly match default TypeScript import trimming, with tree shaking and dead-code elimination disabled. Keep original source graphs and full-file charging unchanged. Preflight macro attributes and macro module specifiers before any transformation so analysis and explain never execute candidate macros.
 

@@ -54,6 +54,33 @@ One package, with six principal modules:
 
 `model.ts` defines their shared facts. `project.ts` joins collection, `inventory.ts` supplies filesystem scope and fingerprints without loading the compiler, `binding-target.ts` validates the configured registry target against its measured snapshot, `timing.ts` retains monotonic phase durations, and `worker.ts` hosts application invocation; assertions and evidence construction remain in the verifier process. A private native message port connects a separate application heap without exposing expected outcomes, evidence records, or signing keys to handlers. `compiler-options.ts` defines the native and development oracle's shared options. `features/support/` owns development acceptance arrangements and actual CLI launches; `test/compiler.ts` and `test/reference.ts` own the separate JavaScript compiler oracle. Neither belongs to the published runtime. There is no database, persistent daemon, LLM call, or external service.
 
+## Standalone check reports
+
+`check` projects its already evaluated decision, snapshot, timings, and effective
+configuration into `.bonsai/report.html` by default. `--report PATH` selects another
+destination; `--no-report` skips generation, including for read-only projects.
+The options are mutually exclusive. Existing JSON, plain, and quiet output contracts
+remain unchanged. The renderer owns presentation and no
+acceptance rules; it does not recollect the project or execute handlers. Exact
+observation ancestry remains distinct from evidence and component necessity.
+
+`src/report/` owns the pure model, referenced TypeScript browser function, licensed
+text assets, standalone serializer, and atomic delivery. Browser details use the
+collected graph with runtime/production eligibility and reconstruct requested paths
+from predecessors. All authored implementation, assets, tests and documentation
+remain maintained and charged. Generated artifacts require an explicitly unmaintained
+or effectively excluded destination; report generation never edits policy or exclusions.
+
+Candidate integrity and policy feedback finish before HTML delivery. The command
+deadline still covers rendering and writing. Rejected and incomplete candidates
+retain their actual facts in the artifact; setup failures with no evaluated snapshot
+retain normal diagnostics. A delivery error never rewrites the gate's decision or
+replaces a previous complete report with partial bytes.
+
+Normal displayed command elapsed time ends after console report preparation.
+HTML projection, serialization, atomic writing, and path-hint delivery follow
+that measurement; the command deadline continues through all of them.
+
 ## Initial adapter choices
 
 TypeScript was selected because the repository had no existing language stack and its compiler supplies symbol resolution. Gherkin uses the official Cucumber parser and pickle compiler; Bonsai deliberately supports a small executable grammar instead of implementing a second general test runner.
@@ -118,7 +145,7 @@ whole-file retained costs are unchanged. README defines the counting boundaries.
 ## Timing boundaries
 
 The command profile measures elapsed wall time from the runtime clock origin through
-report preparation, with separate stages for setup, base work, configuration,
+console report preparation, with separate stages for setup, base work, configuration,
 candidate collection and verification, and evaluation. Final serialization, output
 delivery, and cleanup follow that reported total. Candidate timings nest within
 the command profile; base work stays outside candidate feedback.

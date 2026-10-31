@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { parseArgs } from 'node:util'
-import { resolve, join, relative, sep } from 'node:path'
+import { resolve, join, relative, sep, basename, isAbsolute } from 'node:path'
 import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { execFile } from 'node:child_process'
@@ -157,6 +157,8 @@ function reportError(error: unknown): void {
 
 function stop(error: CliError): void {
   if (stopping) process.exit()
+  if (error.code === 'TIMEOUT' && typeof process.exitCode === 'number' && process.exitCode !== 0)
+    error = new CliError(error.message, error.code, error.run, process.exitCode)
   stopping = true
   process.exitCode = error.exitCode
   reportError(error)
@@ -440,6 +442,12 @@ async function main(): Promise<void> {
     }
     return
   }
+  if (text('report') !== undefined && enabled('no-report'))
+    throw new CliError(
+      "Can't combine --report with --no-report",
+      'USAGE',
+      'Use --report PATH to choose a file or --no-report to skip it',
+    )
   const engine = text('engine') ?? 'rust'
   if (engine !== 'rust')
     throw new CliError(
@@ -768,6 +776,38 @@ async function main(): Promise<void> {
     )
     return
   }
+  const requestedReport =
+    command === 'check' && !enabled('no-report')
+      ? (text('report') ?? '.bonsai/report.html')
+      : undefined
+  let reportDestination: string | undefined
+  let validateReportPath: ((path: string) => string) | undefined
+  if (requestedReport !== undefined) {
+    const { resolveReportDestination } = await import('./report/output.ts')
+    validateReportPath = (path) => {
+      const destination = resolveReportDestination(root, config, path)
+      if (
+        isAbsolute(configFile) &&
+        existsSync(configFile) &&
+        existsSync(destination) &&
+        realpathSync(configFile) === realpathSync(destination)
+      )
+        throw new Error('HTML report overlaps the effective policy file')
+      if (isAbsolute(configFile) && resolve(configFile) === resolve(destination))
+        throw new Error('HTML report overlaps the effective policy file')
+      return destination
+    }
+    try {
+      reportDestination = validateReportPath(requestedReport)
+    } catch (error) {
+      throw new CliError(
+        error instanceof Error ? error.message : String(error),
+        'REPORT_PATH',
+        'Choose an excluded directory with --report PATH or skip HTML with --no-report',
+        (error as NodeJS.ErrnoException).code === 'EACCES' ? 3 : 2,
+      )
+    }
+  }
   const { evaluate } = await import('./policy.ts')
   const { explain } = await import('./retention.ts')
   let base: Snapshot | undefined
@@ -972,7 +1012,72 @@ async function main(): Promise<void> {
     )
   }
   checkTimer?.finish()
-  process.exitCode = decision.status === 'pass' ? 0 : decision.status === 'reject' ? 1 : 2
+  const gateExitCode = decision.status === 'pass' ? 0 : decision.status === 'reject' ? 1 : 2
+  process.exitCode = gateExitCode
+  let reportSaved = false
+  if (reportDestination) {
+    try {
+      const { writeHtmlReport } = await import('./report/output.ts')
+      checkDeadline()
+      const { renderHtmlReport } = await import('./report/render.ts')
+      const html = renderHtmlReport(
+        { decision, snapshot: candidate, timing },
+        {
+          config,
+          root,
+          configFile,
+          origin: {
+            root: source('root', 'BONSAI_ROOT'),
+            base: source('base', 'BONSAI_BASE'),
+            policy:
+              source('policy', 'BONSAI_POLICY') === 'default'
+                ? baseSha
+                  ? 'base'
+                  : 'project'
+                : source('policy', 'BONSAI_POLICY'),
+          },
+          ...(baseSha && { base: baseSha }),
+          project: basename(resolve(root)) || root,
+          generatedAt: new Date(invokedAt).toISOString(),
+        },
+      )
+      await writeHtmlReport(reportDestination, html, {
+        signal: cancellation.signal,
+        checkDeadline,
+        validatePath: validateReportPath,
+      })
+      reportSaved = true
+      checkDeadline()
+    } catch (error) {
+      if (stopping) return
+      if (error instanceof CliError && error.code === 'TIMEOUT') {
+        stop(new CliError(error.message, error.code, error.run, gateExitCode || error.exitCode))
+        return
+      }
+      const errno = (error as NodeJS.ErrnoException).code
+      reportError(
+        new CliError(
+          `Can't save HTML report '${reportDestination}': ${error instanceof Error ? error.message : String(error)}`,
+          'REPORT_WRITE',
+          'Choose a writable --report PATH or use --no-report. Any previous report was preserved',
+          gateExitCode || (errno === 'EACCES' || errno === 'EPERM' ? 3 : 1),
+        ),
+      )
+    }
+  }
+  if (reportSaved && human && !quiet) {
+    const hint = `HTML report: ${reportDestination}`
+    await writeReport(
+      process.stderr.isTTY
+        ? renderHuman('check', [{ text: hint, role: 'text' }], {
+            width: width(process.stderr),
+            color: colorEnabled(process.stderr.isTTY, noColor),
+            ascii: ascii(),
+          })
+        : hint,
+      process.stderr,
+    )
+  }
 }
 
 main()

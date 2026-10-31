@@ -70,6 +70,42 @@ File targets accept project-relative paths (including `./`) and absolute paths.
 Recovery commands preserve the effective root, base, policy, and explicit engine
 options.
 
+### Save an offline check report
+
+Every evaluated `bonsai check` saves an interactive, standalone HTML report to
+`.bonsai/report.html` alongside the normal terminal, JSON, or plain result.
+Use `--report PATH` to choose another destination or `--no-report` to skip the file,
+including when checking a read-only project. These two options are mutually exclusive.
+Report paths resolve against `--root`; `--quiet` suppresses hints and still saves the file.
+The report includes file cost versus specification
+reach, nested retained-token inventory, mixed files with components lacking links,
+specification footprints, effective settings, bindings, and recorded verification.
+Fonts and interactions are embedded; opening it needs no server or network access.
+
+A rejected or incomplete check still produces its report after an evaluated
+snapshot is available. Setup errors before that point retain the ordinary error
+output. The HTML uses the same decision and collected facts; it does not run
+handlers or analysis again, infer runtime coverage, or earn additional allowance.
+Missing or mismatched evidence stays unavailable, and partial source facts remain
+explicit. Supporting runner and structural facts stay separate from specification
+ancestry and retained-token accounting.
+
+The default or explicit destination and its temporary sibling must be outside the effective maintained
+inventory or within its saved exclusions. Bonsai refuses source, policy, lockfile,
+and symlink destinations before executing handlers; it never silently changes the
+inventory. Existing initialization excludes `.bonsai`. If an older configuration maintains
+that directory, choose an already excluded destination or use `--no-report`; Bonsai
+doesn't add an exclusion automatically. Rendering and atomic file
+delivery remain under the command deadline, outside candidate feedback. A failed
+or interrupted write preserves the previous complete file. Delivery errors are
+separate from the gate decision: existing rejection/incomplete exit statuses remain;
+a passing check with failed report delivery exits with a runtime/permission error.
+Human report-path hints go to stderr and respect `--quiet`.
+
+The displayed normal command elapsed time ends after console report preparation.
+HTML projection, serialization, file delivery, and the report-path hint follow
+that measurement, while remaining inside the command deadline.
+
 ### Start using Bonsai in a project
 
 Run `bonsai init` in an existing project, or `bonsai init --root path/to/project`.
@@ -285,7 +321,7 @@ Source analysis includes nested retained-size measurement, compiler setup, type
 checking, and dependency graph timings. Rust adds measured worker overhead. See [performance research and measurements](docs/performance.md) for the
 current bottlenecks, optimizations, and Rust checker evaluation.
 
-Command elapsed time starts at the runtime clock origin and ends after report
+Command elapsed time starts at the runtime clock origin and ends after console report
 preparation. It includes startup, configuration, optional base work, candidate
 collection and verification, and policy evaluation. Final serialization, output
 delivery, and cleanup are outside that reported total. `timing.feedback` separately

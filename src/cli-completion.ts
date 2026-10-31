@@ -17,6 +17,8 @@ const aliases = (name: string, flag: Flag) => [
   `--${name}`,
   ...(flag.short ? [`-${flag.short}`] : []),
 ]
+const valueKind = (name: string, flag: Flag) =>
+  name === 'report' ? 'target' : (flag.completion ?? (flag.choices ? 'choices' : 'value'))
 const optionWords = (command?: string) =>
   entries
     .filter(([, flag]) => !command || !flag.scope || flag.scope.includes(command))
@@ -30,7 +32,7 @@ function shellParser(): string {
     .filter(([, flag]) => flag.type === 'string')
     .map(
       ([name, flag]) =>
-        `    ${aliases(name, flag).join('|')}) kind=${quote(flag.completion ?? (flag.choices ? 'choices' : 'value'))}; choices=${quote(flag.choices?.join(' ') ?? '')}; value_scope=${quote(flag.scope ? ` ${flag.scope.join(' ')} ` : '')} ;;`,
+        `    ${aliases(name, flag).join('|')}) kind=${quote(valueKind(name, flag))}; choices=${quote(flag.choices?.join(' ') ?? '')}; value_scope=${quote(flag.scope ? ` ${flag.scope.join(' ')} ` : '')} ;;`,
     )
     .join('\n')
   const options = commandNames
@@ -225,13 +227,16 @@ function fish(): string {
     .map(([, flag]) => flag.short as string)
   const definitions = entries.map(([name, flag]) => {
     const scope = flag.scope ? ` -n ${quote(`__bonsai_scope ${flag.scope.join(' ')}`)}` : ''
-    const values = flag.choices
-      ? ` -a ${quote(flag.choices.join(' '))}`
-      : flag.completion === 'directory'
-        ? ` -a ${quote(`(__bonsai_directories ${flag.short ?? ''})`)}`
-        : flag.completion === 'file'
-          ? ' -F'
-          : ''
+    const values =
+      name === 'report'
+        ? ` -f -a ${quote('(__bonsai_target_paths report)')}`
+        : flag.choices
+          ? ` -a ${quote(flag.choices.join(' '))}`
+          : flag.completion === 'directory'
+            ? ` -a ${quote(`(__bonsai_directories ${flag.short ?? ''})`)}`
+            : flag.completion === 'file'
+              ? ' -F'
+              : ''
     return `complete -c bonsai${scope} -l ${name}${flag.short ? ` -s ${flag.short}` : ''}${flag.type === 'string' ? ` -r${flag.completion === 'file' ? '' : ' -f'}` : ''}${values} -d ${quote(flag.description)}`
   })
   return `function __bonsai_context
@@ -304,6 +309,9 @@ end
 function __bonsai_target_paths
   set -l project_root (__bonsai_context root)
   set -l current (commandline -ct)
+  if test "$argv[1]" = report
+    set current (string replace -r -- '^--report=' '' "$current")
+  end
   set -l previous (pwd)
   builtin cd -- "$project_root" 2>/dev/null; or return
   __fish_complete_path "$current"
@@ -333,7 +341,7 @@ function powershell(): string {
     .flatMap(([name, flag]) =>
       aliases(name, flag).map(
         (alias) =>
-          `    ${psQuote(alias)} = @{ Kind = ${psQuote(flag.completion ?? (flag.choices ? 'choices' : 'value'))}; Choices = @(${(flag.choices ?? []).map(psQuote).join(', ')}); Scope = @(${(flag.scope ?? []).map(psQuote).join(', ')}) }`,
+          `    ${psQuote(alias)} = @{ Kind = ${psQuote(valueKind(name, flag))}; Choices = @(${(flag.choices ?? []).map(psQuote).join(', ')}); Scope = @(${(flag.scope ?? []).map(psQuote).join(', ')}) }`,
       ),
     )
     .join('\n')
