@@ -150,7 +150,8 @@ export async function snapshot(
     if (collected.interrupted) timer.finish('interrupted')
     timer.start('analysis-integrity')
     if (
-      identity && !sameExecutionIdentity(identity, python ? applicationIdentity(identity) : executionIdentity())
+      identity &&
+      !sameExecutionIdentity(identity, python ? applicationIdentity(identity) : executionIdentity())
     )
       source.problems.push('Checker or toolchain changed during source analysis')
     timer.start('retention')

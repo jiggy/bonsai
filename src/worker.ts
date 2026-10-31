@@ -128,7 +128,13 @@ if (isMainThread) {
       projectBindingTarget(message.root, message.config, message.fingerprint)
       const invoke = async () => {
         const { pythonActionPlan } = await import('./python.ts')
-        return pythonActionPlan(message.root, message.config, message.requests, message.compiler, message.pythonSources)
+        return pythonActionPlan(
+          message.root,
+          message.config,
+          message.requests,
+          message.compiler,
+          message.pythonSources,
+        )
       }
       void invoke().then(
         (results) => finish({ results }),

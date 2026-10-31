@@ -69,7 +69,9 @@ export async function runActionPlan(
       })
       child.stdin!.on('error', fail)
       // The bootstrap pipe is drained and closed before any binding import.
-      child.stdin!.end(serialize({ root, config, fingerprint, requests, path, key, compiler, pythonSources }))
+      child.stdin!.end(
+        serialize({ root, config, fingerprint, requests, path, key, compiler, pythonSources }),
+      )
       if (signal?.aborted) abort()
     })
     const stat = lstatSync(path)
