@@ -120,18 +120,21 @@ export async function snapshot(
     )
     timer.start('identity')
     const python = config.bindings.endsWith('.py')
+    const standaloneRust = config.bindings.endsWith('.rs')
     let identity: ExecutionIdentity | undefined
     try {
-      if (!python) identity = executionIdentity()
+      if (!python && !standaloneRust) identity = executionIdentity()
     } catch (error) {
       if (error instanceof NativeInstallError) throw new CollectorError(error.message, error.run)
       throw error
     }
     const sourceTimer = new Timer()
     timer.start('source', sourceTimer)
-    const collectSource = python
-      ? (await import('./python.ts')).collectPythonSource
-      : collectRustSource
+    const collectSource = standaloneRust
+      ? (await import('./standalone-rust.ts')).collectStandaloneRust
+      : python
+        ? (await import('./python.ts')).collectPythonSource
+        : collectRustSource
     const collected = await collectSource(
       root,
       files,
@@ -143,17 +146,36 @@ export async function snapshot(
     const source = collected.source
     if ('identity' in collected) identity = collected.identity
     if (!identity && !collected.interrupted) throw new Error('Missing source analysis identity')
-    if (python && Object.hasOwn(config.policy, 'structural'))
+    if ((python || standaloneRust) && Object.hasOwn(config.policy, 'structural'))
       source.problems.push(
-        'Python control-depth-v1 measurements are not available; this structural policy cannot be verified',
+        'control-depth-v1 measurements are unavailable for these bindings; this structural policy cannot be verified',
       )
     if (collected.interrupted) timer.finish('interrupted')
     timer.start('analysis-integrity')
-    if (
-      identity &&
-      !sameExecutionIdentity(identity, python ? applicationIdentity(identity) : executionIdentity())
-    )
-      source.problems.push('Checker or toolchain changed during source analysis')
+    try {
+      if (
+        identity &&
+        !sameExecutionIdentity(
+          identity,
+          standaloneRust
+            ? await identityForBindings(
+                config.bindings,
+                signal,
+                execute ? config.policy.maxFeedbackMs - (performance.now() - started) : undefined,
+                root,
+              )
+            : python
+              ? applicationIdentity(identity)
+              : executionIdentity(),
+        )
+      )
+        source.problems.push('Checker or toolchain changed during source analysis')
+    } catch (error) {
+      if (!standaloneRust) throw error
+      timer.finish('interrupted')
+      source.problems.push(`Checker or toolchain identity recheck interrupted: ${String(error)}`)
+      if (collected.analysis) collected.analysis.status = 'unsupported'
+    }
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
     result.identity = identity
@@ -197,10 +219,19 @@ export async function snapshot(
       if (fingerprint(root, inventory(root, config.maintained, config.exclude), config) !== hash) {
         source.problems.push('Maintained files changed during verification')
       }
-      if (
-        !sameExecutionIdentity(result.identity, await identityForBindings(config.bindings, signal))
-      )
-        source.problems.push('Checker or toolchain changed during verification')
+      try {
+        if (
+          !sameExecutionIdentity(
+            result.identity,
+            await identityForBindings(config.bindings, signal, undefined, root),
+          )
+        )
+          source.problems.push('Checker or toolchain changed during verification')
+      } catch (error) {
+        if (!standaloneRust) throw error
+        timer.finish('interrupted')
+        source.problems.push(`Checker or toolchain identity recheck interrupted: ${String(error)}`)
+      }
       timer.finish()
     } else {
       timer.skip('verification')

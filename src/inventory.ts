@@ -5,17 +5,20 @@ import type { Config } from './model.ts'
 import { excludedBy } from './exclusions.ts'
 
 export function inventory(root: string, paths: string[], exclude: string[] = []): string[] {
+  const absoluteRoot = resolve(root)
+  let canonicalRoot: string | undefined
   const found = new Set<string>()
   const excluded = excludedBy(exclude)
   const walk = (path: string): void => {
     const absolute = resolve(root, path)
-    if (!absolute.startsWith(resolve(root) + sep))
+    if (!absolute.startsWith(absoluteRoot + sep))
       throw new Error(`Maintained path escapes root: ${path}`)
     const local = relative(root, absolute).split(sep).join('/')
     if (excluded(local)) return
     const stat = lstatSync(absolute)
     if (stat.isDirectory() && excluded(local, true)) return
-    if (!realpathSync(absolute).startsWith(realpathSync(root) + sep))
+    canonicalRoot ??= realpathSync(absoluteRoot)
+    if (!realpathSync(absolute).startsWith(canonicalRoot + sep))
       throw new Error(`Maintained path escapes root: ${path}`)
     if (stat.isSymbolicLink()) throw new Error(`Symlinks are unsupported: ${path}`)
     if (stat.isDirectory()) {
@@ -23,6 +26,8 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
     } else if (stat.isFile()) found.add(relative(root, absolute).split(sep).join('/'))
   }
   paths.forEach(walk)
+  if (canonicalRoot !== undefined && realpathSync(absoluteRoot) !== canonicalRoot)
+    throw new Error('Maintained root changed during inventory')
   return [...found].sort()
 }
 

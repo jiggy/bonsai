@@ -91,10 +91,27 @@ jobs:
         with:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Install pinned Rust for the complete authored contracts
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Verify the action and complete self-checks
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+          # Scenario lanes already parallelize native checks on the reference CPUs.
+          RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
+      - name: Summarize nested specification command timings
+        if: always()
+        env:
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+        run: |
+          bun -e '
+            const file = Bun.file(process.env.BONSAI_SPEC_TRACE);
+            if (await file.exists()) {
+              const rows = (await file.text()).trim().split("\n").map(JSON.parse);
+              const finished = new Set(rows.filter(row => row.elapsedMs !== undefined).map(row => `${row.pid}:${row.started}`));
+              console.log(JSON.stringify({slowest: rows.filter(row => row.elapsedMs !== undefined).sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 15), unfinished: rows.filter(row => row.elapsedMs === undefined && !finished.has(`${row.pid}:${row.started}`))}));
+            }'
       - name: Save the actual self-check report
         if: always()
         uses: actions/upload-artifact@v4

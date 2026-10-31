@@ -167,3 +167,18 @@ test('application workers recheck checker and runtime while retaining frozen par
     candidate.dispose()
   }
 })
+
+test('checker digests preserve the byte format across small and streamed files', () => {
+  const candidate = fixture()
+  try {
+    mkdirSync(join(candidate.root, 'src', 'nested'))
+    writeFileSync(join(candidate.root, 'src', 'nested', 'z.ts'), '// é🦀\n')
+    writeFileSync(join(candidate.root, 'src', 'large.ts'), Buffer.alloc(1024 * 1024 + 1, 97))
+    assert.equal(
+      checkerIdentity(candidate.root).digest,
+      '38966b99cd477e30a1811103ddb455687064220744a7d209fbe1b3ca1d7c17b2',
+    )
+  } finally {
+    candidate.dispose()
+  }
+})

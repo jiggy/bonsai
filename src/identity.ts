@@ -1,13 +1,5 @@
 import { createHash, type Hash } from 'node:crypto'
-import {
-  closeSync,
-  lstatSync,
-  openSync,
-  readFileSync,
-  readSync,
-  readdirSync,
-  statSync,
-} from 'node:fs'
+import { closeSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,7 +9,7 @@ export type ExecutionIdentity = {
   schema: 'bonsai-execution-v1'
   checker: { name: string; version: string; digest: string }
   runtime: { name: 'bun'; version: string; options: string }
-  compiler: { name: 'tsrs' | 'python'; version: string; digest: string }
+  compiler: { name: 'tsrs' | 'python' | 'rust-analyzer'; version: string; digest: string }
 }
 
 const installed = fileURLToPath(new URL('../', import.meta.url))
@@ -41,7 +33,9 @@ export function validExecutionIdentity(value: unknown): value is ExecutionIdenti
     text(value.runtime.version) &&
     digest(value.runtime.options) &&
     object(value.compiler) &&
-    (value.compiler.name === 'tsrs' || value.compiler.name === 'python') &&
+    (value.compiler.name === 'tsrs' ||
+      value.compiler.name === 'python' ||
+      value.compiler.name === 'rust-analyzer') &&
     text(value.compiler.version) &&
     digest(value.compiler.digest)
   )
@@ -68,6 +62,10 @@ function addFile(hash: Hash, label: string, file: string): void {
   const stat = statSync(file)
   if (!stat.isFile()) throw new Error(`Identity input must be a regular file: ${file}`)
   hash.update(JSON.stringify([label, stat.size]) + '\n')
+  if (stat.size <= 1024 * 1024) {
+    hash.update(readFileSync(file))
+    return
+  }
   const descriptor = openSync(file, 'r')
   const buffer = Buffer.allocUnsafe(Math.min(Math.max(stat.size, 1), 1024 * 1024))
   try {
@@ -81,9 +79,11 @@ function addFile(hash: Hash, label: string, file: string): void {
 
 function codeFiles(directory: string, relative = ''): string[] {
   const files: string[] = []
-  for (const name of readdirSync(join(directory, relative)).sort()) {
+  for (const stat of readdirSync(join(directory, relative), { withFileTypes: true }).sort(
+    (left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0),
+  )) {
+    const name = stat.name
     const local = relative ? `${relative}/${name}` : name
-    const stat = lstatSync(join(directory, local))
     if (stat.isSymbolicLink()) throw new Error(`Identity source cannot be a symlink: ${local}`)
     if (stat.isDirectory()) files.push(...codeFiles(directory, local))
     else if (stat.isFile() && /\.(?:[cm]?[jt]s|json)$/.test(local)) files.push(local)
@@ -191,7 +191,10 @@ export async function identityForBindings(
   bindings: string,
   signal?: AbortSignal,
   timeoutMs?: number,
+  root?: string,
 ): Promise<ExecutionIdentity> {
+  if (bindings.endsWith('.rs'))
+    return (await import('./rust-process.ts')).standaloneRustIdentity(signal, timeoutMs, root)
   return bindings.endsWith('.py')
     ? (await import('./python.ts')).pythonIdentity(signal, timeoutMs)
     : executionIdentity()

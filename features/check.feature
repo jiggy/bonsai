@@ -3,6 +3,14 @@ Feature: Admit implementations that fulfill their declared behavior within the c
   behavior passes, its retained code is justified, and it fits the reviewed limit.
   Unsupported analysis must stop before the application runs.
 
+  Scenario: A Rust team checks its application without a TypeScript bridge
+    The team has installed the supported Rust toolchain. Its maintained handlers
+    and literal native bindings are Rust files, without a Cargo dependency or SDK.
+    Bonsai must exercise the named handler and apply the same behavioral gate.
+    When I invoke "check" with {"fixture": "rust"}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+
   Scenario: A supported application fulfills its declared requests
     The application accepts a positive quantity and rejects a zero quantity.
     It delegates its answer to a maintained worker, and its source fits the allowance.
