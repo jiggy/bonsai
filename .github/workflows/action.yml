@@ -94,6 +94,7 @@ jobs:
       - name: Verify the action and complete self-checks
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
+          RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
       - name: Save the actual self-check report
         if: always()

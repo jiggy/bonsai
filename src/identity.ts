@@ -1,13 +1,5 @@
 import { createHash, type Hash } from 'node:crypto'
-import {
-  closeSync,
-  lstatSync,
-  openSync,
-  readFileSync,
-  readSync,
-  readdirSync,
-  statSync,
-} from 'node:fs'
+import { closeSync, openSync, readFileSync, readSync, readdirSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -68,6 +60,10 @@ function addFile(hash: Hash, label: string, file: string): void {
   const stat = statSync(file)
   if (!stat.isFile()) throw new Error(`Identity input must be a regular file: ${file}`)
   hash.update(JSON.stringify([label, stat.size]) + '\n')
+  if (stat.size <= 1024 * 1024) {
+    hash.update(readFileSync(file))
+    return
+  }
   const descriptor = openSync(file, 'r')
   const buffer = Buffer.allocUnsafe(Math.min(Math.max(stat.size, 1), 1024 * 1024))
   try {
@@ -81,9 +77,11 @@ function addFile(hash: Hash, label: string, file: string): void {
 
 function codeFiles(directory: string, relative = ''): string[] {
   const files: string[] = []
-  for (const name of readdirSync(join(directory, relative)).sort()) {
+  for (const stat of readdirSync(join(directory, relative), { withFileTypes: true }).sort(
+    (left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0),
+  )) {
+    const name = stat.name
     const local = relative ? `${relative}/${name}` : name
-    const stat = lstatSync(join(directory, local))
     if (stat.isSymbolicLink()) throw new Error(`Identity source cannot be a symlink: ${local}`)
     if (stat.isDirectory()) files.push(...codeFiles(directory, local))
     else if (stat.isFile() && /\.(?:[cm]?[jt]s|json)$/.test(local)) files.push(local)

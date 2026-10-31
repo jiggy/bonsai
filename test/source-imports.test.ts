@@ -50,6 +50,7 @@ test('literal dynamic imports trace selected named and aliased exports without r
     "const { format: render } = await import('./format.ts'); return render()",
     "const module = await import('./format.ts'); return module.format()",
     "const module = await import('./format.ts'); return module['format']()",
+    "return (await import('./format.ts'))['format']()",
   ]) {
     const { root, config, dispose } = fixture(`export async function handle() { ${declaration} }`)
     try {

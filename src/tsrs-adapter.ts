@@ -85,6 +85,15 @@ export async function createTsrsProgram(
   timer?: Timer,
   signal?: AbortSignal,
 ) {
+  const symbolKeys = new WeakMap<NativeSymbol, string>()
+  const keyOf = (symbol: NativeSymbol) => {
+    let key = symbolKeys.get(symbol)
+    if (key === undefined) {
+      key = symbolKey(symbol)
+      symbolKeys.set(symbol, key)
+    }
+    return key
+  }
   timer?.start('program')
   const host = { ...ts.sys, getCurrentDirectory: () => cwd }
   const options = {
@@ -254,14 +263,9 @@ export async function createTsrsProgram(
       const remote = remoteFiles[index]
       if (!remote || remote.text !== text)
         throw new Error(`Source changed during native analysis: ${scriptFiles[index]}`)
-      const remoteNodes: RemoteSpan = new Map()
-      const visitRemote = (node: NativeNode): void => {
-        remoteNodes.set(nodeKey(node.getStart(remote), node.end, SyntaxKind[node.kind]), node)
-        node.forEachChild(visitRemote)
-      }
-      visitRemote(remote)
       const spans: Span = new Map()
-      const queries: { local: ts.Node; native: NativeNode }[] = []
+      const candidates: ts.Node[] = []
+      const expressions: ts.Expression[] = []
       const declarationNames = new Set<ts.Node>()
       for (const statement of ast.statements) {
         if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) continue
@@ -289,8 +293,8 @@ export async function createTsrsProgram(
           if (node.moduleSpecifier) visit(node.moduleSpecifier)
           return
         }
-        const key = nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind])
-        spans.set(key, node)
+        if (ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node))
+          spans.set(nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind]), node)
         const parent = node.parent
         const importSpecifier =
           parent !== undefined &&
@@ -320,14 +324,12 @@ export async function createTsrsProgram(
           (ts.isStringLiteralLike(node) && (importSpecifier || declarationNames.has(node))) ||
           (ts.isPropertyAccessExpression(node) && (importTarget || initializerCallee))
         ) {
-          const matching = remoteNodes.get(key)
-          if (!matching)
-            throw new Error(
-              `Unsupported native AST mapping: ${file}:${node.getStart(ast)} (${ts.SyntaxKind[node.kind]})`,
-            )
-          queries.push({ local: node, native: matching })
+          candidates.push(node)
         }
-        if (ts.isElementAccessExpression(node)) elements.push(node)
+        if (ts.isElementAccessExpression(node)) {
+          elements.push(node)
+          expressions.push(node.expression)
+        }
         if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
           const specifier = node.arguments[0]
           if (specifier && ts.isStringLiteralLike(specifier)) importSpecifiers.push(specifier)
@@ -341,6 +343,32 @@ export async function createTsrsProgram(
         ts.forEachChild(node, visit)
       }
       visit(ast)
+      const required = new Set(
+        [...candidates, ...expressions].map((node) =>
+          nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind]),
+        ),
+      )
+      const kinds = new Set([...candidates, ...expressions].map((node) => ts.SyntaxKind[node.kind]))
+      const remoteNodes: RemoteSpan = new Map()
+      const visitRemote = (node: NativeNode): void => {
+        const kind = SyntaxKind[node.kind]
+        if (kinds.has(kind)) {
+          const key = nodeKey(node.getStart(remote), node.end, kind)
+          if (required.has(key)) remoteNodes.set(key, node)
+        }
+        node.forEachChild(visitRemote)
+      }
+      visitRemote(remote)
+      const queries = candidates.map((local) => {
+        const native = remoteNodes.get(
+          nodeKey(local.getStart(ast), local.end, ts.SyntaxKind[local.kind]),
+        )
+        if (!native)
+          throw new Error(
+            `Unsupported native AST mapping: ${file}:${local.getStart(ast)} (${ts.SyntaxKind[local.kind]})`,
+          )
+        return { local, native }
+      })
       localSpans.set(canonical(file), spans)
       nativeFiles.set(canonical(file), remote)
       nativeSpans.set(canonical(file), remoteNodes)
@@ -357,7 +385,7 @@ export async function createTsrsProgram(
     const aliases = new Map<string, NativeSymbol>()
     const locations = new Map<ts.Node, NativeSymbol | undefined>()
     const add = (symbol: NativeSymbol | undefined) => {
-      if (symbol) symbols.set(symbolKey(symbol), symbol)
+      if (symbol) symbols.set(keyOf(symbol), symbol)
       return symbol
     }
     const responses = await Promise.all(
@@ -374,7 +402,7 @@ export async function createTsrsProgram(
     const importModules = new Map<string, NativeSymbol>()
     for (const specifier of importSpecifiers) {
       const symbol = locations.get(specifier)
-      if (symbol) importModules.set(symbolKey(symbol), symbol)
+      if (symbol) importModules.set(keyOf(symbol), symbol)
     }
     await Promise.all(
       [...importModules].map(async ([key, symbol]) => {
@@ -435,7 +463,7 @@ export async function createTsrsProgram(
         .filter((symbol) => symbol.flags & SymbolFlags.Alias)
         .map(async (symbol) => {
           const target = add(await checker.getAliasedSymbol(symbol))
-          if (target) aliases.set(symbolKey(symbol), target)
+          if (target) aliases.set(keyOf(symbol), target)
         }),
     )
 
@@ -488,7 +516,7 @@ export async function createTsrsProgram(
         return undefined
       const primitive = locations.get(target.initializer.expression)
       return primitive && primitive.flags & SymbolFlags.Alias
-        ? aliases.get(symbolKey(primitive))
+        ? aliases.get(keyOf(primitive))
         : primitive
     })
     await resolveValues(primitives)
@@ -502,7 +530,7 @@ export async function createTsrsProgram(
     const views = new Map<string, SymbolView>()
     const symbolView = (symbol: NativeSymbol | undefined): ts.Symbol | undefined => {
       if (!symbol) return undefined
-      const key = symbolKey(symbol)
+      const key = keyOf(symbol)
       let view = views.get(key)
       if (!view) {
         view = {
@@ -549,12 +577,12 @@ export async function createTsrsProgram(
       getAliasedSymbol: (symbol: ts.Symbol) => {
         const native = viewSymbols.get(symbol)
         if (!native) throw new Error('Unrecognized native alias symbol')
-        return symbolView(aliases.get(symbolKey(native)))!
+        return symbolView(aliases.get(keyOf(native)))!
       },
       getExportsOfModule: (symbol: ts.Symbol) => {
         const native = viewSymbols.get(symbol)
         if (!native) throw new Error('Unrecognized native module symbol')
-        return (moduleExports.get(symbolKey(native)) ?? []).map((entry) => symbolView(entry)!)
+        return (moduleExports.get(keyOf(native)) ?? []).map((entry) => symbolView(entry)!)
       },
       getTypeAtLocation: (node: ts.Node) => {
         const type = types.get(node)

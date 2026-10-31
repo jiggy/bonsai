@@ -169,12 +169,17 @@ while (true) Atomics.wait(wait, 0, 0, 1000)
   return { ...fixture, contracts, config, started, stopped }
 }
 
-test('isolated verification queues larger scenarios first and retains authored checks and equal-size order', async () => {
+test('isolated verification queues action work before assertion count and retains authored checks and ties', async () => {
   const fixture = blockingProject()
   const text = `Feature: Unequal independent journeys
-Scenario: Earlier small case
+Scenario: Earlier assertion-heavy case
  When I invoke "block" with {"id":0}
  Then response "id" equals 0
+ And response "id" equals 0
+ And response "id" equals 0
+ And response "id" equals 0
+ And response "id" equals 0
+ And response "id" equals 0
 Scenario: Another small case
  When I invoke "block" with {"id":1}
  Then response "id" equals 1

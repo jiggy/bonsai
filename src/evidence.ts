@@ -243,12 +243,12 @@ async function isolatedEvidence(
     : [contracts]
   // Start larger independent journeys first so a long tail does not idle lanes.
   const queue = shards
-    .map((_, index) => index)
-    .sort(
-      (left, right) =>
-        (shards[right]!.cases[0]?.steps.length ?? 0) -
-          (shards[left]!.cases[0]?.steps.length ?? 0) || left - right,
-    )
+    .map((shard, index) => ({
+      index,
+      actions: shard.cases[0]?.steps.filter((step) => step.kind === 'action').length ?? 0,
+    }))
+    .sort((left, right) => right.actions - left.actions || left.index - right.index)
+    .map(({ index }) => index)
   const results: Evidence[] = []
   let next = 0
   try {

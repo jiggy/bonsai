@@ -12,15 +12,23 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
     if (targets) targets.push(edge)
     else outgoing.set(edge.from, [edge])
   }
+  // State labels are immutable identifiers, not cached graph or evidence facts.
+  const states = new Map(
+    contracts.checks.map(({ id }) => [
+      id,
+      [id + '\0false\0false', id + '\0false\0true', id + '\0true\0false', id + '\0true\0true'],
+    ]),
+  )
   const attach = (id: string, contract: string, allowProduction: boolean): void => {
     const queue: { id: string; runtime: boolean; production: boolean }[] = [
       { id, runtime: true, production: allowProduction },
     ]
+    const stateKeys = states.get(contract)!
     while (queue.length) {
       const next = queue.pop()!
       const target = components.get(next.id)
       if (!target || (!next.production && target.kind === 'production')) continue
-      const state = contract + '\0' + next.runtime + '\0' + next.production
+      const state = stateKeys[(next.runtime ? 2 : 0) + (next.production ? 1 : 0)]!
       let visited = traversed.get(next.id)
       if (!visited) traversed.set(next.id, (visited = new Set()))
       if (visited.has(state)) continue
