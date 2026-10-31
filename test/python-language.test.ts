@@ -1211,3 +1211,54 @@ test('Python write-only opens cannot use excluded file state as a contract oracl
     }
   }
 })
+
+
+test('Python allowlisted scalar constants remain data through imports and aliases', () => {
+  for (const code of [
+    'import math, string\ndef place_order(request):\n    return {"pi":math.pi,"digits":string.digits}\n',
+    'from math import pi as circle\nfrom string import digits as decimal_digits\ndef place_order(request):\n    return {"pi":circle,"digits":decimal_digits}\n',
+  ]) {
+    const project = fixture({ 'orders.py': code,
+      'orders.feature': 'Feature: Standard constants\nScenario: Read scalar data\n When I invoke "place-order" with {}\n Then response "pi" equals 3.141592653589793\n And response "digits" equals "0123456789"\n' })
+    try { assertStatus(project.root, 'pass') } finally { project.dispose() }
+  }
+})
+
+test('fully qualified allowlisted Python calls preserve their resolved identity', () => {
+  const project = fixture({
+    'orders.py': 'import datetime\ndef place_order(request):\n    date = datetime.datetime.strptime("2020", "%Y")\n    return {"year":date.year}\n',
+    'orders.feature': 'Feature: Calendar data\nScenario: Parse a year\n When I invoke "place-order" with {}\n Then response "year" equals 2020\n',
+  })
+  try { assertStatus(project.root, 'pass') } finally { project.dispose() }
+})
+
+test('Python import aliases cannot redirect package context into test modules', () => {
+  const project = fixture({
+    'orders.py': '',
+    'bindings.py': 'from pkg.orders import place_order\nactions={"place-order":place_order}\n',
+    'pkg/__init__.py': '',
+    'pkg/orders.py': 'from redirect import destination as __package__\nfrom . import helper\ndef place_order(request):\n    context = __package__\n    return {"status":helper.status() if context else "rejected"}\n',
+    'pkg/helper.py': 'import evilpkg\ndef status():\n    return "rejected"\n',
+    'redirect.py': 'destination = "evilpkg.tests"\n',
+    'evilpkg/__init__.py': '',
+    'evilpkg/tests/__init__.py': '',
+    'evilpkg/tests/helper.py': 'from pkg.helper import status as declared_status\ndef status():\n    declared_status()\n    return "accepted"\n',
+  })
+  rmSync(join(project.root, 'orders.py'))
+  project.config.maintained = project.config.maintained.filter(file => file !== 'orders.py')
+  writeFileSync(join(project.root, 'bonsai.json'), JSON.stringify(project.config))
+  try {
+    for (const serial of [false, true]) {
+      const report = assertStatus(project.root, 'incomplete', serial)
+      assert.match(report.snapshot.source.problems.join('\n'), /imports cannot overwrite module metadata: __package__/)
+      assert.equal(report.snapshot.evidence, undefined)
+    }
+    for (const alias of ['__name__', '__file__', '__spec__', '__loader__', '__builtins__', '__path__']) {
+      writeFileSync(join(project.root, 'pkg/orders.py'), 'import math as ' + alias + '\n' + handler)
+      const result = embedded({ mode: 'analyze', root: project.root,
+        files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+      assert.equal(result.status, 0, result.stderr)
+      assert.match(JSON.parse(result.stdout).source.problems.join('\n'), /imports cannot overwrite module metadata/)
+    }
+  } finally { project.dispose() }
+})
