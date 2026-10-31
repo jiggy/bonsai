@@ -79,7 +79,10 @@ test('delivery timeout preserves an established incomplete status and reports th
           timeout: 45000,
           env: cliEnvironment({
             BONSAI_REPORT_TIMEOUT_MARKER: marker,
-            BUN_OPTIONS: [process.env.BUN_OPTIONS, `--preload=${join(fixture.root, 'report-timeout.js')}`]
+            BUN_OPTIONS: [
+              process.env.BUN_OPTIONS,
+              `--preload=${join(fixture.root, 'report-timeout.js')}`,
+            ]
               .filter(Boolean)
               .join(' '),
           }),
@@ -90,7 +93,8 @@ test('delivery timeout preserves an established incomplete status and reports th
       assert.equal(
         existsSync(marker),
         true,
-        'The positive marker proves the deadline dispatched during HTML delivery: ' + (result.stderr || result.stdout).slice(0, 2000),
+        'The positive marker proves the deadline dispatched during HTML delivery: ' +
+          (result.stderr || result.stdout).slice(0, 2000),
       )
       assert.equal(result.status, exitCode, result.stderr || result.stdout)
       assert.equal(JSON.parse(result.stdout).decision.status, outcome)
@@ -124,18 +128,19 @@ await new Promise(resolve => setImmediate(resolve))
 clearTimeout(timer)
 `,
     )
-    const result = spawnSync(
-      process.execPath,
-      [join(fixture.root, 'src', 'cli.ts')],
-      {
-        cwd: process.cwd(),
-        env: cliEnvironment({
-          BONSAI_REPORT_TIMEOUT_MARKER: marker,
-          BUN_OPTIONS: [process.env.BUN_OPTIONS, `--preload=${join(fixture.root, 'report-timeout.js')}`].filter(Boolean).join(' '),
-        }),
-        encoding: 'utf8',
-      },
-    )
+    const result = spawnSync(process.execPath, [join(fixture.root, 'src', 'cli.ts')], {
+      cwd: process.cwd(),
+      env: cliEnvironment({
+        BONSAI_REPORT_TIMEOUT_MARKER: marker,
+        BUN_OPTIONS: [
+          process.env.BUN_OPTIONS,
+          `--preload=${join(fixture.root, 'report-timeout.js')}`,
+        ]
+          .filter(Boolean)
+          .join(' '),
+      }),
+      encoding: 'utf8',
+    })
     assert.equal(result.status, 7, result.stderr)
     assert.equal(readFileSync(marker, 'utf8'), 'deadline dispatched')
   } finally {

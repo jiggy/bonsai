@@ -1,6 +1,14 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readConfig } from '../src/project.ts'
@@ -132,8 +140,7 @@ export function ready() {
   return { status: 'ok' }
 }
 `,
-    'bindings.ts':
-      "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
+    'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
     'ready.feature':
       'Feature: Readiness\nScenario: Read the current status\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
   })
