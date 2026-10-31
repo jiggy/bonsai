@@ -75,6 +75,10 @@ retain their actual facts in the artifact; setup failures with no evaluated snap
 retain normal diagnostics. A delivery error never rewrites the gate's decision or
 replaces a previous complete report with partial bytes.
 
+Normal displayed command elapsed time ends after console report preparation.
+HTML projection, serialization, atomic writing, and path-hint delivery follow
+that measurement; the command deadline continues through all of them.
+
 ## Initial adapter choices
 
 TypeScript was selected because the repository had no existing language stack and its compiler supplies symbol resolution. Gherkin uses the official Cucumber parser and pickle compiler; Bonsai deliberately supports a small executable grammar instead of implementing a second general test runner.
@@ -139,7 +143,7 @@ whole-file retained costs are unchanged. README defines the counting boundaries.
 ## Timing boundaries
 
 The command profile measures elapsed wall time from the runtime clock origin through
-report preparation, with separate stages for setup, base work, configuration,
+console report preparation, with separate stages for setup, base work, configuration,
 candidate collection and verification, and evaluation. Final serialization, output
 delivery, and cleanup follow that reported total. Candidate timings nest within
 the command profile; base work stays outside candidate feedback.

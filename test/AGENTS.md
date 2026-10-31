@@ -10,6 +10,8 @@ Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which checks the
 
 `report-browser.ts` is an explicit CI-only browser check, outside ordinary test discovery and the published package. It generates reports through the actual CLI, verifies that HTML creation does not replay handlers, then opens only the report bytes with Chromium `setContent`. Load the isolated pinned Playwright tool through its temporary package context, block HTTP(S) requests, and archive actual screenshots separately from assertion results. Do not claim visual quality without reviewing those captures.
 
+`html-report-timeout.test.ts` dispatches the registered command deadline during actual report delivery, checking first-failure exit status, matching structured diagnostics, and preservation of the prior artifact. Keep its independent named-filesystem-import preload control and positive dispatch marker; a failed setup or a timeout before evaluation does not establish the delivery regression.
+
 `native/` owns development-only comparison and benchmark tools. Keep their real production dependencies traceable; test classification does not grant ancestry to unrelated production. `native-session-owner.ts` is the maintained child entry for owner-death tests, taking the consuming root, JSON file list, and descriptor destination as arguments. Optional `--ready <path>` arguments signal completed warmup and enable graceful SIGTERM cleanup for reuse probes; ordinary owner-death callers retain their existing behavior. Its real collector/session imports stay visible to the source graph rather than embedded in generated script strings.
 
 ## Local Contracts

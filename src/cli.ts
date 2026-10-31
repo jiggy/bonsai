@@ -157,6 +157,8 @@ function reportError(error: unknown): void {
 
 function stop(error: CliError): void {
   if (stopping) process.exit()
+  if (error.code === 'TIMEOUT' && typeof process.exitCode === 'number' && process.exitCode !== 0)
+    error = new CliError(error.message, error.code, error.run, process.exitCode)
   stopping = true
   process.exitCode = error.exitCode
   reportError(error)
@@ -1030,9 +1032,8 @@ async function main(): Promise<void> {
         `Can't save HTML report '${reportDestination}': ${error instanceof Error ? error.message : String(error)}`,
         'REPORT_WRITE',
         'Choose a writable report path with --report PATH; the previous report was not replaced',
-        errno === 'EACCES' || errno === 'EPERM' ? 3 : 1,
+        gateExitCode || (errno === 'EACCES' || errno === 'EPERM' ? 3 : 1),
       ))
-      if (gateExitCode) process.exitCode = gateExitCode
     }
   }
   if (reportSaved && human && !quiet) await writeReport(`HTML report: ${reportDestination}`, process.stderr)

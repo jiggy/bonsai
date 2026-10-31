@@ -113,3 +113,30 @@ test('cancellation and deadline failure preserve the previous report after the t
     }
   }
 })
+
+test('queued cancellation from final validation cannot publish over the previous complete report', async () => {
+  const fixture = createProject({ 'bindings.ts': 'export const actions = {}\n' })
+  try {
+    const destination = join(fixture.root, 'report.html')
+    const previous = '<!doctype html><title>Previous complete report</title>'
+    writeFileSync(destination, previous)
+    const before = readdirSync(fixture.root).sort()
+    const controller = new AbortController()
+    const reason = new Error('Cancelled before report publication')
+    let validations = 0
+    await assert.rejects(
+      writeHtmlReport(destination, '<!doctype html><title>Replacement</title>', {
+        signal: controller.signal,
+        validatePath: () => {
+          if (++validations === 4) queueMicrotask(() => controller.abort(reason))
+        },
+      }),
+      (error) => error === reason,
+    )
+    assert.equal(validations, 4)
+    assert.equal(readFileSync(destination, 'utf8'), previous)
+    assert.deepEqual(readdirSync(fixture.root).sort(), before)
+  } finally {
+    fixture.dispose()
+  }
+})

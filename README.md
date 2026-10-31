@@ -97,6 +97,10 @@ separate from the gate decision: existing rejection/incomplete exit statuses rem
 a passing check with failed report delivery exits with a runtime/permission error.
 Human report-path hints go to stderr and respect `--quiet`.
 
+The displayed normal command elapsed time ends after console report preparation.
+HTML projection, serialization, file delivery, and the report-path hint follow
+that measurement, while remaining inside the command deadline.
+
 ### Start using Bonsai in a project
 
 Run `bonsai init` in an existing project, or `bonsai init --root path/to/project`.
@@ -312,7 +316,7 @@ Source analysis includes nested retained-size measurement, compiler setup, type
 checking, and dependency graph timings. Rust adds measured worker overhead. See [performance research and measurements](docs/performance.md) for the
 current bottlenecks, optimizations, and Rust checker evaluation.
 
-Command elapsed time starts at the runtime clock origin and ends after report
+Command elapsed time starts at the runtime clock origin and ends after console report
 preparation. It includes startup, configuration, optional base work, candidate
 collection and verification, and policy evaluation. Final serialization, output
 delivery, and cleanup are outside that reported total. `timing.feedback` separately

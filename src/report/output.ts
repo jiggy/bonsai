@@ -1,5 +1,5 @@
-import { lstatSync, mkdirSync, realpathSync, rmSync } from 'node:fs'
-import { open, rename } from 'node:fs/promises'
+import { lstatSync, mkdirSync, realpathSync, renameSync, rmSync } from 'node:fs'
+import { open } from 'node:fs/promises'
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { excludedBy } from '../exclusions.ts'
@@ -107,8 +107,11 @@ export async function writeHtmlReport(
     check()
     options.validatePath?.(destination)
     options.validatePath?.(temporary)
+    // Settle cancellation queued by validation before the synchronous commit boundary.
+    // No JavaScript abort callback can interleave between this final check and publication.
+    await Promise.resolve()
     check()
-    await rename(temporary, destination)
+    renameSync(temporary, destination)
     published = true
   } finally {
     await handle?.close()
