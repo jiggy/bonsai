@@ -15,7 +15,7 @@ EXPORTS = {
     "string": set("ascii_letters ascii_lowercase ascii_uppercase digits hexdigits octdigits punctuation whitespace printable".split()),
     "typing": set("Any Optional Union List Dict Tuple Set FrozenSet Sequence Mapping Iterable Literal".split()),
     "asyncio": {"sleep"},
-    "os": {"getpid", "mkdir", "remove", "unlink", "rmdir", "rename", "replace"},
+    "os": {"getpid"},
 }
 
 def supported_export(name):
@@ -84,6 +84,12 @@ def emit(value):
 def words(text):
     return len(re.findall(r"\w+|[^\w\s]", text, re.UNICODE))
 
+def source_text(data):
+    encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
+    if encoding not in ("utf-8", "utf-8-sig"):
+        raise ValueError("Python source requires UTF-8 encoding, not " + encoding)
+    return data.decode(encoding)
+
 def cost(text):
     total = 0
     for token in tokenize.generate_tokens(io.StringIO(text).readline):
@@ -140,6 +146,7 @@ def analyze(request):
             continue
         if file.endswith(".py"):
             try:
+                text = source_text(data)
                 tokens = cost(text)
                 tree = ast.parse(text, filename=file)
             except (SyntaxError, ValueError, tokenize.TokenError, IndentationError) as error:
@@ -218,7 +225,7 @@ def analyze(request):
                     problem(file, node, "rebound or duplicate import aliases require a source adapter")
                 if isinstance(node, ast.Import) and any("." in alias.name and not alias.asname for alias in node.names):
                     problem(file, node, "unaliased dotted imports require a source adapter")
-                if imported == "builtins" or ((imported.startswith("os.") or (imported == "os" and member and member not in {"getpid", "mkdir", "remove", "unlink", "rmdir", "rename", "replace"}))):
+                if imported == "builtins" or ((imported.startswith("os.") or (imported == "os" and member and member not in EXPORTS["os"]))):
                     problem(file, node, "runtime builtins or operating-system context imports require a source adapter")
                 target = resolve_module(file, imported, level)
                 if target and member:
@@ -326,7 +333,7 @@ def analyze(request):
                         problem(file, item, "attribute mutation requires a source adapter")
                     if isinstance(item.value, ast.Name):
                         base = resolved(file, item.value.id) if item.value.id not in local.names else None
-                        if base and base[0] == "@stdlib" and base[1] == "os" and item.attr not in {"getpid", "mkdir", "remove", "unlink", "rmdir", "rename", "replace"}:
+                        if base and base[0] == "@stdlib" and base[1] == "os" and item.attr not in EXPORTS["os"]:
                             problem(file, item, "operating-system context requires a source adapter")
                     if not selected_export:
                         base = resolved(file, item.value.id) if isinstance(item.value, ast.Name) and item.value.id not in local.names else None
@@ -403,7 +410,7 @@ class SourceLoader(importlib.abc.SourceLoader):
     def get_data(self, path):
         return self.data
     def get_code(self, fullname):
-        return compile(self.get_data(self.path), self.path, "exec", dont_inherit=True)
+        return compile(source_text(self.get_data(self.path)), self.path, "exec", dont_inherit=True)
 
 class OwnedFinder(importlib.abc.MetaPathFinder):
     def __init__(self, root, sources):
@@ -451,6 +458,7 @@ elif request["mode"] == "actions":
             data = source.read()
         if hashlib.sha256(data).hexdigest() != expected:
             raise ImportError("Python source changed after analysis: " + file)
+        source_text(data)  # Validate every encoding before the first initializer.
         sources[file] = data
     sys.meta_path.insert(0, OwnedFinder(root, sources))
     path = os.path.join(root, request["bindings"])
