@@ -50,6 +50,7 @@ starting them on the Python path, not their installation.
 The first slice accepts named module-level handlers, explicit maintained-module
 imports and aliases, and a literal `actions` dictionary. It parses all maintained
 Python with standard-library `ast` and `tokenize` without importing the candidate.
+Only UTF-8 Python source is supported; alternate encoding cookies are rejected before execution.
 Source execution verifies each module against its analyzed SHA-256 digest and
 freezes all module bytes before initialization, bypassing existing bytecode caches. Required imported
 initialization receives ancestry; registering an unused function does not root
@@ -61,10 +62,10 @@ up), and ignores formatting-only indentation/newline tokens.
 This is a standard-library slice, not general Python or virtual-environment
 support. Third-party imports, mixed executable languages/FFI, classes, decorators,
 closures/comprehensions, conditional imports, reflection, unresolved attribute
-dispatch, computed or special-device writes, attribute mutation, external-resource reads, and unimplemented structural metrics produce
+dispatch, computed or special-device writes, attribute mutation, operating-system mutations, external-resource reads, and unimplemented structural metrics produce
 incomplete analysis. Supported standard modules are math, json, decimal,
 fractions, statistics, collections, functools, itertools, operator, datetime,
-time, re, string, typing, asyncio, and limited write-only os operations, with an
+time, re, string, typing, asyncio, and os.getpid, with an
 explicit export allowlist. Subprocess launchers, incidental module globals,
 escaped standard-library/builtin callables, and binding imports from test files
 are unsupported. Asyncio currently supports sleep only. Local attribute reads are limited to
