@@ -282,7 +282,17 @@ export async function createTsrsProgram(
           : [statement]
         for (const declaration of declarations) {
           const name = (declaration as ts.NamedDeclaration).name
-          if (name && ts.isIdentifier(name)) componentNames.add(name.text)
+          if (name && ts.isIdentifier(name)) {
+            references.add(name.text)
+            if (
+              !ts.isExternalModule(ast) ||
+              (ts.canHaveModifiers(statement) &&
+                ts
+                  .getModifiers(statement)
+                  ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
+            )
+              componentNames.add(name.text)
+          }
         }
         if (ts.isExportDeclaration(statement) && statement.exportClause) {
           const clause = statement.exportClause

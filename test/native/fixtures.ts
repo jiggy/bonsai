@@ -28,6 +28,16 @@ const files = (sources: Record<string, string>) => ({
 
 export const cases: FixtureCase[] = [
   {
+    name: 'script-globals-remain-visible-across-files',
+    bindings: 'bindings.ts',
+    feature,
+    files: files({
+      'package.json': '{"type":"commonjs"}\n',
+      'handler.ts': 'export function handle() { return { status: sharedStatus() } }\n',
+      'globals.d.ts': 'declare function sharedStatus(): string\n',
+    }),
+  },
+  {
     name: 'local-primitive-path-aliases-retain-subprocess-entry',
     bindings: 'bindings.ts',
     feature,
