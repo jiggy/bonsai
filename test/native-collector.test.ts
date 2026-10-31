@@ -13,7 +13,7 @@ test('native TypeScript diagnostics and source facts match the reference fixture
 }, async () => {
   const report = await compareCases()
   assert.equal(report.mismatches, 0, JSON.stringify(report, null, 2))
-  assert.equal(report.matched, 17)
+  assert.equal(report.matched, 20)
   assert.ok(report.incomplete >= 4)
   assert.equal(report.nativeCompiler, 'tsrs')
   assert.equal(report.handlersRun, false)
