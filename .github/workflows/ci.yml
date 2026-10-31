@@ -130,11 +130,29 @@ jobs:
       - run: bun run native:compare
       - name: Verify native session owner shutdown
         run: bun test --isolate --timeout 30000 test/native-session-lifecycle.test.ts
+      - name: Install pinned Rust for the complete authored contracts
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Verify unit, CLI, and executable feature contracts
+        # Installation is repository test setup; product checks never install tools.
+        # The complete authored contracts now include the Rust team's CLI outcome.
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+          # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
         run: bun run test
+      - name: Summarize nested specification command timings
+        if: always()
+        env:
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+        run: |
+          bun -e '
+            const file = Bun.file(process.env.BONSAI_SPEC_TRACE);
+            if (await file.exists()) {
+              const rows = (await file.text()).trim().split("\n").map(JSON.parse);
+              const finished = new Set(rows.filter(row => row.elapsedMs !== undefined).map(row => `${row.pid}:${row.started}`));
+              console.log(JSON.stringify({slowest: rows.filter(row => row.elapsedMs !== undefined).sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 15), unfinished: rows.filter(row => row.elapsedMs === undefined && !finished.has(`${row.pid}:${row.started}`))}));
+            }'
       - name: Summarize actual root verdict and timings
         if: always()
         env:

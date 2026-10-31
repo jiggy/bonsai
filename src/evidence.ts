@@ -1,3 +1,4 @@
+import type { RustProgram, RustTools } from './rust-process.ts'
 import { deepStrictEqual } from 'node:assert'
 import { availableParallelism } from 'node:os'
 import { projectBindingTarget } from './binding-target.ts'
@@ -34,6 +35,7 @@ type Execution = {
   signal?: AbortSignal
   session?: string
   isolated?: boolean
+  rustProgram?: RustProgram
   pythonSources?: Record<string, string>
 }
 
@@ -60,7 +62,8 @@ async function collectActionEvidence(
 ): Promise<Evidence> {
   const started = performance.now()
   identity = applicationIdentity(
-    identity ?? (await identityForBindings(config.bindings, execution.signal, execution.timeoutMs)),
+    identity ??
+      (await identityForBindings(config.bindings, execution.signal, execution.timeoutMs, root)),
   )
   const target = binding ?? projectBindingTarget(root, config, fingerprint)
   const evidence: Evidence = {
@@ -106,6 +109,7 @@ async function collectActionEvidence(
     execution.session,
     execution.isolated,
     identity.compiler,
+    execution.rustProgram,
     execution.pythonSources,
   )
   let next = 0
@@ -155,6 +159,7 @@ export async function runEvidence(
   verification = verificationPlan(contracts),
   identity?: ExecutionIdentity,
   pythonSources?: Record<string, string>,
+  rustContext?: RustTools,
 ): Promise<Evidence> {
   const began = performance.now()
   validateVerification(verification)
@@ -162,7 +167,7 @@ export async function runEvidence(
   if (signal?.aborted) throw new Error('Verification interrupted')
   const currentIdentity = identity
     ? applicationIdentity(identity)
-    : await identityForBindings(config.bindings, signal, timeoutMs)
+    : await identityForBindings(config.bindings, signal, timeoutMs, root)
   if (identity !== undefined && !sameExecutionIdentity(identity, currentIdentity))
     throw new Error('Verification checker or toolchain identity changed')
   identity = currentIdentity
@@ -180,33 +185,50 @@ export async function runEvidence(
       throw new Error('Python source analysis is incomplete')
     pythonSources = collected.pythonSources
   }
-  timeoutMs -= performance.now() - began
-  if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
-  if (verification.profile === 'isolated-scenarios-v1')
-    return isolatedEvidence(
-      root,
-      config,
-      contracts,
-      fingerprint,
-      verification.workers,
-      timeoutMs,
-      signal,
-      identity,
-      pythonSources,
-    )
-  const serialBegan = performance.now()
-  const { openNativeSession } = await import('./native-session.ts')
-  const session = config.bindings.endsWith('.py') ? undefined : await openNativeSession()
+  const prepared = config.bindings.endsWith('.rs')
+    ? await (await import('./rust-process.ts')).prepareRustProgram(
+        root,
+        config,
+        fingerprint,
+        identity.compiler,
+        timeoutMs - (performance.now() - began),
+        signal,
+        rustContext,
+      )
+    : undefined
   try {
-    return await collectEvidence(root, config, contracts, fingerprint, identity, {
-      timeoutMs: timeoutMs - (performance.now() - serialBegan),
-      signal,
-      session: session?.value,
-      isolated: false,
-      pythonSources,
-    })
+    timeoutMs -= performance.now() - began
+    if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
+    if (verification.profile === 'isolated-scenarios-v1')
+      return await isolatedEvidence(
+        root,
+        config,
+        contracts,
+        fingerprint,
+        verification.workers,
+        timeoutMs,
+        signal,
+        identity,
+        prepared?.program,
+        pythonSources,
+      )
+    const serialBegan = performance.now()
+    const { openNativeSession } = await import('./native-session.ts')
+    const session = /\.(?:py|rs)$/.test(config.bindings) ? undefined : await openNativeSession()
+    try {
+      return await collectEvidence(root, config, contracts, fingerprint, identity, {
+        timeoutMs: timeoutMs - (performance.now() - serialBegan),
+        signal,
+        session: session?.value,
+        isolated: false,
+        rustProgram: prepared?.program,
+        pythonSources,
+      })
+    } finally {
+      await session?.close()
+    }
   } finally {
-    await session?.close()
+    await prepared?.close()
   }
 }
 
@@ -220,7 +242,9 @@ async function isolatedEvidence(
   timeoutMs: number,
   signal?: AbortSignal,
   identity?: ExecutionIdentity,
+  rustProgram?: RustProgram,
   pythonSources?: Record<string, string>,
+  rustContext?: RustTools,
 ): Promise<Evidence> {
   const began = performance.now()
   const cancellation = new AbortController()
@@ -253,16 +277,24 @@ async function isolatedEvidence(
         }
       })
     : [contracts]
-  // Start larger independent journeys first so a long tail does not idle lanes.
-  const queue = shards
-    .map((shard, index) => ({
+  // Prefer feature groups without active work before overlapping another
+  // scenario from a busy group. Fall back to busy groups to keep every lane
+  // available, including single-feature projects.
+  const groups = new Map<string, { index: number; actions: number }[]>()
+  for (const [index, shard] of shards.entries()) {
+    const file = shard.checks[0]?.file ?? ''
+    const group = groups.get(file) ?? []
+    group.push({
       index,
       actions: shard.cases[0]?.steps.filter((step) => step.kind === 'action').length ?? 0,
-    }))
-    .sort((left, right) => right.actions - left.actions || left.index - right.index)
-    .map(({ index }) => index)
+    })
+    groups.set(file, group)
+  }
+  for (const group of groups.values())
+    group.sort((left, right) => right.actions - left.actions || left.index - right.index)
+  const pending = new Map([...groups].map(([file, entries]) => [file, { entries, next: 0 }]))
+  const active = new Map<string, number>()
   const results: Evidence[] = []
-  let next = 0
   try {
     if (signal?.aborted) abort()
     const target = projectBindingTarget(root, config, fingerprint)
@@ -271,10 +303,17 @@ async function isolatedEvidence(
       let session: Awaited<ReturnType<typeof openNativeSession>> | undefined
       try {
         remaining()
-        if (!config.bindings.endsWith('.py')) session = await openNativeSession({ inherit: false })
-        while (next < shards.length) {
+        if (!/\.(?:py|rs)$/.test(config.bindings))
+          session = await openNativeSession({ inherit: false })
+        while (pending.size) {
           remaining()
-          const index = queue[next++]!
+          const file =
+            [...pending.keys()].find((file) => !active.has(file)) ?? pending.keys().next().value!
+          const group = pending.get(file)!
+          const index = group.entries[group.next++]!.index
+          pending.delete(file)
+          if (group.next < group.entries.length) pending.set(file, group)
+          active.set(file, (active.get(file) ?? 0) + 1)
           const shard = shards[index]!
           const evidence = await collectActionEvidence(
             root,
@@ -287,12 +326,16 @@ async function isolatedEvidence(
               signal: cancellation.signal,
               session: session?.value,
               isolated: true,
+              rustProgram,
               pythonSources,
             },
             target,
           )
           validateScenarioEvidence(evidence, shard, config, fingerprint, identity)
           results[index] = evidence
+          const count = active.get(file)! - 1
+          if (count) active.set(file, count)
+          else active.delete(file)
         }
       } catch (error) {
         fail(error)

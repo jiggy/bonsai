@@ -6,7 +6,7 @@
 
 Bonsai gives a codebase a finite space to grow. Executable product contracts earn a global allowance; retained code consumes it. Code without contract ancestry blocks acceptance, even when its own unit test imports it.
 
-This is an initial working prototype for **TypeScript and a bounded native Python slice**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It includes a reusable [GitHub Action](docs/github-action.md) for PR allowance checks. It does not yet provide a hostile-code sandbox, independently published admission service, or general framework support.
+This is an initial working prototype for **TypeScript, a bounded native Python slice, and experimental standalone Rust bindings**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It includes a reusable [GitHub Action](docs/github-action.md) for PR allowance checks. It does not yet provide a hostile-code sandbox, independently published admission service, or general framework support.
 
 The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`](website/README.md) and published to GitHub Pages by the Website Actions workflow after changes merge into `main`.
 
@@ -530,8 +530,13 @@ policy; this temporary development priority does not change acceptance in
 consuming projects.
 
 The unused Oxc prototype was deleted when tsrs replaced it. Its Cargo files and
-Rust sources were removed rather than excluded. Authored Rust in consuming
-projects remains unsupported and measured until a language adapter exists.
+Rust sources were removed rather than excluded. The optional
+[experimental standalone Rust adapter](docs/standalone-rust.md) accepts a narrow
+standard-library-only native binding crate with pinned rust-analyzer/rustc 1.86.0.
+It supports named native handlers without a TypeScript bridge; Cargo workspaces,
+macros, user traits/types, `std::fs`/`std::thread` operations, generated code and mixed-language graphs remain
+incomplete. TypeScript/Python projects need no Rust toolchain. All maintained Rust
+source remains charged.
 
 ## Install and publish an alpha
 
