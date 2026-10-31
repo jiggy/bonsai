@@ -484,9 +484,9 @@ elif request["mode"] == "actions":
                     for key in selection["keys"]:
                         if type(selected) is dict and key in selected:
                             selected = selected[key]
-                        elif type(selected) is list and key == "length":
+                        elif type(selected) in (list, tuple) and key == "length":
                             selected = len(selected)
-                        elif type(selected) is list and key.isdecimal() and str(int(key)) == key and int(key) < len(selected):
+                        elif type(selected) in (list, tuple) and key.isdecimal() and str(int(key)) == key and int(key) < len(selected):
                             selected = selected[int(key)]
                         else:
                             raise KeyError("Missing response field: " + selection["selector"])

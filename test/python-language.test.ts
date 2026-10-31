@@ -569,23 +569,28 @@ test('dotted operating-system imports and aliases cannot admit external reads', 
 })
 
 test('Python selections serialize independently and ignore unrelated non-JSON fields', () => {
+  const selectedFeature = feature +
+    ' And response "items" equals ["accepted"]\n' +
+    ' And response "items[0]" equals "accepted"\n' +
+    ' And response "items.length" equals 1\n'
   for (const serial of [false, true]) {
     const project = fixture({
+      'orders.feature': selectedFeature,
       'orders.py':
-        'def place_order(request):\n    return {"status":"accepted", "unused":set([1])}\n',
+        'def place_order(request):\n    return {"status":"accepted", "items":("accepted",), "unused":set([1])}\n',
     })
     try {
       assertStatus(project.root, 'pass', serial)
       writeFileSync(
         join(project.root, 'orders.feature'),
-        feature + ' And response "unused" equals []\n',
+        selectedFeature + ' And response "unused" equals []\n',
       )
       const report = assertStatus(project.root, 'reject', serial)
       assert.deepEqual(
         report.snapshot.evidence.checks.map((check: any) => check.status),
-        ['passed', 'failed'],
+        ['passed', 'passed', 'passed', 'passed', 'failed'],
       )
-      assert.match(report.snapshot.evidence.checks[1].error, /not JSON serializable/)
+      assert.match(report.snapshot.evidence.checks[4].error, /not JSON serializable/)
     } finally {
       project.dispose()
     }
