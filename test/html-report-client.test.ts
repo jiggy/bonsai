@@ -554,10 +554,15 @@ test('numbered specification badges stay separate across nearby file-count rows'
     measurements.map((measurement) => Number(measurement['data-files'])).sort((a, b) => a - b),
     [10, 11],
   )
-  assert.equal(measurements[0]!.cx, measurements[1]!.cx, 'Equal costs keep equal source x positions')
-  const yTicks = [...plot.matchAll(/<line\b([^>]*)\/><text\b[^>]*>(\d+)<\/text>/g)].map(
-    (tick) => ({ value: Number(tick[2]), position: Number(attributes(tick[1]!).y1) }),
+  assert.equal(
+    measurements[0]!.cx,
+    measurements[1]!.cx,
+    'Equal costs keep equal source x positions',
   )
+  const yTicks = [...plot.matchAll(/<line\b([^>]*)\/><text\b[^>]*>(\d+)<\/text>/g)].map((tick) => ({
+    value: Number(tick[2]),
+    position: Number(attributes(tick[1]!).y1),
+  }))
   const lower = yTicks[0]!,
     upper = yTicks[yTicks.length - 1]!
   for (const measurement of measurements)
@@ -565,8 +570,7 @@ test('numbered specification badges stay separate across nearby file-count rows'
       Math.abs(
         Number(measurement.cy) -
           (lower.position +
-            ((upper.position - lower.position) * Number(measurement['data-files'])) /
-              upper.value),
+            ((upper.position - lower.position) * Number(measurement['data-files'])) / upper.value),
       ) < 0.00001,
       'Source dots retain exact file-count positions while their numbered badges move',
     )
@@ -575,7 +579,8 @@ test('numbered specification badges stay separate across nearby file-count rows'
     Math.hypot(
       Number(labels[0]!.cx) - Number(labels[1]!.cx),
       Number(labels[0]!.cy) - Number(labels[1]!.cy),
-    ) >= Number(labels[0]!.r) + Number(labels[1]!.r),
+    ) >=
+      Number(labels[0]!.r) + Number(labels[1]!.r),
     'Numbered badges do not overlap when adjacent file counts are close on the chart',
   )
   for (const point of points) {
