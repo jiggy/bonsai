@@ -1010,15 +1010,24 @@ test('Python subprocesses, driver exports, callable escapes, and test binding im
 })
 
 test('eager Python module annotations receive initialization ancestry', () => {
-  const project = fixture({
-    'orders.py':
-      'def startup():\n    return "annotation"\nvalue: startup() = 1\n' +
-      handler.replace('request["quantity"] > 0', 'value == 1'),
-  })
+  const project = fixture()
   try {
-    const report = assertStatus(project.root, 'pass')
-    assert.ok(report.snapshot.ancestry['orders.py#startup'].length > 0)
-    assert.ok(report.snapshot.ancestry['orders.py#value'].length > 0)
+    for (const code of [
+      'def startup():\n    return "annotation"\nvalue: startup() = 1\n' +
+        handler.replace('request["quantity"] > 0', 'value == 1'),
+      'def startup():\n    return "annotation"\nvalue: startup()\n' + handler,
+    ]) {
+      writeFileSync(join(project.root, 'orders.py'), code)
+      const report = assertStatus(project.root, 'pass')
+      assert.ok(report.snapshot.ancestry['orders.py#startup'].length > 0)
+      assert.ok(report.snapshot.ancestry['orders.py#value'].length > 0)
+    }
+    // An annotation alone does not replace the builtin runtime binding.
+    writeFileSync(
+      join(project.root, 'orders.py'),
+      'int: object\n' + handler.replace('request["quantity"] > 0', 'int(request["quantity"]) > 0'),
+    )
+    for (const serial of [false, true]) assertStatus(project.root, 'pass', serial)
   } finally {
     project.dispose()
   }
