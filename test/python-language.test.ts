@@ -598,6 +598,87 @@ test('Python selections serialize independently and ignore unrelated non-JSON fi
   }
 })
 
+test('Python selectors traverse supported mappings without visiting unrelated fields or inventing missing keys', () => {
+  const selectedFeature =
+    feature +
+    ' And response "counts" equals {"accepted":1}\n' +
+    ' And response "counts.accepted" equals 1\n' +
+    ' And response "defaults" equals {"accepted":1}\n' +
+    ' And response "defaults.accepted" equals 1\n'
+  const project = fixture({
+    'orders.feature': selectedFeature,
+    'orders.py':
+      'from collections import Counter, defaultdict\n' +
+      'def place_order(request):\n' +
+      '    return {"status":"accepted", "counts":Counter(["accepted"]), "defaults":defaultdict(None, {"accepted":1}), "unused":set([1])}\n',
+  })
+  try {
+    for (const serial of [false, true]) {
+      writeFileSync(join(project.root, 'orders.feature'), selectedFeature)
+      assertStatus(project.root, 'pass', serial)
+      writeFileSync(
+        join(project.root, 'orders.feature'),
+        selectedFeature +
+          ' And response "counts.missing" equals 0\n' +
+          ' And response "defaults.missing" equals 0\n' +
+          ' And response "defaults" equals {"accepted":1}\n',
+      )
+      const report = assertStatus(project.root, 'reject', serial)
+      assert.deepEqual(
+        report.snapshot.evidence.checks.map((check: any) => check.status),
+        ['passed', 'passed', 'passed', 'passed', 'passed', 'failed', 'failed', 'passed'],
+      )
+      for (const index of [5, 6])
+        assert.match(report.snapshot.evidence.checks[index].error, /Missing response field/)
+    }
+  } finally {
+    project.dispose()
+  }
+})
+
+test('Python exception types and tuples remain supported without admitting callable escapes', () => {
+  const project = fixture({
+    'orders.feature':
+      feature
+        .replace('{"quantity":1}', '{"quantity":"invalid"}')
+        .replace('"accepted"', '"rejected"') +
+      ' When I invoke "place-order" with {"quantity":1}\n Then response "status" equals "accepted"\n',
+  })
+  try {
+    for (const caught of ['ValueError', '(ValueError, TypeError)']) {
+      writeFileSync(
+        join(project.root, 'orders.py'),
+        'def place_order(request):\n    try:\n        quantity = int(request["quantity"])\n' +
+          '    except ' +
+          caught +
+          ' as error:\n        return {"status":"rejected"}\n' +
+          '    return {"status":"accepted"}\n',
+      )
+      for (const serial of [false, true]) assertStatus(project.root, 'pass', serial)
+    }
+    for (const caught of ['(ValueError, open)', 'keep(ValueError)', '[ValueError]']) {
+      writeFileSync(
+        join(project.root, 'orders.py'),
+        'def keep(value):\n    return value\n' +
+          'def place_order(request):\n    try:\n        return {"status":"accepted"}\n' +
+          '    except ' +
+          caught +
+          ':\n        return {"status":"rejected"}\n',
+      )
+      const analyzed = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
+      assert.equal(analyzed.status, 0, analyzed.stderr)
+      assert.match(JSON.parse(analyzed.stdout).source.problems.join('\n'), /escaped/)
+    }
+  } finally {
+    project.dispose()
+  }
+})
+
 test('Python stdout frames cannot forge values or complete a blocked plan', () => {
   for (const serial of [false, true]) {
     for (const blocked of [false, true]) {
@@ -1036,10 +1117,15 @@ test('Python selected integers fail before JSON can silently round them', () => 
     '9007199254740993',
     '-9007199254740993',
     '{"nested":[9007199254740993]}',
+    'Counter({"accepted":9007199254740993})',
+    'defaultdict(None, {"accepted":9007199254740993})',
     '9007199254740991',
   ]) {
     const project = fixture({
-      'orders.py': 'def place_order(request):\n    return {"status":' + value + '}\n',
+      'orders.py':
+        'from collections import Counter, defaultdict\ndef place_order(request):\n    return {"status":' +
+        value +
+        '}\n',
     })
     try {
       const analyzed = embedded({
