@@ -15,6 +15,7 @@ Own the Bonsai landing page and its GitHub Pages artifact.
 - The walkthrough illustrates the CLI; it does not run Bonsai in the browser. Preserve product claims against the repository documentation.
 - Dark styling belongs only inside `.code-window` widgets. Preserve the light page, muted lavender palette, accessibility, and reduced-motion behavior.
 - Include asset licenses. Publish only the public artifact, not source instructions or development tools.
+- Keep the source-available Bread summary and license/pricing links visible near setup. Root `LICENSE.md`, `LICENSES.md`, and `PRICING.md` own the terms; the page grants no additional permissions.
 
 ## Work Guidance
 
