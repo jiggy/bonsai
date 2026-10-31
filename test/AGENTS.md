@@ -10,7 +10,7 @@ Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which checks the
 
 `report-browser.test.ts` is an opt-in browser technical test, skipped by the ordinary suite unless `BONSAI_BROWSER_QA=1`, and outside the published package. It generates reports through the actual CLI, verifies that HTML creation does not replay handlers, then opens only the report bytes with Chromium `setContent`. Load the isolated pinned Playwright tool through its temporary package context, block HTTP(S) requests, and archive actual screenshots separately from assertion results. Do not claim visual quality without reviewing those captures.
 
-`html-report-timeout.test.ts` dispatches the registered command deadline during actual report delivery, checking first-failure exit status, matching structured diagnostics, and preservation of the prior artifact. Keep its independent named-filesystem-import preload control and positive dispatch marker; a failed setup or a timeout before evaluation does not establish the delivery regression.
+`html-report-timeout.test.ts` dispatches the registered command deadline during actual report delivery, checking first-failure exit status, matching structured diagnostics, and preservation of the prior artifact. Keep its uninstrumented verdict controls, independent named-filesystem-import preload control, and positive dispatch marker; a failed setup or a timeout before evaluation does not establish the delivery regression.
 
 `html-report-cli.test.ts` covers default and explicit destinations, `--no-report`, unchanged JSON and quiet streams, single handler execution, and effective maintained-scope protection. Metadata and wrapped conflict diagnostics remain in the CLI metadata and presentation tests.
 

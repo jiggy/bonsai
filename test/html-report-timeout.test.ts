@@ -46,7 +46,7 @@ test('delivery timeout preserves an established incomplete status and reports th
     const fixture = createProject(
       {
         'app.ts': "export function ready() { return { status: 'ok' } }\n",
-        'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready }\n",
+        'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
         'ready.feature':
           'Feature: Readiness\nScenario: Read the status\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n' +
           (outcome === 'incomplete'
@@ -57,6 +57,25 @@ test('delivery timeout preserves an established incomplete status and reports th
       'bonsai-report-timeout-',
     )
     try {
+      const control = runCli(
+        ['check', '--root', fixture.root, '--serial', '--json', '--timeout', '30'],
+        { cwd: fixture.root, timeout: 45000 },
+      )
+      assert.equal(control.error, undefined, String(control.error))
+      assert.equal(control.signal, null, control.stderr)
+      assert.notEqual(control.stdout, '', control.stderr)
+      const controlReport = JSON.parse(control.stdout)
+      assert.equal(
+        control.status,
+        outcome === 'pass' ? 0 : outcome === 'reject' ? 1 : 2,
+        JSON.stringify({
+          decision: controlReport.decision,
+          sourceProblems: controlReport.snapshot.source.problems,
+          contractProblems: controlReport.snapshot.contracts.problems,
+          stderr: control.stderr,
+        }),
+      )
+      assert.equal(controlReport.decision.status, outcome)
       writeFileSync(join(fixture.root, 'report-timeout.js'), preload)
       const destination = join(fixture.root, 'report.html')
       const previous = '<!doctype html><title>Previous complete report</title>'
