@@ -679,10 +679,9 @@ test('nested Python type expressions remain annotations in both execution profil
     handler.replace('request):', 'request: dict[str, list[tuple[int, str]]] | None):'),
     'value: dict[str, int] = {"quantity": 1}\n' +
       handler.replace('request["quantity"]', 'value["quantity"]'),
-    handler.replace(
-      '    return',
-      '    value: dict[str, int] = request\n    return',
-    ).replace('request["quantity"]', 'value["quantity"]'),
+    handler
+      .replace('    return', '    value: dict[str, int] = request\n    return')
+      .replace('request["quantity"]', 'value["quantity"]'),
   ]
   const project = fixture()
   try {
@@ -700,8 +699,7 @@ test('nested Python type expressions remain annotations in both execution profil
 
 test('Python annotation contexts cannot hide reflection or callable escapes', () => {
   const sources = [
-    'def keep(value):\n    return value\n' +
-      handler.replace('request):', 'request: keep(dict)):'),
+    'def keep(value):\n    return value\n' + handler.replace('request):', 'request: keep(dict)):'),
     handler.replace('request):', 'request: dict[str, eval("int")]):'),
     handler.replace('    return', '    value: object = dict\n    return'),
   ]
