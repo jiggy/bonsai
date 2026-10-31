@@ -953,11 +953,15 @@ test('resolved maintained helpers may use names reserved for external calls', ()
   }
 })
 
-test('pytest conftest hooks stay charged test support and cannot initialize application bindings', () => {
+test('conventional Python test modules stay charged and cannot initialize application bindings', () => {
   for (const [hook, module, production] of [
     ['conftest.py', 'conftest', false],
     ['pkg/conftest.py', 'pkg.conftest', true],
     ['Conftest.py', 'Conftest', false],
+    ['test.py', 'test', false],
+    ['tests.py', 'tests', false],
+    ['pkg/tests.py', 'pkg.tests', true],
+    ['Tests.py', 'Tests', false],
   ] as const) {
     const project = fixture({
       ...(hook.includes('/') ? { 'pkg/__init__.py': '' } : {}),
