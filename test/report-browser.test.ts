@@ -81,6 +81,7 @@ test('generated reports support offline keyboard and explorer workflows', {
     await page.locator('#file-rows button').first().waitFor({ state: 'attached' })
     await page.evaluate(async () => {
       await document.fonts.ready
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
     })
   }
 
