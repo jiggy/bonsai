@@ -300,7 +300,7 @@ export async function openNativeSession(
     if (warm) return warm
     if (sessionContentKey(environment) !== descriptor.content)
       throw new SessionError('Rust session checker or cached toolchain content changed')
-    const child = spawnNativeWorker(['--session', directory], {
+    const child = spawnNativeWorker(['--session', directory, String(process.pid)], {
       binary: descriptor.binary,
       environment,
     })

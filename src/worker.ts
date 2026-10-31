@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto'
 import { serialize, deserialize } from 'node:v8'
 import { projectBindingTarget } from './binding-target.ts'
 import { isMainThread, parentPort, Worker } from 'node:worker_threads'
+import type { ExecutionIdentity } from './identity.ts'
 import type { Config, ActionSelection, ActionResult, ActionRequest } from './model.ts'
 
 const clone = structuredClone
@@ -75,7 +76,12 @@ function responsePreview(response: unknown): string {
   }
 }
 
-async function loadActions(root: string, config: Config, fingerprint: string) {
+async function loadActions(
+  root: string,
+  config: Config,
+  fingerprint: string,
+  compiler?: ExecutionIdentity['compiler'],
+) {
   const target = projectBindingTarget(root, config, fingerprint)
   const module = (await import(target.url)) as {
     actions: Record<string, (input: unknown) => unknown>
@@ -92,6 +98,8 @@ if (isMainThread) {
       config: Config
       fingerprint: string
       requests: ActionRequest[]
+      compiler?: ExecutionIdentity['compiler']
+      pythonSources?: Record<string, string>
       path: string
       key: Uint8Array
     }
@@ -99,14 +107,14 @@ if (isMainThread) {
     // Keep standard descriptors occupied so native worker handles cannot reuse fd 0.
     if (openSync(process.platform === 'win32' ? 'NUL' : '/dev/null', 'r') !== 0) stop(1)
     const { port1, port2 } = new MessageChannel()
-    const runtime = new Worker(new URL('./worker.ts', import.meta.url))
+    let runtime: Worker | undefined
     let finishing = false
     let next = 0
     const results: ActionResult[] = []
     const finish = async (report: { results: ActionResult[] } | { error: string }) => {
       if (finishing) return
       finishing = true
-      await runtime.terminate()
+      await runtime?.terminate()
       port1.close()
       const payload = serialize(report)
       const signature = createHmac('sha256', message.key)
@@ -116,32 +124,52 @@ if (isMainThread) {
       writeFileSync(message.path, Buffer.concat([signature, payload]), { flag: 'wx', mode: 0o600 })
       stop(0)
     }
-    runtime.once('error', (error) => void finish({ error: String(error) }))
-    runtime.once('exit', () => {
-      if (!finishing) stop(1)
-    })
-    port1.onmessage = (event) => {
-      const result = event.data as ActionResult | { kind: 'ready' | 'load-error'; error?: string }
-      if (result.kind === 'load-error') {
-        void finish({ error: result.error ?? 'Application binding failed to load' })
-        return
+    if (message.config.bindings.endsWith('.py')) {
+      projectBindingTarget(message.root, message.config, message.fingerprint)
+      const invoke = async () => {
+        const { pythonActionPlan } = await import('./python.ts')
+        return pythonActionPlan(
+          message.root,
+          message.config,
+          message.requests,
+          message.compiler,
+          message.pythonSources,
+        )
       }
-      if (result.kind === 'result') results.push(result)
-      else if (result.kind !== 'ready' || next !== 0) stop(1)
-      if (next < message.requests.length) port1.postMessage(message.requests[next++])
-      else void finish({ results })
+      void invoke().then(
+        (results) => finish({ results }),
+        (error) => finish({ error: String(error) }),
+      )
+    } else {
+      runtime = new Worker(new URL('./worker.ts', import.meta.url))
+      runtime.once('error', (error) => void finish({ error: String(error) }))
+      runtime.once('exit', () => {
+        if (!finishing) stop(1)
+      })
+      port1.onmessage = (event) => {
+        const result = event.data as ActionResult | { kind: 'ready' | 'load-error'; error?: string }
+        if (result.kind === 'load-error') {
+          void finish({ error: result.error ?? 'Application binding failed to load' })
+          return
+        }
+        if (result.kind === 'result') results.push(result)
+        else if (result.kind !== 'ready' || next !== 0) stop(1)
+        if (next < message.requests.length) port1.postMessage(message.requests[next++])
+        else void finish({ results })
+      }
+      // Bun transfers its native port here; Node's declaration requires its richer facade.
+      runtime.postMessage(
+        {
+          root: message.root,
+          config: message.config,
+          fingerprint: message.fingerprint,
+          operations: message.requests.length,
+          compiler: message.compiler,
+          port: port2,
+        },
+        [port2 as unknown as import('node:worker_threads').MessagePort],
+      )
     }
-    // Bun transfers its native port here; Node's declaration requires its richer facade.
-    runtime.postMessage(
-      {
-        root: message.root,
-        config: message.config,
-        fingerprint: message.fingerprint,
-        operations: message.requests.length,
-        port: port2,
-      },
-      [port2 as unknown as import('node:worker_threads').MessagePort],
-    )
   } catch {
     stop(1)
   }
@@ -153,6 +181,7 @@ if (isMainThread) {
       config: Config
       fingerprint: string
       operations: number
+      compiler?: ExecutionIdentity['compiler']
       port: MessagePort
     }) => {
       // This transferred native capability is private. The public parentPort is
@@ -165,7 +194,12 @@ if (isMainThread) {
       try {
         // Starting a port invokes a mutable prototype method; do it before imports.
         message.port.start()
-        const actions = await loadActions(message.root, message.config, message.fingerprint)
+        const actions = await loadActions(
+          message.root,
+          message.config,
+          message.fingerprint,
+          message.compiler,
+        )
         let next = 1
         let active = false
         listen('message', async (event: MessageEvent) => {

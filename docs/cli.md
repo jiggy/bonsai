@@ -57,7 +57,7 @@ Check behavior, ancestry, and the retained-code budget
 USAGE
   bonsai check [flags]
 
-Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.
+Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Selects native Python analysis for .py bindings, otherwise the Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.
 
 EXAMPLES
   $ bonsai check
@@ -68,7 +68,7 @@ OPTIONS
   -r, --root string         project directory (default current directory)
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
-      --engine string       compatibility option: rust (always used by default)
+      --engine string       TypeScript compatibility option: rust
       --serial              run scenarios in order with shared application state
       --report string       write an offline HTML report (path relative to --root)
       --timeout string      command deadline in seconds (default none)
@@ -111,7 +111,7 @@ Show why a file or component is retained
 USAGE
   bonsai explain <file-or-component> [flags]
 
-Inspects ancestry and relationships with the native Rust TypeScript checker without running handlers. Use - to read one target per line from stdin.
+Inspects ancestry and relationships without running handlers, using the adapter selected by the binding file. Use - to read one target per line from stdin.
 
 EXAMPLES
   $ bonsai explain src/checkout.ts --root examples/checkout
@@ -122,7 +122,7 @@ OPTIONS
   -r, --root string         project directory (default current directory)
       --base string         Git base revision supplying trusted rules
       --policy string       explicit policy file, or - for piped JSON
-      --engine string       compatibility option: rust (always used by default)
+      --engine string       TypeScript compatibility option: rust
       --timeout string      command deadline in seconds (default none)
       --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors

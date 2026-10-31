@@ -69,6 +69,18 @@ try {
       }
     }
     process.stdin.once('end', orphaned)
+    // An active readline/SDK wait must not make owner death depend on EOF delivery.
+    const owner = Number(process.argv[4] ?? process.ppid)
+    if (!Number.isSafeInteger(owner) || owner < 1) throw new Error('Invalid native session owner')
+    const ownerWatch = setInterval(() => {
+      try {
+        if (process.ppid !== owner) orphaned()
+        else process.kill(owner, 0)
+      } catch {
+        orphaned()
+      }
+    }, 100)
+    ownerWatch.unref()
     const end = () => {
       lines.close()
       process.stdin.destroy()
@@ -87,6 +99,7 @@ try {
       lines.close()
       cancellation.signal.removeEventListener('abort', end)
       process.stdin.removeListener('end', orphaned)
+      clearInterval(ownerWatch)
     }
   } else {
     const request = JSON.parse(readFileSync(0, 'utf8')) as Request

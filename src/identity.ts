@@ -17,7 +17,7 @@ export type ExecutionIdentity = {
   schema: 'bonsai-execution-v1'
   checker: { name: string; version: string; digest: string }
   runtime: { name: 'bun'; version: string; options: string }
-  compiler: { name: 'tsrs'; version: string; digest: string }
+  compiler: { name: 'tsrs' | 'python'; version: string; digest: string }
 }
 
 const installed = fileURLToPath(new URL('../', import.meta.url))
@@ -41,7 +41,7 @@ export function validExecutionIdentity(value: unknown): value is ExecutionIdenti
     text(value.runtime.version) &&
     digest(value.runtime.options) &&
     object(value.compiler) &&
-    value.compiler.name === 'tsrs' &&
+    (value.compiler.name === 'tsrs' || value.compiler.name === 'python') &&
     text(value.compiler.version) &&
     digest(value.compiler.digest)
   )
@@ -174,4 +174,25 @@ export function executionIdentity(binary = nativeBinary()): ExecutionIdentity {
     runtime: runtimeIdentity(),
     compiler: { name: 'tsrs', version, digest: hash.digest('hex') },
   }
+}
+
+/** Capture the common verifier context without selecting a TypeScript compiler. */
+export function analysisIdentity(compiler: ExecutionIdentity['compiler']): ExecutionIdentity {
+  return {
+    schema: 'bonsai-execution-v1',
+    checker: checkerIdentity(),
+    runtime: runtimeIdentity(),
+    compiler,
+  }
+}
+
+/** Select only the installed runtime required by the native binding suffix. */
+export async function identityForBindings(
+  bindings: string,
+  signal?: AbortSignal,
+  timeoutMs?: number,
+): Promise<ExecutionIdentity> {
+  return bindings.endsWith('.py')
+    ? (await import('./python.ts')).pythonIdentity(signal, timeoutMs)
+    : executionIdentity()
 }

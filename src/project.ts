@@ -9,7 +9,13 @@ import { Timer } from './timing.ts'
 import type { Config, Snapshot } from './model.ts'
 import { collectRustSource, CollectorError } from './collector.ts'
 import { NativeInstallError } from './native-install.ts'
-import { executionIdentity, sameExecutionIdentity, type ExecutionIdentity } from './identity.ts'
+import {
+  applicationIdentity,
+  identityForBindings,
+  executionIdentity,
+  sameExecutionIdentity,
+  type ExecutionIdentity,
+} from './identity.ts'
 import { runSupportingVerification, validateRunnerRequirements } from './runners.ts'
 import { parseSnapshot } from './snapshot-schema.ts'
 
@@ -113,16 +119,20 @@ export async function snapshot(
         .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
     )
     timer.start('identity')
-    let identity: ExecutionIdentity
+    const python = config.bindings.endsWith('.py')
+    let identity: ExecutionIdentity | undefined
     try {
-      identity = executionIdentity()
+      if (!python) identity = executionIdentity()
     } catch (error) {
       if (error instanceof NativeInstallError) throw new CollectorError(error.message, error.run)
       throw error
     }
     const sourceTimer = new Timer()
     timer.start('source', sourceTimer)
-    const collected = await collectRustSource(
+    const collectSource = python
+      ? (await import('./python.ts')).collectPythonSource
+      : collectRustSource
+    const collected = await collectSource(
       root,
       files,
       config.bindings,
@@ -131,9 +141,18 @@ export async function snapshot(
       sourceTimer,
     )
     const source = collected.source
+    if ('identity' in collected) identity = collected.identity
+    if (!identity && !collected.interrupted) throw new Error('Missing source analysis identity')
+    if (python && Object.hasOwn(config.policy, 'structural'))
+      source.problems.push(
+        'Python control-depth-v1 measurements are not available; this structural policy cannot be verified',
+      )
     if (collected.interrupted) timer.finish('interrupted')
     timer.start('analysis-integrity')
-    if (!sameExecutionIdentity(identity, executionIdentity()))
+    if (
+      identity &&
+      !sameExecutionIdentity(identity, python ? applicationIdentity(identity) : executionIdentity())
+    )
       source.problems.push('Checker or toolchain changed during source analysis')
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
@@ -154,6 +173,7 @@ export async function snapshot(
           signal,
           result.verification,
           result.identity,
+          'pythonSources' in collected ? collected.pythonSources : undefined,
         )
         if (config.runners?.length) {
           result.runnerEvidence = await runSupportingVerification(
@@ -177,7 +197,9 @@ export async function snapshot(
       if (fingerprint(root, inventory(root, config.maintained, config.exclude), config) !== hash) {
         source.problems.push('Maintained files changed during verification')
       }
-      if (!sameExecutionIdentity(result.identity, executionIdentity()))
+      if (
+        !sameExecutionIdentity(result.identity, await identityForBindings(config.bindings, signal))
+      )
         source.problems.push('Checker or toolchain changed during verification')
       timer.finish()
     } else {

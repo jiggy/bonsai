@@ -102,3 +102,9 @@ Feature: Admit implementations that fulfill their declared behavior within the c
       | layout | exit | decision |
       | nested | 1    | reject   |
       | flat   | 0    | pass     |
+  Scenario: A Python team checks its application without TypeScript bindings
+    The maintained application and its action dictionary are Python files.
+    Bonsai must exercise the named handler and apply the same behavioral gate.
+    When I invoke "check" with {"fixture": "python"}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"

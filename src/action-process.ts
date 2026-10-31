@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serialize, deserialize } from 'node:v8'
+import type { ExecutionIdentity } from './identity.ts'
 import type { ActionRequest, ActionResult, Config } from './model.ts'
 
 /** No verifier descriptor is open while the application's runtime can execute. */
@@ -17,6 +18,8 @@ export async function runActionPlan(
   signal?: AbortSignal,
   session?: string,
   isolated = false,
+  compiler?: ExecutionIdentity['compiler'],
+  pythonSources?: Record<string, string>,
 ): Promise<ActionResult[]> {
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
@@ -66,7 +69,9 @@ export async function runActionPlan(
       })
       child.stdin!.on('error', fail)
       // The bootstrap pipe is drained and closed before any binding import.
-      child.stdin!.end(serialize({ root, config, fingerprint, requests, path, key }))
+      child.stdin!.end(
+        serialize({ root, config, fingerprint, requests, path, key, compiler, pythonSources }),
+      )
       if (signal?.aborted) abort()
     })
     const stat = lstatSync(path)

@@ -361,7 +361,7 @@ test('aborting a shared request reaps its compiler and lexical worker', {
     const binary = join(project.root, 'hanging-native.mjs')
     writeFileSync(
       binary,
-      `#!${process.execPath}\nimport { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(nativePid)}, String(process.pid))\nsetInterval(() => {}, 1000)\n`,
+      `#!${process.execPath}\nimport { writeFileSync, renameSync } from 'node:fs'\nconst marker = ${JSON.stringify(nativePid)}\nwriteFileSync(marker + '.pending', String(process.pid))\nrenameSync(marker + '.pending', marker)\nsetInterval(() => {}, 1000)\n`,
       { mode: 0o755 },
     )
     delete process.env.BONSAI_NATIVE_SESSION
@@ -380,6 +380,10 @@ test('aborting a shared request reaps its compiler and lexical worker', {
     )
     await until(() => existsSync(nativePid), 'Compiler must start before cancellation')
     const compiler = Number(readFileSync(nativePid, 'utf8'))
+    assert.ok(
+      Number.isSafeInteger(compiler) && compiler > 0,
+      'Compiler marker must contain a complete PID',
+    )
     const worker = Number(readFileSync(join(project.root, 'worker-pids'), 'utf8').trim())
     controller.abort()
     const result = await request
@@ -404,7 +408,7 @@ test('aborting a shared request reaps its compiler and lexical worker', {
   }
 })
 
-test('hard owner death aborts an active compiler and cleans a warm session scope', {
+test('hard owner death reaps the active compiler even when stdin EOF is withheld', {
   timeout: 15000,
 }, async () => {
   const project = fixture()
@@ -415,8 +419,21 @@ test('hard owner death aborts an active compiler and cleans a warm session scope
     const binary = join(project.root, 'hanging-native.mjs')
     writeFileSync(
       binary,
-      `#!${process.execPath}\nimport { writeFileSync } from 'node:fs'\nwriteFileSync(${JSON.stringify(nativePid)}, String(process.pid))\nsetInterval(() => {}, 1000)\n`,
+      `#!${process.execPath}\nimport { writeFileSync, renameSync } from 'node:fs'\nconst marker = ${JSON.stringify(nativePid)}\nwriteFileSync(marker + '.pending', String(process.pid))\nrenameSync(marker + '.pending', marker)\nsetInterval(() => {}, 1000)\n`,
       { mode: 0o755 },
+    )
+    const options = preload(project.root, '')
+    const script = join(project.root, 'preload.mjs')
+    writeFileSync(
+      script,
+      readFileSync(script, 'utf8') +
+        `
+if (process.argv[1]?.endsWith('tsrs-worker.ts') && process.argv[2] === '--session') {
+  const emit = process.stdin.emit.bind(process.stdin)
+  process.stdin.emit = (kind, ...args) => kind === 'end' ? false : emit(kind, ...args)
+  writeFileSync(${JSON.stringify(join(project.root, 'eof-withheld'))}, 'installed')
+}
+`,
     )
     owner = capture(
       spawn(
@@ -428,14 +445,19 @@ test('hard owner death aborts an active compiler and cleans a warm session scope
             ...process.env,
             BONSAI_NATIVE_SESSION: undefined,
             BONSAI_NATIVE_BINARY: binary,
-            BUN_OPTIONS: preload(project.root, ''),
+            BUN_OPTIONS: options,
           },
           stdio: ['ignore', 'pipe', 'pipe'],
         },
       ),
     )
     await until(() => existsSync(nativePid), 'Compiler must be active before owner death')
+    assert.equal(existsSync(join(project.root, 'eof-withheld')), true)
     const compiler = Number(readFileSync(nativePid, 'utf8'))
+    assert.ok(
+      Number.isSafeInteger(compiler) && compiler > 0,
+      'Compiler marker must contain a complete PID',
+    )
     const worker = Number(readFileSync(join(project.root, 'worker-pids'), 'utf8').trim())
     const path = JSON.parse(readFileSync(descriptor, 'utf8')).path
     owner.child.kill('SIGKILL')

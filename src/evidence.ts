@@ -5,7 +5,7 @@ import { runActionPlan } from './action-process.ts'
 import { validateVerification, validEvidence } from './policy.ts'
 import {
   applicationIdentity,
-  executionIdentity,
+  identityForBindings,
   sameExecutionIdentity,
   type ExecutionIdentity,
 } from './identity.ts'
@@ -29,7 +29,13 @@ export function verificationPlan(contracts: Contracts, serial = false): Verifica
       }
 }
 
-type Execution = { timeoutMs?: number; signal?: AbortSignal; session?: string; isolated?: boolean }
+type Execution = {
+  timeoutMs?: number
+  signal?: AbortSignal
+  session?: string
+  isolated?: boolean
+  pythonSources?: Record<string, string>
+}
 
 /** Only this verifier process evaluates observations or constructs evidence. */
 export async function collectEvidence(
@@ -37,11 +43,13 @@ export async function collectEvidence(
   config: Config,
   contracts: Contracts,
   fingerprint: string,
-  identity = executionIdentity(),
+  identity?: ExecutionIdentity,
   execution: Execution = {},
 ): Promise<Evidence> {
   const started = performance.now()
-  identity = applicationIdentity(identity)
+  identity = applicationIdentity(
+    identity ?? (await identityForBindings(config.bindings, execution.signal, execution.timeoutMs)),
+  )
   const target = projectBindingTarget(root, config, fingerprint)
   const evidence: Evidence = {
     schema: 'bonsai-evidence-v2',
@@ -85,6 +93,8 @@ export async function collectEvidence(
     execution.signal,
     execution.session,
     execution.isolated,
+    identity.compiler,
+    execution.pythonSources,
   )
   let next = 0
   try {
@@ -132,15 +142,32 @@ export async function runEvidence(
   signal?: AbortSignal,
   verification = verificationPlan(contracts),
   identity?: ExecutionIdentity,
+  pythonSources?: Record<string, string>,
 ): Promise<Evidence> {
   const began = performance.now()
   validateVerification(verification)
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (signal?.aborted) throw new Error('Verification interrupted')
-  const currentIdentity = identity ? applicationIdentity(identity) : executionIdentity()
+  const currentIdentity = identity
+    ? applicationIdentity(identity)
+    : await identityForBindings(config.bindings, signal, timeoutMs)
   if (identity !== undefined && !sameExecutionIdentity(identity, currentIdentity))
     throw new Error('Verification checker or toolchain identity changed')
   identity = currentIdentity
+  if (config.bindings.endsWith('.py') && !pythonSources) {
+    const { collectPythonSource } = await import('./python.ts')
+    const { inventory } = await import('./inventory.ts')
+    const collected = await collectPythonSource(
+      root,
+      inventory(root, config.maintained, config.exclude),
+      config.bindings,
+      signal,
+      timeoutMs - (performance.now() - began),
+    )
+    if (collected.source.problems.length || !collected.pythonSources)
+      throw new Error('Python source analysis is incomplete')
+    pythonSources = collected.pythonSources
+  }
   timeoutMs -= performance.now() - began
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
   if (verification.profile === 'isolated-scenarios-v1')
@@ -153,19 +180,21 @@ export async function runEvidence(
       timeoutMs,
       signal,
       identity,
+      pythonSources,
     )
   const serialBegan = performance.now()
   const { openNativeSession } = await import('./native-session.ts')
-  const session = await openNativeSession()
+  const session = config.bindings.endsWith('.py') ? undefined : await openNativeSession()
   try {
     return await collectEvidence(root, config, contracts, fingerprint, identity, {
       timeoutMs: timeoutMs - (performance.now() - serialBegan),
       signal,
-      session: session.value,
+      session: session?.value,
       isolated: false,
+      pythonSources,
     })
   } finally {
-    await session.close()
+    await session?.close()
   }
 }
 
@@ -179,6 +208,7 @@ async function isolatedEvidence(
   timeoutMs: number,
   signal?: AbortSignal,
   identity?: ExecutionIdentity,
+  pythonSources?: Record<string, string>,
 ): Promise<Evidence> {
   const began = performance.now()
   const cancellation = new AbortController()
@@ -228,7 +258,7 @@ async function isolatedEvidence(
       let session: Awaited<ReturnType<typeof openNativeSession>> | undefined
       try {
         remaining()
-        session = await openNativeSession({ inherit: false })
+        if (!config.bindings.endsWith('.py')) session = await openNativeSession({ inherit: false })
         while (next < shards.length) {
           remaining()
           const index = queue[next++]!
@@ -236,8 +266,9 @@ async function isolatedEvidence(
           const evidence = await collectEvidence(root, config, shard, fingerprint, identity, {
             timeoutMs: remaining(),
             signal: cancellation.signal,
-            session: session.value,
+            session: session?.value,
             isolated: true,
+            pythonSources,
           })
           validateScenarioEvidence(evidence, shard, config, fingerprint, identity)
           results[index] = evidence

@@ -159,9 +159,14 @@ export function validSnapshot(value: unknown): value is SerializedSnapshot {
     const analysis = value.analysis
     if (
       !object(analysis) ||
-      analysis.engine !== 'rust' ||
-      analysis.backend !== 'tsrs' ||
-      analysis.validation !== 'native-diagnostics' ||
+      !(
+        (analysis.engine === 'rust' &&
+          analysis.backend === 'tsrs' &&
+          analysis.validation === 'native-diagnostics') ||
+        (analysis.engine === 'python' &&
+          analysis.backend === 'python-ast' &&
+          analysis.validation === 'python-ast')
+      ) ||
       (analysis.status !== 'complete' && analysis.status !== 'unsupported') ||
       !text(analysis.version)
     )
