@@ -21,6 +21,9 @@ EXPORTS = {
 def supported_export(name):
     module, _, member = name.partition(".")
     return member in EXPORTS.get(module, set())
+
+def data_export(name):
+    return name in {"math.pi", "math.e", "math.tau", "math.inf", "math.nan"} or (name.startswith("string.") and supported_export(name))
 for module in sorted(STANDARD):
     importlib.import_module(module)
 
@@ -221,6 +224,8 @@ def analyze(request):
             else:
                 entries = [(alias.asname or alias.name, node.module or "", alias.name, node.level) for alias in node.names]
             for local, imported, member, level in entries:
+                if local.startswith("__"):
+                    problem(file, node, "imports cannot overwrite module metadata: " + local)
                 if local in module["names"] or local in module["imports"]:
                     problem(file, node, "rebound or duplicate import aliases require a source adapter")
                 if isinstance(node, ast.Import) and any("." in alias.name and not alias.asname for alias in node.names):
@@ -314,7 +319,7 @@ def analyze(request):
                         direct = isinstance(parent, ast.Call) and parent.func is item
                         attribute = isinstance(parent, ast.Attribute) and parent.value is item and target[0] == "@stdlib"
                         annotation = (isinstance(parent, (ast.arg, ast.AnnAssign)) and parent.annotation is item) or (isinstance(parent, (ast.FunctionDef, ast.AsyncFunctionDef)) and parent.returns is item)
-                        if not (direct or attribute or annotation or target[1] in ("True", "False", "None", "__name__", "__file__", "__package__")):
+                        if not (direct or attribute or annotation or (target[0] == "@stdlib" and data_export(target[1])) or target[1] in ("True", "False", "None", "__name__", "__file__", "__package__")):
                             problem(file, item, "escaped standard-library or builtin values require a source adapter")
                     if target is None:
                         problem(file, item, "unresolved global name: " + item.id)
@@ -327,7 +332,7 @@ def analyze(request):
                         prefix = isinstance(parent, ast.Attribute) and parent.value is item
                         if not supported_export(selected_export):
                             problem(file, item, "unsupported standard-library export: " + selected_export)
-                        if not (isinstance(parent, ast.Call) and parent.func is item) and not prefix:
+                        if not (isinstance(parent, ast.Call) and parent.func is item) and not prefix and not data_export(selected_export):
                             problem(file, item, "escaped standard-library values require a source adapter")
                     if isinstance(item.ctx, (ast.Store, ast.Del)):
                         problem(file, item, "attribute mutation requires a source adapter")
@@ -363,7 +368,8 @@ def analyze(request):
                             problem(file, item, "external resource reads and writes require a source adapter")
                     elif isinstance(call, ast.Attribute):
                         base = resolved(file, call.value.id) if isinstance(call.value, ast.Name) and call.value.id not in local.names else None
-                        if not base or base[0] not in ("@stdlib", "@module"):
+                        selected_call = qualified(call, local.names)
+                        if not (selected_call and supported_export(selected_call)) and (not base or base[0] not in ("@stdlib", "@module")):
                             problem(file, item, "unresolved attribute dispatch requires a source adapter")
                         if call.attr in {"listdir", "scandir", "walk", "system", "popen", "fork", "execv", "execve", "spawnv", "spawnve", "read", "read_text", "read_bytes", "getenv"}:
                             problem(file, item, "external context or process dispatch requires a source adapter")
