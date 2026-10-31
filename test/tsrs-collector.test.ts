@@ -613,10 +613,12 @@ test('native semantic batches reject missing and surplus facts before producing 
 import { Checker } from ${JSON.stringify(import.meta.resolve('tsrs/unstable/async'))}
 if (process.argv[1]?.endsWith('tsrs-worker.ts')) {
   const mode = process.env.BONSAI_TEST_SEMANTIC_BATCH
-  const method = mode?.startsWith('symbols') ? 'getSymbolAtLocation' : 'getTypeAtLocation'
+  const positions = mode?.startsWith('positions')
+  const method = positions ? 'getSymbolAtPosition' : mode?.startsWith('symbols') ? 'getSymbolAtLocation' : 'getTypeAtLocation'
   const original = Checker.prototype[method]
-  Checker.prototype[method] = async function(nodes) {
-    const result = await original.call(this, nodes)
+  Checker.prototype[method] = async function(...args) {
+    const nodes = args[positions ? 1 : 0]
+    const result = await original.apply(this, args)
     if (!mode || !Array.isArray(nodes) || !nodes.length) return result
     return mode.endsWith('missing') ? result.slice(0, -1) : [...result, result[0]]
   }
@@ -627,7 +629,14 @@ if (process.argv[1]?.endsWith('tsrs-worker.ts')) {
   try {
     const control = cli(project, 'rust', env)
     assert.equal(control.status, 0, control.stderr || control.stdout)
-    for (const mode of ['symbols-missing', 'symbols-surplus', 'types-missing', 'types-surplus']) {
+    for (const mode of [
+      'symbols-missing',
+      'symbols-surplus',
+      'positions-missing',
+      'positions-surplus',
+      'types-missing',
+      'types-surplus',
+    ]) {
       const malformed = cli(project, 'rust', { ...env, BONSAI_TEST_SEMANTIC_BATCH: mode })
       assert.equal(malformed.status, 1, `${mode}: ${malformed.stderr || malformed.stdout}`)
       assert.equal(malformed.stdout, '')
@@ -635,7 +644,7 @@ if (process.argv[1]?.endsWith('tsrs-worker.ts')) {
       assert.equal(error.code, 'RUST_COLLECTOR')
       assert.match(
         error.error,
-        mode.startsWith('symbols') ? /Invalid native symbol batch/ : /Invalid native type batch/,
+        mode.startsWith('types') ? /Invalid native type batch/ : /Invalid native symbol batch/,
       )
     }
   } finally {

@@ -91,11 +91,72 @@ jobs:
         with:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Install pinned Rust for the complete authored contracts
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Verify the action and complete self-checks
+        id: regressions
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+          # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
+      - name: Summarize nested specification command timings
+        if: always()
+        env:
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+        run: |
+          bun -e '
+            const file = Bun.file(process.env.BONSAI_SPEC_TRACE);
+            if (await file.exists()) {
+              const rows = (await file.text()).trim().split("\n").map(JSON.parse);
+              const finished = new Set(rows.filter(row => row.elapsedMs !== undefined).map(row => `${row.pid}:${row.started}`));
+              console.log(JSON.stringify({slowest: rows.filter(row => row.elapsedMs !== undefined).sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 15), unfinished: rows.filter(row => row.elapsedMs === undefined && !finished.has(`${row.pid}:${row.started}`))}));
+            }'
+      - name: Diagnose a completed root workload after failure (not acceptance)
+        if: failure() && steps.regressions.outcome == 'failure'
+        env:
+          RAYON_NUM_THREADS: '1'
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-diagnostic-timings.jsonl
+        run: |
+          bun -e '
+            const config = JSON.parse(await Bun.file("bonsai.json").text());
+            config.policy.maxFeedbackMs = 60000;
+            await Bun.write(process.env.RUNNER_TEMP + "/bonsai-diagnostic-policy.json", JSON.stringify(config));
+          '
+          set +e
+          bun src/cli.ts check --root . --policy "$RUNNER_TEMP/bonsai-diagnostic-policy.json" --timeout 75 --json > "$RUNNER_TEMP/bonsai-diagnostic-report.json"
+          diagnostic_status=$?
+          set -e
+          DIAGNOSTIC_STATUS="$diagnostic_status" bun -e '
+            const report = JSON.parse(await Bun.file(process.env.RUNNER_TEMP + "/bonsai-diagnostic-report.json").text());
+            const snapshot = report.snapshot;
+            console.log(JSON.stringify({diagnosticOnly: true, acceptanceLimitMs: 15000,
+              exitCode: process.env.DIAGNOSTIC_STATUS, decision: report.decision,
+              required: snapshot.contracts.checks.length, recorded: snapshot.evidence?.checks.length,
+              complete: snapshot.evidence?.complete, timing: snapshot.timing}));
+            const trace = (await Bun.file(process.env.BONSAI_SPEC_TRACE).text()).trim().split("\n").filter(Boolean).map(JSON.parse);
+            const completed = trace.filter(record => record.elapsedMs !== undefined);
+            const lanes = new Map();
+            for (const record of completed) {
+              const lane = lanes.get(record.pid) ?? {pid: record.pid, started: record.started, ended: 0, commands: 0};
+              lane.started = Math.min(lane.started, record.started);
+              lane.ended = Math.max(lane.ended, record.started + record.elapsedMs);
+              lane.commands++;
+              lanes.set(record.pid, lane);
+            }
+            console.log(JSON.stringify({diagnosticOnly: true,
+              slowest: completed.sort((a,b) => b.elapsedMs - a.elapsedMs).slice(0, 12),
+              scenarioCommandSpans: [...lanes.values()].map(lane => ({...lane, spanMs: lane.ended-lane.started})).sort((a,b) => b.spanMs-a.spanMs).slice(0, 12)}));
+          '
+      - name: Save diagnostic-only root profile
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonsai-diagnostic-profile
+          path: ${{ runner.temp }}/bonsai-diagnostic-*.json*
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Save the actual self-check report
         if: always()
         uses: actions/upload-artifact@v4

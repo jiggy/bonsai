@@ -42,7 +42,8 @@ export const cases: FixtureCase[] = [
     bindings: 'bindings.ts',
     feature,
     files: files({
-      'handler.ts': `import { spawnSync as launch } from 'node:child_process'
+      'handler.ts': `// 😀 café precedes the queried identifiers and native expression spans.
+import { spawnSync as launch } from 'node:child_process'
 import { fileURLToPath as pathOf } from 'node:url'
 export function handle(input: unknown) {
   const entry = pathOf(new URL('./entry.ts', import.meta.url))
