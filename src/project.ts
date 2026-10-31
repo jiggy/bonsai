@@ -1,3 +1,4 @@
+import type { RustTools } from './rust-process.ts'
 import { existsSync, readFileSync, realpathSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createRequire } from 'node:module'
@@ -11,6 +12,7 @@ import { collectRustSource, CollectorError } from './collector.ts'
 import { NativeInstallError } from './native-install.ts'
 import {
   applicationIdentity,
+  analysisIdentity,
   identityForBindings,
   executionIdentity,
   sameExecutionIdentity,
@@ -152,24 +154,21 @@ export async function snapshot(
       )
     if (collected.interrupted) timer.finish('interrupted')
     timer.start('analysis-integrity')
+    let rustContext: RustTools | undefined
     try {
-      if (
-        identity &&
-        !sameExecutionIdentity(
-          identity,
-          standaloneRust
-            ? await identityForBindings(
-                config.bindings,
-                signal,
-                execute ? config.policy.maxFeedbackMs - (performance.now() - started) : undefined,
-                root,
-              )
-            : python
-              ? applicationIdentity(identity)
-              : executionIdentity(),
-        )
-      )
-        source.problems.push('Checker or toolchain changed during source analysis')
+      if (identity) {
+        if (standaloneRust)
+          rustContext = await (await import('./rust-process.ts')).rustTools(
+            signal,
+            execute ? config.policy.maxFeedbackMs - (performance.now() - started) : undefined,
+            root,
+          )
+        const current = standaloneRust
+          ? analysisIdentity(rustContext!.compiler)
+          : python ? applicationIdentity(identity) : executionIdentity()
+        if (!sameExecutionIdentity(identity, current))
+          source.problems.push('Checker or toolchain changed during source analysis')
+      }
     } catch (error) {
       if (!standaloneRust) throw error
       timer.finish('interrupted')
@@ -196,6 +195,7 @@ export async function snapshot(
           result.verification,
           result.identity,
           'pythonSources' in collected ? collected.pythonSources : undefined,
+          rustContext,
         )
         if (config.runners?.length) {
           result.runnerEvidence = await runSupportingVerification(

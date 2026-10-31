@@ -1,4 +1,4 @@
-import type { RustProgram } from './rust-process.ts'
+import type { RustProgram, RustTools } from './rust-process.ts'
 import { deepStrictEqual } from 'node:assert'
 import { availableParallelism } from 'node:os'
 import { projectBindingTarget } from './binding-target.ts'
@@ -147,6 +147,7 @@ export async function runEvidence(
   verification = verificationPlan(contracts),
   identity?: ExecutionIdentity,
   pythonSources?: Record<string, string>,
+  rustContext?: RustTools,
 ): Promise<Evidence> {
   const began = performance.now()
   validateVerification(verification)
@@ -180,6 +181,7 @@ export async function runEvidence(
         identity.compiler,
         timeoutMs - (performance.now() - began),
         signal,
+        rustContext,
       )
     : undefined
   try {
@@ -230,6 +232,7 @@ async function isolatedEvidence(
   identity?: ExecutionIdentity,
   rustProgram?: RustProgram,
   pythonSources?: Record<string, string>,
+  rustContext?: RustTools,
 ): Promise<Evidence> {
   const began = performance.now()
   const cancellation = new AbortController()

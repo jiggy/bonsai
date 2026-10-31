@@ -28,7 +28,7 @@ const contract =
 
 // Explicitly trusted compiler instrumentation preserves lifecycle/integrity probes
 // without granting filesystem or thread operations to maintained candidate code.
-function instrumentRust(before: string, analyzerOverride?: string) {
+function instrumentRust(before: string, analyzerOverride?: string, events?: string) {
   const installed = (name: string) => {
     const result = spawnSync('rustup', ['which', '--toolchain', '1.86.0', name], { encoding: 'utf8' })
     assert.equal(result.status, 0, result.stderr)
@@ -40,15 +40,16 @@ function instrumentRust(before: string, analyzerOverride?: string) {
   const wrapper = join(tools, 'rustc')
   const needle = 'let value = handler(&payload);'
   writeFileSync(wrapper, '#!' + process.execPath + '\n' + [
-    'import { readFileSync, writeFileSync } from "node:fs";',
+    'import { readFileSync, writeFileSync, appendFileSync } from "node:fs";',
     'import { spawnSync } from "node:child_process";',
     'const args = process.argv.slice(2); const source = args.find(arg => arg.endsWith("/harness.rs"));',
+    (events ? 'if (source) appendFileSync(' + JSON.stringify(events) + ', "compile\\n");' : ''),
     'if (source) { const text = readFileSync(source, "utf8"); const needle = ' + JSON.stringify(needle) + '; if (!text.includes(needle)) process.exit(86); writeFileSync(source, text.replace(needle, ' + JSON.stringify(before + '\n' + needle) + ')); }',
     'const result = spawnSync(' + JSON.stringify(rustc) + ', args, { stdio: "inherit" }); process.exit(result.status ?? 1);',
   ].join('\n') + '\n', { mode: 0o755 })
-  writeFileSync(join(tools, 'rustup'), '#!' + process.execPath + '\nconst tools = ' +
+  writeFileSync(join(tools, 'rustup'), '#!' + process.execPath + '\nimport { appendFileSync } from "node:fs"; const tools = ' +
     JSON.stringify({ rustc: wrapper, 'rust-analyzer': analyzer }) +
-    '; process.stdout.write(tools[process.argv.at(-1)] + "\\n");\n', { mode: 0o755 })
+    '; ' + (events ? 'if (process.argv.at(-1) === "rust-analyzer") appendFileSync(' + JSON.stringify(events) + ', "capture\\n"); ' : '') + 'process.stdout.write(tools[process.argv.at(-1)] + "\\n");\n', { mode: 0o755 })
   return { env: cliEnvironment({ PATH: tools + ':' + process.env.PATH }),
     dispose: () => rmSync(tools, { recursive: true, force: true }) }
 }
@@ -68,13 +69,15 @@ test('a Rust team checks ordinary native bindings without a TypeScript bridge', 
     {},
     { bindings: 'bindings.rs' },
   )
+  const events = join(fixture.root, 'tool-events')
+  const probe = instrumentRust('', undefined, events)
   try {
     const guard = join(fixture.root, 'guard.mjs')
     writeFileSync(
       guard,
       `import { plugin } from 'bun'; plugin({ name: 'no-typescript', setup(build) { build.onLoad({ filter: /typescript[.]js$/ }, () => { throw new Error('RUST_TYPESCRIPT_LOAD_FORBIDDEN') }) } })`,
     )
-    const env = cliEnvironment({ BUN_OPTIONS: '--preload ' + pathToFileURL(guard).href })
+    const env = { ...probe.env, BUN_OPTIONS: '--preload ' + pathToFileURL(guard).href }
     const control = spawnSync(process.execPath, ['-e', 'await import("typescript")'], {
       env,
       encoding: 'utf8',
@@ -87,6 +90,7 @@ test('a Rust team checks ordinary native bindings without a TypeScript bridge', 
     assert.equal(result.status, 0)
     assert.equal(report.decision.status, 'pass')
     assert.equal(report.snapshot.evidence.complete, true)
+    assert.deepEqual(readFileSync(events, 'utf8').trim().split('\n'), ['capture', 'capture', 'compile', 'capture'])
     assert.deepEqual(
       report.snapshot.evidence.checks.map((check: { status: string }) => check.status),
       ['passed'],
@@ -97,6 +101,7 @@ test('a Rust team checks ordinary native bindings without a TypeScript bridge', 
     })
     assert.equal(explained.status, 0, explained.stdout + explained.stderr)
   } finally {
+    probe.dispose()
     fixture.dispose()
   }
 })

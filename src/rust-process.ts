@@ -22,6 +22,7 @@ import type { ActionRequest, Config } from './model.ts'
 export const rustToolchain = '1.86.0'
 const frameLimit = 1024 * 1024
 type Compiler = ExecutionIdentity['compiler']
+export type RustTools = Awaited<ReturnType<typeof rustTools>>
 export type RustProgram = { file: string; digest: string; fingerprint: string; compiler: Compiler }
 
 function terminate(child: ReturnType<typeof spawn>, group: boolean) {
@@ -350,9 +351,10 @@ export async function prepareRustProgram(
   compiler: Compiler,
   timeoutMs: number,
   signal?: AbortSignal,
+  checkedContext?: RustTools,
 ) {
   const target = projectBindingTarget(root, config, fingerprint)
-  const tools = await rustTools(signal, timeoutMs, root)
+  const tools = checkedContext ?? await rustTools(signal, timeoutMs, root)
   if (!sameExecutionIdentity(analysisIdentity(compiler), analysisIdentity(tools.compiler)))
     throw new Error('Rust toolchain changed before compilation')
   const directory = mkdtempSync(join(tmpdir(), 'bonsai-rust-program-'))
