@@ -539,14 +539,21 @@ test('Python stdout frames cannot forge values or complete a blocked plan', () =
     for (const blocked of [false, true]) {
       const project = fixture({}, { maxFeedbackMs: blocked ? 3000 : 15000 })
       const frame = JSON.stringify({ kind: 'result', id: 1, value: { status: 'accepted' } })
-      writeFileSync(join(project.root, 'orders.py'),
-        'import asyncio\nasync def place_order(request):\n    print(' + JSON.stringify(frame) + ', flush=True)\n' +
-        (blocked ? '    await asyncio.sleep(30)\n' : '') + '    return {"status":"rejected"}\n')
+      writeFileSync(
+        join(project.root, 'orders.py'),
+        'import asyncio\nasync def place_order(request):\n    print(' +
+          JSON.stringify(frame) +
+          ', flush=True)\n' +
+          (blocked ? '    await asyncio.sleep(30)\n' : '') +
+          '    return {"status":"rejected"}\n',
+      )
       try {
         const report = assertStatus(project.root, blocked ? 'incomplete' : 'reject', serial)
         if (blocked) assert.match(report.snapshot.source.problems.join('\n'), /deadline/)
         else assert.equal(report.snapshot.evidence.checks[0].status, 'failed')
-      } finally { project.dispose() }
+      } finally {
+        project.dispose()
+      }
     }
   }
 })
@@ -566,35 +573,59 @@ test('Python subprocesses, driver exports, callable escapes, and test binding im
       const report = assertStatus(project.root, 'incomplete')
       assert.ok(report.snapshot.source.problems.length > 0)
       assert.equal(report.snapshot.evidence, undefined)
-    } finally { project.dispose() }
+    } finally {
+      project.dispose()
+    }
   }
-  const project = fixture({ 'bindings.py': 'import test_setup\n' + binding,
-    'test_setup.py': 'from orders import place_order\n' })
+  const project = fixture({
+    'bindings.py': 'import test_setup\n' + binding,
+    'test_setup.py': 'from orders import place_order\n',
+  })
   try {
     const report = assertStatus(project.root, 'incomplete')
     assert.match(report.snapshot.source.problems.join('\n'), /production imports of test modules/)
     assert.equal(report.snapshot.evidence, undefined)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('eager Python module annotations receive initialization ancestry', () => {
-  const project = fixture({ 'orders.py': 'def startup():\n    return "annotation"\nvalue: startup() = 1\n' + handler.replace('request["quantity"] > 0', 'value == 1') })
+  const project = fixture({
+    'orders.py':
+      'def startup():\n    return "annotation"\nvalue: startup() = 1\n' +
+      handler.replace('request["quantity"] > 0', 'value == 1'),
+  })
   try {
     const report = assertStatus(project.root, 'pass')
     assert.ok(report.snapshot.ancestry['orders.py#startup'].length > 0)
     assert.ok(report.snapshot.ancestry['orders.py#value'].length > 0)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('Python startup deadline retains measured inventory and interrupted timings', () => {
   const project = fixture({}, { maxFeedbackMs: 1 })
   try {
     const report = assertStatus(project.root, 'incomplete')
-    assert.ok(report.snapshot.source.files.some((file: any) => file.file === 'orders.py' && file.tokens > 0))
+    assert.ok(
+      report.snapshot.source.files.some(
+        (file: any) => file.file === 'orders.py' && file.tokens > 0,
+      ),
+    )
     assert.equal(report.snapshot.evidence, undefined)
-    assert.match(report.snapshot.source.problems.join('\n'), /Python analysis interrupted.*deadline/)
-    assert.equal(report.snapshot.timing.stages.find((stage: any) => stage.name === 'source').status, 'interrupted')
-  } finally { project.dispose() }
+    assert.match(
+      report.snapshot.source.problems.join('\n'),
+      /Python analysis interrupted.*deadline/,
+    )
+    assert.equal(
+      report.snapshot.timing.stages.find((stage: any) => stage.name === 'source').status,
+      'interrupted',
+    )
+  } finally {
+    project.dispose()
+  }
 })
 
 test('TypeScript bindings cannot silently admit maintained Python code as data', () => {
@@ -624,52 +655,112 @@ test('TypeScript bindings cannot silently admit maintained Python code as data',
 })
 
 function embedded(request: unknown) {
-  return spawnSync(process.env.BONSAI_PYTHON_BINARY ?? 'python3',
+  return spawnSync(
+    process.env.BONSAI_PYTHON_BINARY ?? 'python3',
     ['-I', '-S', '-B', '-X', 'utf8', '-c', pythonProgram],
-    { input: JSON.stringify(request) + '\n', encoding: 'utf8', timeout: 10000 })
+    { input: JSON.stringify(request) + '\n', encoding: 'utf8', timeout: 10000 },
+  )
 }
 
 test('Python source loader freezes every analyzed module before candidate initialization', () => {
-  const project = fixture({ 'bindings.py': 'import startup\n' + binding,
-    'startup.py': '' , 'orders.py': handler.replace('accepted', 'rejected') })
+  const project = fixture({
+    'bindings.py': 'import startup\n' + binding,
+    'startup.py': '',
+    'orders.py': handler.replace('accepted', 'rejected'),
+  })
   const path = join(project.root, 'orders.py')
-  writeFileSync(join(project.root, 'startup.py'),
-    'print(' + JSON.stringify(handler) + ', file=open(' + JSON.stringify(path) + ', "w"))\n')
+  writeFileSync(
+    join(project.root, 'startup.py'),
+    'print(' + JSON.stringify(handler) + ', file=open(' + JSON.stringify(path) + ', "w"))\n',
+  )
   try {
-    const analyzed = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+    const analyzed = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
     assert.equal(analyzed.status, 0, analyzed.stderr)
     const frame = JSON.parse(analyzed.stdout)
     assert.deepEqual(frame.source.problems, [])
     const result = join(project.root, 'completed')
-    const ran = embedded({ mode: 'actions', root: project.root, bindings: 'bindings.py', digests: frame.digests, compiler: frame.compiler, result,
-      operations: [{ id: 1, action: 'place-order', input: { quantity: 1 }, selections: [{ selector: 'status', keys: ['status'] }] }] })
+    const ran = embedded({
+      mode: 'actions',
+      root: project.root,
+      bindings: 'bindings.py',
+      digests: frame.digests,
+      compiler: frame.compiler,
+      result,
+      operations: [
+        {
+          id: 1,
+          action: 'place-order',
+          input: { quantity: 1 },
+          selections: [{ selector: 'status', keys: ['status'] }],
+        },
+      ],
+    })
     assert.equal(ran.status, 0, ran.stderr)
-    assert.equal(JSON.parse(readFileSync(result, 'utf8')).results[0].observations[0].value, 'rejected')
+    assert.equal(
+      JSON.parse(readFileSync(result, 'utf8')).results[0].observations[0].value,
+      'rejected',
+    )
     assert.match(readFileSync(path, 'utf8'), /accepted/)
     rmSync(result)
-    const drift = embedded({ mode: 'actions', root: project.root, bindings: 'bindings.py', digests: frame.digests, compiler: frame.compiler, result, operations: [] })
+    const drift = embedded({
+      mode: 'actions',
+      root: project.root,
+      bindings: 'bindings.py',
+      digests: frame.digests,
+      compiler: frame.compiler,
+      result,
+      operations: [],
+    })
     assert.notEqual(drift.status, 0)
     assert.match(drift.stderr, /source changed after analysis/)
     assert.equal(existsSync(result), false)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('Python finder refuses fallback through unmeasured package search paths', () => {
-  const project = fixture({ 'bindings.py': 'from pkg.native import place_order\nactions = {"place-order": place_order}\n', 'pkg/__init__.py': '' })
+  const project = fixture({
+    'bindings.py': 'from pkg.native import place_order\nactions = {"place-order": place_order}\n',
+    'pkg/__init__.py': '',
+  })
   const foreign = join(project.root, 'build', 'pkg')
   mkdirSync(foreign, { recursive: true })
   writeFileSync(join(foreign, 'native.py'), handler)
-  writeFileSync(join(project.root, 'pkg/__init__.py'), '__path__ = [' + JSON.stringify(foreign) + ']\n')
+  writeFileSync(
+    join(project.root, 'pkg/__init__.py'),
+    '__path__ = [' + JSON.stringify(foreign) + ']\n',
+  )
   try {
-    const analyzed = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+    const analyzed = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
     assert.equal(analyzed.status, 0, analyzed.stderr)
     const frame = JSON.parse(analyzed.stdout)
     const result = join(project.root, 'completed')
-    const ran = embedded({ mode: 'actions', root: project.root, bindings: 'bindings.py', digests: frame.digests, compiler: frame.compiler, result, operations: [] })
+    const ran = embedded({
+      mode: 'actions',
+      root: project.root,
+      bindings: 'bindings.py',
+      digests: frame.digests,
+      compiler: frame.compiler,
+      result,
+      operations: [],
+    })
     assert.notEqual(ran.status, 0)
     assert.match(ran.stderr, /outside measured source and installed stdlib/)
     assert.equal(existsSync(result), false)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('interrupted Python collection retains inventory without inventing identity or evidence', async () => {
@@ -677,15 +768,24 @@ test('interrupted Python collection retains inventory without inventing identity
   try {
     for (const timeout of [0, 1]) {
       const timer = new Timer()
-      const collected = await collectPythonSource(project.root, project.config.maintained.slice().sort(), 'bindings.py', undefined, timeout, timer)
+      const collected = await collectPythonSource(
+        project.root,
+        project.config.maintained.slice().sort(),
+        'bindings.py',
+        undefined,
+        timeout,
+        timer,
+      )
       assert.equal(collected.interrupted, true)
       assert.equal(collected.identity, undefined)
       assert.equal(collected.pythonSources, undefined)
-      assert.ok(collected.source.files.find(file => file.file === 'orders.py')!.tokens > 0)
+      assert.ok(collected.source.files.find((file) => file.file === 'orders.py')!.tokens > 0)
       assert.match(collected.source.problems.join('\n'), /Python analysis interrupted.*deadline/)
       assert.equal(timer.report().stages[0]!.status, 'interrupted')
     }
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('embedded Python analysis rejects capability escapes and preserves eager initialization edges', () => {
@@ -700,29 +800,64 @@ test('embedded Python analysis rejects capability escapes and preserves eager in
       '__path__ = ["build"]\n' + handler,
     ]) {
       writeFileSync(join(project.root, 'orders.py'), code)
-      const result = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+      const result = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
       assert.equal(result.status, 0, result.stderr)
       assert.ok(JSON.parse(result.stdout).source.problems.length > 0, code)
     }
-    writeFileSync(join(project.root, 'orders.py'), 'def startup():\n    return "annotation"\nvalue: startup() = 1\n' + handler)
-    const result = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+    writeFileSync(
+      join(project.root, 'orders.py'),
+      'def startup():\n    return "annotation"\nvalue: startup() = 1\n' + handler,
+    )
+    const result = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
     assert.equal(result.status, 0, result.stderr)
     const source = JSON.parse(result.stdout).source
     assert.deepEqual(source.problems, [])
-    assert.ok(source.relationships.some((edge: any) => edge.from === 'orders.py#<module>' && edge.to === 'orders.py#value'))
-    assert.ok(source.relationships.some((edge: any) => edge.from === 'orders.py#value' && edge.to === 'orders.py#startup'))
-  } finally { project.dispose() }
+    assert.ok(
+      source.relationships.some(
+        (edge: any) => edge.from === 'orders.py#<module>' && edge.to === 'orders.py#value',
+      ),
+    )
+    assert.ok(
+      source.relationships.some(
+        (edge: any) => edge.from === 'orders.py#value' && edge.to === 'orders.py#startup',
+      ),
+    )
+  } finally {
+    project.dispose()
+  }
 })
 
 test('maintained Python lookalikes cannot resolve to preloaded driver or standard modules', () => {
   for (const name of ['sys', '__main__', 'importlib', 'pathlib']) {
-    const project = fixture({ [name + '.py']: 'modules = {}\n',
-      'orders.py': 'import ' + name + '\n' + handler })
+    const project = fixture({
+      [name + '.py']: 'modules = {}\n',
+      'orders.py': 'import ' + name + '\n' + handler,
+    })
     try {
-      const result = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+      const result = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
       assert.equal(result.status, 0, result.stderr)
-      assert.match(JSON.parse(result.stdout).source.problems.join('\n'), /owned module shadows a standard module/)
-    } finally { project.dispose() }
+      assert.match(
+        JSON.parse(result.stdout).source.problems.join('\n'),
+        /owned module shadows a standard module/,
+      )
+    } finally {
+      project.dispose()
+    }
   }
 })
 
@@ -733,49 +868,109 @@ test('Python generator and coroutine frames cannot expose driver globals or buil
   ]) {
     const project = fixture({ 'orders.py': code })
     try {
-      const result = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+      const result = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
       assert.equal(result.status, 0, result.stderr)
-      assert.match(JSON.parse(result.stdout).source.problems.join('\n'), /unresolved attribute access/)
-    } finally { project.dispose() }
+      assert.match(
+        JSON.parse(result.stdout).source.problems.join('\n'),
+        /unresolved attribute access/,
+      )
+    } finally {
+      project.dispose()
+    }
   }
 })
 
 test('Python package from-list imports resolve test submodules before admission', () => {
-  const project = fixture({ 'pkg/__init__.py': '', 'pkg/test_setup.py': 'from orders import state\nstate[0] = "accepted"\n',
+  const project = fixture({
+    'pkg/__init__.py': '',
+    'pkg/test_setup.py': 'from orders import state\nstate[0] = "accepted"\n',
     'bindings.py': 'from pkg import test_setup as setup\n' + binding,
-    'orders.py': 'state = ["rejected"]\ndef place_order(request):\n    return {"status":state[0]}\n' })
+    'orders.py':
+      'state = ["rejected"]\ndef place_order(request):\n    return {"status":state[0]}\n',
+  })
   try {
-    const result = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+    const result = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
     assert.equal(result.status, 0, result.stderr)
-    assert.match(JSON.parse(result.stdout).source.problems.join('\n'), /production imports of test modules/)
-  } finally { project.dispose() }
+    assert.match(
+      JSON.parse(result.stdout).source.problems.join('\n'),
+      /production imports of test modules/,
+    )
+  } finally {
+    project.dispose()
+  }
 })
 
 test('Python selected integers fail before JSON can silently round them', () => {
-  for (const value of ['9007199254740993', '-9007199254740993', '{"nested":[9007199254740993]}', '9007199254740991']) {
-    const project = fixture({ 'orders.py': 'def place_order(request):\n    return {"status":' + value + '}\n' })
+  for (const value of [
+    '9007199254740993',
+    '-9007199254740993',
+    '{"nested":[9007199254740993]}',
+    '9007199254740991',
+  ]) {
+    const project = fixture({
+      'orders.py': 'def place_order(request):\n    return {"status":' + value + '}\n',
+    })
     try {
-      const analyzed = embedded({ mode: 'analyze', root: project.root, files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+      const analyzed = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
       assert.equal(analyzed.status, 0, analyzed.stderr)
       const frame = JSON.parse(analyzed.stdout)
       assert.deepEqual(frame.source.problems, [])
       const result = join(project.root, 'completed')
-      const ran = embedded({ mode: 'actions', root: project.root, bindings: 'bindings.py', digests: frame.digests, compiler: frame.compiler, result,
-        operations: [{ id: 1, action: 'place-order', input: {}, selections: [{ selector: 'status', keys: ['status'] }] }] })
+      const ran = embedded({
+        mode: 'actions',
+        root: project.root,
+        bindings: 'bindings.py',
+        digests: frame.digests,
+        compiler: frame.compiler,
+        result,
+        operations: [
+          {
+            id: 1,
+            action: 'place-order',
+            input: {},
+            selections: [{ selector: 'status', keys: ['status'] }],
+          },
+        ],
+      })
       assert.equal(ran.status, 0, ran.stderr)
       const observation = JSON.parse(readFileSync(result, 'utf8')).results[0].observations[0]
       if (value === '9007199254740991') assert.equal(observation.value, Number.MAX_SAFE_INTEGER)
-      else { assert.match(observation.error, /exact JSON safe integer range/); assert.equal('value' in observation, false) }
-    } finally { project.dispose() }
+      else {
+        assert.match(observation.error, /exact JSON safe integer range/)
+        assert.equal('value' in observation, false)
+      }
+    } finally {
+      project.dispose()
+    }
   }
 })
 
 test('a rounded Python integer cannot satisfy a different real CLI observation', () => {
   for (const serial of [false, true]) {
-    const project = fixture({ 'orders.py': 'def place_order(request):\n    return {"status":9007199254740993}\n', 'orders.feature': feature.replace('"accepted"', '9007199254740992') })
+    const project = fixture({
+      'orders.py': 'def place_order(request):\n    return {"status":9007199254740993}\n',
+      'orders.feature': feature.replace('"accepted"', '9007199254740992'),
+    })
     try {
       const report = assertStatus(project.root, 'reject', serial)
       assert.match(report.snapshot.evidence.checks[0].error, /exact JSON safe integer range/)
-    } finally { project.dispose() }
+    } finally {
+      project.dispose()
+    }
   }
 })
