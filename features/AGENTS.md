@@ -31,3 +31,5 @@ Default verification keeps scenarios independent and completes every required ob
 ## Child DOX Index
 
 - [support/AGENTS.md](support/AGENTS.md): disposable projects, real CLI launches, factual observations, and public command bindings.
+
+The coverage example in `evidence.feature` requires the selected production-file scope to be represented even when a narrower report claims 100%. Exact report paths, count recomputation, erased syntax, and metadata shapes remain technical regressions.

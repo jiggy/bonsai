@@ -11,11 +11,13 @@ import {
   unlinkSync,
 } from 'node:fs'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
+import type { Source } from './model.ts'
 import { validExecutionIdentity, type ExecutionIdentity } from './identity.ts'
 
 export type RunnerAdapter = 'vitest-json' | 'cucumber-messages' | 'stryker-json'
 export type CoverageMetric = 'lines' | 'branches' | 'functions' | 'statements'
 export type CoverageCounts = { total: number; covered: number; skipped: number }
+export type CoverageFile = { file: string; counts: Record<CoverageMetric, CoverageCounts> }
 export type RunnerRequirement = {
   id: string
   adapter: RunnerAdapter
@@ -24,6 +26,7 @@ export type RunnerRequirement = {
   minimumMutationScore?: number
   coverage?: {
     report: string
+    scope?: 'maintained-production'
     lines: number
     branches?: number
     functions?: number
@@ -57,6 +60,7 @@ export type RunnerEvidence = RunnerFacts & {
   reportHash?: string
   coverageReportHash?: string
   coverage?: Record<CoverageMetric, CoverageCounts>
+  coverageFiles?: CoverageFile[]
   identity?: ExecutionIdentity
 }
 
@@ -475,6 +479,11 @@ export function validateRunnerRequirements(
           percent(requirement.coverage.lines),
         'Coverage requires vitest-json and a lines percentage floor',
       )
+      requireFact(
+        requirement.coverage.scope === undefined ||
+          requirement.coverage.scope === 'maintained-production',
+        'Unknown coverage scope',
+      )
       path(requirement.coverage.report)
       for (const metric of metrics)
         requireFact(
@@ -483,7 +492,7 @@ export function validateRunnerRequirements(
         )
       requireFact(
         Object.keys(requirement.coverage).every(
-          (key) => key === 'report' || metrics.includes(key as CoverageMetric),
+          (key) => key === 'report' || key === 'scope' || metrics.includes(key as CoverageMetric),
         ),
         'Unknown coverage requirement',
       )
@@ -512,6 +521,82 @@ function validCoverage(value: unknown): value is Record<CoverageMetric, Coverage
       )
     })
   )
+}
+
+/** Scope comes from collected source, never from the report's own selection. */
+function coverageTargets(source: Source | undefined): string[] {
+  requireFact(source !== undefined, 'Coverage scope needs independently collected source files')
+  const expected: string[] = []
+  for (const file of source.files) {
+    if (
+      /\.(?:[cm]?[jt]sx?|py|rs)$/.test(file.file) ||
+      file.executable !== undefined ||
+      file.kind !== undefined
+    ) {
+      requireFact(
+        typeof file.executable === 'boolean' && file.kind !== undefined,
+        `Coverage scope has no executable classification: ${file.file}`,
+      )
+      if (file.executable && file.kind === 'production') expected.push(file.file)
+    }
+  }
+  requireFact(expected.length > 0, 'Coverage scope contains no executable production files')
+  return expected.sort()
+}
+
+function scopedCoverage(files: CoverageFile[], source: Source | undefined) {
+  const expected = coverageTargets(source)
+  const measured = new Map(files.map((file) => [file.file, file.counts]))
+  const maintained = new Set(source!.files.map((file) => file.file))
+  for (const file of files)
+    requireFact(
+      maintained.has(file.file),
+      `Coverage report contains an unmaintained file: ${file.file}`,
+    )
+  const total = Object.fromEntries(
+    metrics.map((metric) => [metric, { total: 0, covered: 0, skipped: 0 }]),
+  ) as Record<CoverageMetric, CoverageCounts>
+  for (const file of expected) {
+    const counts = measured.get(file)
+    requireFact(counts !== undefined, `Coverage report omits required production file: ${file}`)
+    for (const metric of metrics)
+      for (const key of ['total', 'covered', 'skipped'] as const) {
+        total[metric][key] += counts[metric][key]
+        requireFact(Number.isSafeInteger(total[metric][key]), 'Coverage scope counts overflow')
+      }
+  }
+  return total
+}
+
+/** Normalize concrete Istanbul paths; source-map URLs require a dedicated adapter. */
+function coverageFiles(root: string, report: Record<string, unknown>, source: Source | undefined) {
+  requireFact(source !== undefined, 'Coverage scope needs independently collected source files')
+  const paths = new Map<string, string>()
+  for (const file of source.files) {
+    const canonical = realpathSync(resolve(root, file.file))
+    requireFact(!paths.has(canonical), 'Coverage scope has aliased maintained paths')
+    paths.set(canonical, file.file)
+  }
+  const files: CoverageFile[] = []
+  const seen = new Set<string>()
+  for (const [reported, counts] of Object.entries(report)) {
+    if (reported === 'total') continue
+    requireFact(
+      reported.length > 0 &&
+        !reported.includes('\\') &&
+        !reported.includes('\0') &&
+        !/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(reported) &&
+        validCoverage(counts),
+      `Unsupported or malformed coverage file: ${reported}`,
+    )
+    const canonical = realpathSync(resolve(root, reported))
+    const file = paths.get(canonical)
+    requireFact(file !== undefined, `Coverage report contains an unmaintained file: ${reported}`)
+    requireFact(!seen.has(file), `Coverage report repeats a file through an alias: ${file}`)
+    seen.add(file)
+    files.push({ file, counts })
+  }
+  return files.sort((a, b) => a.file.localeCompare(b.file))
 }
 
 export function validRunnerEvidence(value: unknown): value is RunnerEvidence {
@@ -549,6 +634,24 @@ export function validRunnerEvidence(value: unknown): value is RunnerEvidence {
   )
     return false
   if (value.coverage !== undefined && !validCoverage(value.coverage)) return false
+  if (value.coverageFiles !== undefined) {
+    if (!Array.isArray(value.coverageFiles)) return false
+    const seen = new Set<string>()
+    for (const entry of value.coverageFiles) {
+      if (
+        !object(entry) ||
+        !text(entry.file) ||
+        isAbsolute(entry.file) ||
+        entry.file.includes('\\') ||
+        entry.file.includes('\0') ||
+        entry.file.split('/').some((part) => !part || part === '.' || part === '..') ||
+        seen.has(entry.file) ||
+        !validCoverage(entry.counts)
+      )
+        return false
+      seen.add(entry.file)
+    }
+  }
   if (value.identity !== undefined && !validExecutionIdentity(value.identity)) return false
   if (value.adapter === 'stryker-json' && value.complete) {
     if (
@@ -581,6 +684,7 @@ export function validRunnerEvidence(value: unknown): value is RunnerEvidence {
 function assessRunnerEvidence(
   requirement: RunnerRequirement,
   evidence: unknown,
+  source?: Source,
 ): { status: RunnerEvidence['status']; problems: string[] } {
   try {
     validateRunnerRequirements([requirement])
@@ -622,6 +726,28 @@ function assessRunnerEvidence(
         `Mutation score ${evidence.mutationScore} is below ${requirement.minimumMutationScore}`,
       )
   }
+  if (requirement.coverage?.scope) {
+    try {
+      requireFact(
+        evidence.coverageFiles !== undefined,
+        'Required per-file coverage facts are missing',
+      )
+      const counts = scopedCoverage(evidence.coverageFiles, source)
+      requireFact(
+        evidence.coverage !== undefined &&
+          metrics.every((metric) =>
+            ['total', 'covered', 'skipped'].every(
+              (key) =>
+                evidence.coverage![metric][key as keyof CoverageCounts] ===
+                counts[metric][key as keyof CoverageCounts],
+            ),
+          ),
+        'Coverage totals do not match the required production scope',
+      )
+    } catch (error) {
+      missing(String(error))
+    }
+  }
   if (requirement.coverage) {
     if (!evidence.coverage || !evidence.coverageReportHash)
       missing('Required coverage summary is missing')
@@ -641,8 +767,9 @@ function assessRunnerEvidence(
 export function runnerViolations(
   requirement: RunnerRequirement,
   evidence: unknown,
+  source?: Source,
 ): { status: RunnerEvidence['status']; problems: string[] } {
-  const result = assessRunnerEvidence(requirement, evidence)
+  const result = assessRunnerEvidence(requirement, evidence, source)
   if (validRunnerEvidence(evidence) && evidence.status !== result.status)
     return {
       status: 'incomplete',
@@ -813,6 +940,7 @@ export async function runSupportingVerification(
   fingerprint: string,
   timeoutMs: number,
   signal?: AbortSignal,
+  source?: Source,
 ): Promise<RunnerEvidence[]> {
   const began = performance.now()
   validateRunnerRequirements(requirements)
@@ -860,7 +988,10 @@ export async function runSupportingVerification(
           object(parsed) && validCoverage(parsed.total),
           'Invalid Istanbul coverage summary',
         )
-        evidence.coverage = parsed.total
+        if (requirement.coverage.scope) {
+          evidence.coverageFiles = coverageFiles(root, parsed, source)
+          evidence.coverage = scopedCoverage(evidence.coverageFiles, source)
+        } else evidence.coverage = parsed.total
         evidence.coverageReportHash = coverage.hash
       }
       requireFact(
@@ -873,7 +1004,7 @@ export async function runSupportingVerification(
       if (diagnostic) evidence.problems.push(`Runner output (last 4096 bytes): ${diagnostic}`)
     }
     evidence.elapsedMs = performance.now() - started
-    evidence.status = assessRunnerEvidence(requirement, evidence).status
+    evidence.status = assessRunnerEvidence(requirement, evidence, source).status
     results.push(evidence)
   }
   return results

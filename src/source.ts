@@ -6,6 +6,7 @@ import type { Source, Component } from './model.ts'
 import { createSubprocessAdapter, executesAtEntry } from './subprocess.ts'
 import { moduleInitialization, runtimeReference } from './module-initialization.ts'
 import { createResourceAdapter } from './resources.ts'
+import { runtimeCoverageScope } from './runtime-scope.ts'
 
 export { inventory, fingerprint } from './inventory.ts'
 
@@ -56,6 +57,14 @@ export function measureSource(root: string, files: string[]): Source {
   return source
 }
 
+function fileKind(file: string, bindings: string): Component['kind'] {
+  return file === bindings
+    ? 'binding'
+    : /(?:^|\/)(?:test|tests)\/|\.(?:test|spec)\./.test(file)
+      ? 'test'
+      : 'production'
+}
+
 /** Shared Bonsai rules consume resolved semantic facts. */
 export function collectSourceGraph(
   root: string,
@@ -67,6 +76,7 @@ export function collectSourceGraph(
   const scriptFiles = files.filter((file) => /\.[cm]?ts$/.test(file))
   source.controlDepth = { metric: 'control-depth-v1', complete: false, regions: [] }
   const checker = program.getTypeChecker()
+  const runtimeBearing = runtimeCoverageScope(root, files)
   const nodes = new Map<ts.Node, Component>()
   const symbols = new Map<ts.Symbol, Component>()
   const unalias = (symbol: ts.Symbol | undefined) =>
@@ -78,6 +88,11 @@ export function collectSourceGraph(
   for (const file of scriptFiles) {
     const ast = program.getSourceFile(resolve(root, file))!
     source.controlDepth.regions.push(...measureControlDepth(ts, ast, file))
+    const measured = source.files.find((entry) => entry.file === file)!
+    measured.kind = fileKind(file, bindings)
+    const executable = runtimeBearing(ast)
+    if (executable === undefined) delete measured.executable
+    else measured.executable = executable
     for (const statement of ast.statements) {
       if (ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)) continue
       const declarations = ts.isVariableStatement(statement)
@@ -90,12 +105,7 @@ export function collectSourceGraph(
           ...reference(node),
           id: `${file}#${name}`,
           name,
-          kind:
-            file === bindings
-              ? 'binding'
-              : /(?:^|\/)(?:test|tests)\/|\.(?:test|spec)\./.test(file)
-                ? 'test'
-                : 'production',
+          kind: fileKind(file, bindings),
           tokens: countTokens(node.getText(), true),
         }
         if (named.name && !ts.isIdentifier(named.name))

@@ -75,6 +75,16 @@ Feature: Verify every required behavior without leaving application work running
     Then response "exitCode" equals 2
     And response "maintainedText" equals "Authored project notes\n"
 
+  Scenario: A coverage score cannot hide an omitted production module
+    The maintainer requires coverage of maintained production code. Readiness uses
+    both the application module and its rules module, and the supporting assertion
+    executes both. Its coverage selection reports only the application module,
+    showing 100% for that subset. The omitted rules module still needs coverage
+    evidence before this candidate can be accepted.
+    When I invoke "check" with {"fixture": "supporting-suite", "case": "coverage-missing"}
+    Then response "exitCode" equals 2
+    And response "decision.status" equals "incomplete"
+
   Scenario: A candidate cannot turn failed behavior into a passing verification report
     A PR returns a rejected result where the reviewed contract requires acceptance.
     Its handler also intercepts the worker transport and rewrites failed checks

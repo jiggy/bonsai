@@ -34,7 +34,7 @@ export type Contracts = {
   problems: string[]
 }
 export type Source = {
-  files: { file: string; tokens: number }[]
+  files: { file: string; tokens: number; executable?: boolean; kind?: Component['kind'] }[]
   components: Component[]
   relationships: Relationship[]
   actions: Record<string, string>

@@ -183,7 +183,7 @@ export function evaluate(
         missing(`Supporting verification is missing or stale: ${requirement.id}`)
         continue
       }
-      const verdict = runnerViolations(requirement, item)
+      const verdict = runnerViolations(requirement, item, candidate.source)
       for (const problem of verdict.problems) {
         const message = `Supporting verification ${requirement.id}: ${problem}`
         if (verdict.status === 'incomplete') missing(message)

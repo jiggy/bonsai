@@ -61,7 +61,16 @@ function source(value: unknown): boolean {
   return (
     object(value) &&
     strings(value.problems) &&
-    array(value.files, (file) => object(file) && text(file.file) && integer(file.tokens)) &&
+    array(
+      value.files,
+      (file) =>
+        object(file) &&
+        text(file.file) &&
+        integer(file.tokens) &&
+        (file.executable === undefined || typeof file.executable === 'boolean') &&
+        (file.kind === undefined ||
+          (typeof file.kind === 'string' && ['production', 'test', 'binding'].includes(file.kind))),
+    ) &&
     (value.controlDepth === undefined ||
       validControlDepth(value.controlDepth, value.files as { file: string }[])) &&
     array(

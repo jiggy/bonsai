@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import type { Source } from '../src/model.ts'
 import { runSupportingVerification, type RunnerRequirement } from '../src/runners.ts'
 
 // The ordinary suite is network-free. CI opts into this consuming-project smoke
@@ -25,12 +26,14 @@ test('pinned Vitest, Cucumber and Stryker CLIs produce accepted fresh supporting
     assert.equal(result.error, undefined, String(result.error))
     assert.equal(result.status, 0, result.stderr || result.stdout)
   }
-  const execute = async (requirement: RunnerRequirement) => {
+  const execute = async (requirement: RunnerRequirement, source?: Source) => {
     const [result] = await runSupportingVerification(
       root,
       [requirement],
       'real-runner-smoke',
       60000,
+      undefined,
+      source,
     )
     assert.ok(result)
     return result
@@ -78,6 +81,32 @@ test('pinned Vitest, Cucumber and Stryker CLIs produce accepted fresh supporting
     )
     const unit = await execute(vitest)
     assert.equal(unit.status, 'passed', JSON.stringify(unit))
+    // Assumed scope facts isolate the real report format; native classification has its own CLI tests.
+    const source: Source = {
+      files: [{ file: 'calculator.mjs', tokens: 0, kind: 'production', executable: true }],
+      components: [],
+      relationships: [],
+      actions: {},
+      problems: [],
+    }
+    const scoped: RunnerRequirement = {
+      ...vitest,
+      coverage: {
+        ...vitest.coverage!,
+        scope: 'maintained-production',
+      },
+    }
+    const scopedUnit = await execute(scoped, source)
+    assert.equal(scopedUnit.status, 'passed', JSON.stringify(scopedUnit))
+    assert.deepEqual(
+      scopedUnit.coverageFiles?.map((file) => file.file),
+      ['calculator.mjs'],
+    )
+    writeFileSync(join(root, 'omitted.mjs'), 'export const unmeasured = 1\n')
+    source.files.push({ file: 'omitted.mjs', tokens: 0, kind: 'production', executable: true })
+    const omitted = await execute(scoped, source)
+    assert.equal(omitted.status, 'incomplete', JSON.stringify(omitted))
+    assert.match(omitted.problems.join('\n'), /omits required production file: omitted.mjs/)
     writeFileSync(
       join(root, 'order.test.ts'),
       "import { test } from 'vitest'\ntest.skip('order is accepted', () => {})\n",

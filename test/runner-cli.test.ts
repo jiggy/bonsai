@@ -91,6 +91,22 @@ test('a different expected checker identity blocks the worker before loading its
   }
 })
 
+test('real scoped-coverage control passes and omitted production scope remains incomplete', () => {
+  const complete = checkSupportingSuite({ case: 'coverage-complete' })
+  assert.equal(complete.exitCode, 0, JSON.stringify(complete))
+  assert.equal(complete.snapshot.evidence.complete, true)
+  assert.deepEqual(complete.snapshot.source.problems, [])
+  assert.deepEqual(
+    complete.snapshot.runnerEvidence[0].coverageFiles.map((file: { file: string }) => file.file),
+    ['app.ts', 'rules.ts'],
+  )
+  const omitted = checkSupportingSuite({ case: 'coverage-missing' })
+  assert.equal(omitted.exitCode, 2, JSON.stringify(omitted))
+  assert.equal(omitted.snapshot.evidence.complete, true)
+  assert.deepEqual(omitted.snapshot.unrooted, [])
+  assert.match(omitted.decision.violations.join('\n'), /omits required production file: rules.ts/)
+})
+
 test('verification carries completed native analysis receipts without reopening the unused compiler', async () => {
   const text =
     'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n'

@@ -78,6 +78,48 @@ flag. Unsupported report versions remain incomplete.
   mutants remain blocking under this adapter's strict completion rule. A
   nonzero valid denominator and an explicit `minimumMutationScore` are required.
 
+### Require maintained production-file scope
+
+Set `coverage.scope` to `"maintained-production"` to require per-file Istanbul
+JSON-summary entries for the independently collected runtime-bearing production
+files. Binding and test files, declarations, and erased type-only files do not
+supply that scope. Existing configurations without this option retain their
+aggregate-report semantics.
+
+The collector uses Bun's built-in TypeScript transpiler and inspects emitted
+syntax without importing the source module. Empty local export markers do not
+create a runtime requirement. Type-only namespaces and local exports of erased
+types stay outside scope; emitted namespace objects, including wrappers around
+exported ambient values, remain required. Tree shaking and dead-code elimination
+are disabled for this measurement. These facts do not prove execution.
+
+This adapter supports the default Bun import context. Candidate TypeScript
+configuration must be measured. Inherited settings, import preservation, legacy
+import flags, legacy decorator/metadata settings, Bunfig files, and transform or
+preload overrides leave classification unknown. Macro import syntax is detected
+before transformation and is never executed. An unavailable transpiler,
+transformation failure, or unsupported emitted syntax also leaves classification
+unknown. Bun's content identity is recorded with execution evidence. These limits
+do not add requirements to legacy aggregate coverage.
+
+A missing classification, omitted required file, duplicate canonical path,
+unmaintained reported file, unsupported source-map URL, or malformed file counts
+makes the scoped requirement incomplete. Configure the runner to report every
+required file, including unexecuted files, rather than silently narrowing coverage
+selection.
+
+Scoped floors are recomputed from required production entries only. Additional
+maintained test or binding entries cannot inflate the score. Each file may have
+zero statements, but a required percentage still needs a positive measured
+denominator across its scope. The report's global `total` does not authorize
+scoped acceptance. Per-file entries remain visible as `coverageFiles` in supporting
+evidence; the evaluator checks them again against the snapshot's source facts.
+
+This provides **file-set assurance**, not proof of every source-map position,
+instrumentation branch, mutation operator, test discovery, necessity, or fixture
+ownership. Source fingerprints and fresh-report hashes bind local facts; they do
+not authenticate hostile execution. Scoped mutation selection is not implemented.
+
 Quality floors range from 0 to 100. A missing or zero coverage denominator is
 incomplete. These floors describe the report's configured scope; they do not prove
 coverage of the full maintained inventory, specification completeness, necessity,
