@@ -8,6 +8,8 @@ Specify the developer outcomes and domain rules that make Bonsai useful, through
 
 Root `bonsai.bindings.ts` connects stable public command identities to `support/actions.ts`.
 
+`report.feature` covers saving a check for later HTML inspection while retaining rejected or incomplete decisions and clean machine-readable output.
+
 Technical compiler, parser, protocol, schema, scheduling, and presentation regressions belong in `test/`. They preserve detailed proof without adding product allowance.
 
 ## Local Contracts

@@ -8,6 +8,8 @@ Arrange isolated projects and observe Bonsai's public CLI and reusable GitHub Ac
 
 ## Local Contracts
 
+`report.ts` arranges mixed-source and missing-binding projects, invokes the real `check --report` command, and independently reads the saved report's data alongside the original JSON. It does not calculate policy decisions or ancestry.
+
 - Use the real CLI and production native checker. Helpers must not calculate expected policy decisions or mark observations passed.
 - Keep fixtures independent and remove them in `finally`. Runtime logs and markers stay outside their explicit maintained input lists.
 - Keep action names aligned with public operations. Fixture names, extra cases, and helper result aliases must not manufacture product allowance.
