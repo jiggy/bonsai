@@ -82,27 +82,35 @@ export function initialize(root: string, checkDeadline: () => void) {
   }
   const maintained = readdirSync(root).sort().flatMap(discover)
   const bindings =
-    ['bindings.ts', 'bonsai.bindings.ts'].find((path) => files.includes(path)) ??
-    'bonsai.bindings.ts'
+    ['bindings.ts', 'bonsai.bindings.ts', 'bindings.py', 'bonsai_bindings.py'].find((path) =>
+      files.includes(path),
+    ) ??
+    (files.some((file) => file.endsWith('.py')) && !files.some((file) => /\.[cm]?ts$/.test(file))
+      ? 'bonsai_bindings.py'
+      : 'bonsai.bindings.ts')
   const feature = files.find((path) => path.endsWith('.feature')) ?? 'features/bonsai.feature'
   const pending = new Map<string, string>()
   if (!files.includes(bindings))
     pending.set(
       bindings,
-      [
-        '// Connect named handlers from your application to the actions in your contracts.',
-        "// import { yourHandler } from './src/your-module.ts'",
-        "// export const actions = { 'your-action': yourHandler }",
-        'export const actions = {}',
-        '',
-      ].join('\n'),
+      bindings.endsWith('.py')
+        ? '# Connect named handlers from your application to your contracts.\n# from your_module import your_handler\n# actions = {"your-action": your_handler}\nactions = {}\n'
+        : [
+            '// Connect named handlers from your application to the actions in your contracts.',
+            "// import { yourHandler } from './src/your-module.ts'",
+            "// export const actions = { 'your-action': yourHandler }",
+            'export const actions = {}',
+            '',
+          ].join('\n'),
     )
   if (!files.includes(feature))
     pending.set(
       feature,
       [
         '# Replace this commented example with a contract for a real application handler.',
-        '# Register that handler in bonsai.bindings.ts (or your existing bindings.ts).',
+        bindings.endsWith('.py')
+          ? `# Register that handler in ${bindings}.`
+          : '# Register that handler in bonsai.bindings.ts (or your existing bindings.ts).',
         '# Feature: Describe an observable product behavior',
         '#   Scenario: Describe one expected outcome',
         '#     When I invoke "your-action" with {}',

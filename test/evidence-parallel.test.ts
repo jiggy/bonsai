@@ -159,6 +159,10 @@ while (true) Atomics.wait(wait, 0, 0, 1000)
   const stopped = () => {
     for (const file of started()) {
       const pid = Number(readFileSync(join(fixture.root, file), 'utf8'))
+      assert.ok(
+        Number.isSafeInteger(pid) && pid > 0,
+        'A published worker marker must contain a complete PID',
+      )
       assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' }, `Worker ${pid} is still alive`)
     }
   }

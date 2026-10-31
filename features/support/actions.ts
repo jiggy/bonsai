@@ -15,12 +15,15 @@ import { projectBehavior } from './project-behavior.ts'
 import { checkUx } from './ux.ts'
 import { checkSupportingSuite } from './runners.ts'
 import { checkControlDepth } from './control-depth.ts'
+import { checkPythonProject } from './python.ts'
 import { githubAction } from './github-action.ts'
 import { checkHtmlReport } from './report.ts'
 
 /** Fixture inputs arrange contexts; the action identity remains the public command. */
 export function checkProject(input: Record<string, unknown>) {
   switch (input.fixture) {
+    case 'python':
+      return checkPythonProject()
     case 'accounting':
       return checkAccounting(input as Parameters<typeof checkAccounting>[0])
     case 'ancestry':

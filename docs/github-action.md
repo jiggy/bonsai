@@ -173,3 +173,4 @@ of port methods during initialization cannot acquire it. This protects the
 JavaScript evidence path from transport replacement, prototype setters, and heap
 key recovery. It does not sandbox runner privileges, files, or native debuggers;
 the permissions and isolation limits above still apply.
+

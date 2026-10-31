@@ -125,11 +125,11 @@ test('trusted base structural policy cannot be relaxed by the candidate configur
   }
 })
 
-test('mixed maintained Python files leave optional diagnostics partial and a required metric incomplete', () => {
+test('maintained Python stubs leave optional diagnostics partial and a required metric incomplete', () => {
   const fixture = createProject({
     'app.ts': 'export function ready() { return { status: "ok" } }',
     'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
-    'support.py': '# Maintained source stays charged even without a depth adapter\n',
+    'support.pyi': '# Maintained source stays charged even without a depth adapter\n',
     'ready.feature':
       'Feature: Ready\nScenario: Readiness\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
   })
@@ -139,7 +139,7 @@ test('mixed maintained Python files leave optional diagnostics partial and a req
     const baseline = JSON.parse(legacy.stdout)
     assert.equal(baseline.snapshot.source.controlDepth.complete, false)
     assert.ok(
-      baseline.snapshot.source.files.some((file: { file: string }) => file.file === 'support.py'),
+      baseline.snapshot.source.files.some((file: { file: string }) => file.file === 'support.pyi'),
     )
     writeFileSync(
       join(fixture.root, 'bonsai.json'),
