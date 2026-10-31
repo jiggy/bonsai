@@ -106,7 +106,13 @@ test('conflicting report flags keep wrapped alert text readable without relying 
   const monochrome = run([...args, '--no-color'], { COLUMNS: '40' }, true)
   assert.equal(monochrome.status, 2, monochrome.stderr)
   assert.doesNotMatch(monochrome.stdout, /\x1b\[/)
-  assert.equal(plain, monochrome.stdout)
+  const elapsedLine = /^([ \t]*)\d+(?:\.\d+)?(?:ms|s)( elapsed)$/m
+  assert.match(plain, elapsedLine)
+  assert.match(monochrome.stdout, elapsedLine)
+  assert.equal(
+    plain.replace(elapsedLine, '$1<duration>$2'),
+    monochrome.stdout.replace(elapsedLine, '$1<duration>$2'),
+  )
 })
 
 test('human errors wrap to the diagnostic width and ASCII mode covers every structural glyph', () => {
