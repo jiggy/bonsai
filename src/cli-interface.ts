@@ -108,7 +108,7 @@ export const commands = {
       'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.',
     examples: [
       'bonsai check',
-      'bonsai check --report .bonsai/report.html',
+      'bonsai check --root examples/checkout --serial',
       'bonsai check --root examples/checkout --report .bonsai/report.html --json',
     ],
   },

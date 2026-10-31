@@ -1,14 +1,27 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { readConfig } from '../src/project.ts'
 import { createProject } from './project.ts'
 import { runCli } from './cli.ts'
 
+function nodeProject(...args: Parameters<typeof createProject>) {
+  const fixture = createProject(...args)
+  // The changed-cwd probes need the consuming project's real Node type dependencies.
+  symlinkSync(
+    fileURLToPath(new URL('../node_modules', import.meta.url)),
+    join(fixture.root, 'node_modules'),
+    'dir',
+  )
+  return fixture
+}
+
 function project(outcome: 'pass' | 'reject' | 'incomplete' = 'pass') {
-  return createProject(
+  return nodeProject(
     {
+      'package.json': '{"type":"module"}\n',
       'app.ts': `import { appendFileSync } from 'node:fs'
 export function ready() {
   appendFileSync(new URL('./handler-calls', import.meta.url), 'called\\n')
@@ -86,6 +99,65 @@ test('opt-in HTML preserves actual check JSON, every verdict, and one handler ex
   }
 })
 
+test('effective policy files stay protected through a selected root alias before execution', () => {
+  const fixture = project()
+  const alias = fixture.root + '-alias'
+  try {
+    const policy = join(fixture.root, 'trusted-policy.json')
+    const original = readFileSync(join(fixture.root, 'bonsai.json'))
+    writeFileSync(policy, original)
+    symlinkSync(fixture.root, alias, 'dir')
+    const result = invoke(alias, ['--json', '--policy', policy, '--report', 'trusted-policy.json'])
+    assert.equal(result.status, 2, result.stderr || result.stdout)
+    assert.equal(result.stdout, '')
+    const error = JSON.parse(result.stderr)
+    assert.equal(error.code, 'REPORT_PATH')
+    assert.match(error.error, /effective policy file/)
+    assert.deepEqual(readFileSync(policy), original)
+    assert.equal(existsSync(join(fixture.root, 'handler-calls')), false)
+  } finally {
+    rmSync(alias, { force: true })
+    fixture.dispose()
+  }
+})
+
+test('delivery revalidates an effective policy alias changed after report preflight', () => {
+  const fixture = nodeProject({
+    'package.json': '{"type":"module"}\n',
+    'app.ts': `import { appendFileSync, symlinkSync, unlinkSync } from 'node:fs'
+export function ready() {
+  appendFileSync(new URL('./handler-calls', import.meta.url), 'called\\n')
+  unlinkSync(new URL('./trusted-policy.json', import.meta.url))
+  symlinkSync('report.html', new URL('./trusted-policy.json', import.meta.url))
+  return { status: 'ok' }
+}
+`,
+    'bindings.ts':
+      "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
+    'ready.feature':
+      'Feature: Readiness\nScenario: Read the current status\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n',
+  })
+  try {
+    const policy = join(fixture.root, 'trusted-policy.json')
+    writeFileSync(policy, readFileSync(join(fixture.root, 'bonsai.json')))
+    const previous = '<!doctype html><title>Previous complete report</title>'
+    writeFileSync(join(fixture.root, 'report.html'), previous)
+    const result = invoke(fixture.root, ['--json', '--policy', policy, '--report', 'report.html'])
+    assert.equal(result.status, 1, result.stderr || result.stdout)
+    const report = JSON.parse(result.stdout)
+    assert.equal(report.decision.status, 'pass')
+    assert.equal(report.snapshot.evidence.checks[0].status, 'passed')
+    const error = JSON.parse(result.stderr)
+    assert.equal(error.code, 'REPORT_WRITE')
+    assert.match(error.error, /effective policy file/)
+    assert.equal(readFileSync(join(fixture.root, 'report.html'), 'utf8'), previous)
+    assert.equal(readFileSync(policy, 'utf8'), previous)
+    assert.equal(readFileSync(join(fixture.root, 'handler-calls'), 'utf8'), 'called\n')
+  } finally {
+    fixture.dispose()
+  }
+})
+
 test('quiet report paths resolve from the selected root and do not add stream output', () => {
   const fixture = project()
   try {
@@ -155,8 +227,9 @@ test('a late artifact failure preserves the actual gate decision and cannot make
     ['reject', 1],
     ['incomplete', 2],
   ] as const) {
-    const fixture = createProject(
+    const fixture = nodeProject(
       {
+        'package.json': '{"type":"module"}\n',
         'app.ts': `import { appendFileSync, mkdirSync } from 'node:fs'
 export function ready() {
   appendFileSync(new URL('./handler-calls', import.meta.url), 'called\\n')

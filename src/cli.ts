@@ -772,19 +772,24 @@ async function main(): Promise<void> {
   }
   const requestedReport = command === 'check' ? text('report') : undefined
   let reportDestination: string | undefined
+  let validateReportPath: ((path: string) => string) | undefined
   if (requestedReport !== undefined) {
     const { resolveReportDestination } = await import('./report/output.ts')
-    try {
-      reportDestination = resolveReportDestination(root, config, requestedReport)
+    validateReportPath = (path) => {
+      const destination = resolveReportDestination(root, config, path)
       if (
         isAbsolute(configFile) &&
         existsSync(configFile) &&
-        existsSync(reportDestination) &&
-        realpathSync(configFile) === realpathSync(reportDestination)
+        existsSync(destination) &&
+        realpathSync(configFile) === realpathSync(destination)
       )
         throw new Error('HTML report overlaps the effective policy file')
-      if (isAbsolute(configFile) && resolve(configFile) === resolve(reportDestination))
+      if (isAbsolute(configFile) && resolve(configFile) === resolve(destination))
         throw new Error('HTML report overlaps the effective policy file')
+      return destination
+    }
+    try {
+      reportDestination = validateReportPath(requestedReport)
     } catch (error) {
       throw new CliError(
         error instanceof Error ? error.message : String(error),
@@ -1003,7 +1008,7 @@ async function main(): Promise<void> {
   let reportSaved = false
   if (reportDestination) {
     try {
-      const { writeHtmlReport, resolveReportDestination } = await import('./report/output.ts')
+      const { writeHtmlReport } = await import('./report/output.ts')
       checkDeadline()
       const { renderHtmlReport } = await import('./report/render.ts')
       const html = renderHtmlReport(
@@ -1030,9 +1035,7 @@ async function main(): Promise<void> {
       await writeHtmlReport(reportDestination, html, {
         signal: cancellation.signal,
         checkDeadline,
-        validatePath: (path) => {
-          resolveReportDestination(root, config, path)
-        },
+        validatePath: validateReportPath,
       })
       reportSaved = true
       checkDeadline()

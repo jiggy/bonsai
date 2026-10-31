@@ -79,7 +79,7 @@ test('delivery timeout preserves an established incomplete status and reports th
           timeout: 45000,
           env: cliEnvironment({
             BONSAI_REPORT_TIMEOUT_MARKER: marker,
-            BUN_OPTIONS: [process.env.BUN_OPTIONS, '--preload ./report-timeout.js']
+            BUN_OPTIONS: [process.env.BUN_OPTIONS, `--preload=${join(fixture.root, 'report-timeout.js')}`]
               .filter(Boolean)
               .join(' '),
           }),
@@ -90,7 +90,7 @@ test('delivery timeout preserves an established incomplete status and reports th
       assert.equal(
         existsSync(marker),
         true,
-        'The positive marker proves the deadline dispatched during HTML delivery',
+        'The positive marker proves the deadline dispatched during HTML delivery: ' + (result.stderr || result.stdout).slice(0, 2000),
       )
       assert.equal(result.status, exitCode, result.stderr || result.stdout)
       assert.equal(JSON.parse(result.stdout).decision.status, outcome)
@@ -108,7 +108,7 @@ test('delivery timeout preserves an established incomplete status and reports th
   }
 })
 
-test('the deadline-dispatch preload observes actual named filesystem imports', () => {
+test('the absolute deadline-dispatch preload observes named filesystem imports from another cwd', () => {
   const fixture = createProject({ 'bindings.ts': 'export const actions = {}\n' })
   try {
     mkdirSync(join(fixture.root, 'src', 'report'), { recursive: true })
@@ -126,10 +126,13 @@ clearTimeout(timer)
     )
     const result = spawnSync(
       process.execPath,
-      ['--preload', './report-timeout.js', './src/cli.ts'],
+      [join(fixture.root, 'src', 'cli.ts')],
       {
-        cwd: fixture.root,
-        env: cliEnvironment({ BONSAI_REPORT_TIMEOUT_MARKER: marker }),
+        cwd: process.cwd(),
+        env: cliEnvironment({
+          BONSAI_REPORT_TIMEOUT_MARKER: marker,
+          BUN_OPTIONS: [process.env.BUN_OPTIONS, `--preload=${join(fixture.root, 'report-timeout.js')}`].filter(Boolean).join(' '),
+        }),
         encoding: 'utf8',
       },
     )
