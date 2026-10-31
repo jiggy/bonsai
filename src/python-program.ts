@@ -229,7 +229,7 @@ def analyze(request):
                     problem(file, node, "runtime builtins or operating-system context imports require a source adapter")
                 target = resolve_module(file, imported, level)
                 if target and member:
-                    submodule = resolve_module(file, imported + "." + member, level)
+                    submodule = resolve_module(file, (imported + "." if imported else "") + member, level)
                     if submodule:
                         if member in modules[target]["names"]:
                             problem(file, node, "ambiguous package member/submodule requires a source adapter")
@@ -307,7 +307,7 @@ def analyze(request):
             for item in ast.walk(visit):
                 if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load) and item.id not in local.names:
                     target = resolved(file, item.id)
-                    if target and target[0] in ("@builtin", "@stdlib") and target[1].split(".")[-1] in forbidden:
+                    if target and target[0] == "@builtin" and target[1] in forbidden:
                         problem(file, item, "runtime reflection requires a source adapter")
                     if target and target[0] in ("@builtin", "@stdlib"):
                         parent = parents.get(item)
@@ -352,7 +352,7 @@ def analyze(request):
                 if isinstance(item, ast.Call):
                     call = item.func
                     target = resolved(file, call.id) if isinstance(call, ast.Name) and call.id not in local.names else None
-                    if (target and target[0] in ("@builtin", "@stdlib") and target[1].split(".")[-1] in forbidden) or (isinstance(call, ast.Attribute) and call.attr in forbidden):
+                    if target and target[0] == "@builtin" and target[1] in forbidden:
                         problem(file, item, "reflection and dynamic imports require a source adapter")
                     if isinstance(call, ast.Name):
                         if target and target[0] not in ("@builtin", "@stdlib") and target[1] != "function":
@@ -360,12 +360,7 @@ def analyze(request):
                         if call.id in local.names:
                             problem(file, item, "dispatch through a local value requires a source adapter")
                         if target == ("@builtin", "open"):
-                            path = item.args[0] if item.args else next((keyword.value for keyword in item.keywords if keyword.arg == "file"), None)
-                            if not isinstance(path, ast.Constant) or not isinstance(path.value, str) or path.value.startswith(("/dev/", "/proc/", "/sys/")):
-                                problem(file, item, "computed, descriptor, and special-device writes require a source adapter")
-                            mode = item.args[1] if len(item.args) > 1 else next((keyword.value for keyword in item.keywords if keyword.arg == "mode"), None)
-                            if not isinstance(mode, ast.Constant) or not isinstance(mode.value, str) or not any(flag in mode.value for flag in "wax") or "+" in mode.value:
-                                problem(file, item, "external resource reads require a source adapter")
+                            problem(file, item, "external resource reads and writes require a source adapter")
                     elif isinstance(call, ast.Attribute):
                         base = resolved(file, call.value.id) if isinstance(call.value, ast.Name) and call.value.id not in local.names else None
                         if not base or base[0] not in ("@stdlib", "@module"):
