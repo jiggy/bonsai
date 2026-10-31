@@ -28,6 +28,23 @@ const files = (sources: Record<string, string>) => ({
 
 export const cases: FixtureCase[] = [
   {
+    name: 'local-primitive-path-aliases-retain-subprocess-entry',
+    bindings: 'bindings.ts',
+    feature,
+    files: files({
+      'handler.ts': `import { spawnSync as launch } from 'node:child_process'
+import { fileURLToPath as pathOf } from 'node:url'
+export function handle(input: unknown) {
+  const entry = pathOf(new URL('./entry.ts', import.meta.url))
+  const alias = entry
+  launch(process.execPath, [alias])
+  return { status: 'ok' }
+}
+`,
+      'entry.ts': "function start() { return 'started' }\nstart()\n",
+    }),
+  },
+  {
     name: 'namespace-reexport-alias-and-external-properties',
     bindings: 'bindings.ts',
     feature,

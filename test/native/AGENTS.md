@@ -22,6 +22,8 @@ The reference collector lives in `test/reference.ts` and uses development-only `
 
 Keep development commands small and their JSON reports versioned. Keep the native runtime and development oracle distinct; neither reference assumptions nor benchmark samples authorize a pass.
 
+Primitive local path aliases must preserve subprocess entry ancestry when pruning irrelevant symbol requests.
+
 ## Verification
 
 `bun run native:compare`, `bun run native:bench`, and the normal Bun suite's source conformance and native CLI regressions.

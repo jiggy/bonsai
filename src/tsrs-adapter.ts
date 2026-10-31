@@ -236,7 +236,9 @@ export async function createTsrsProgram(
     const importTargets: ts.Expression[] = []
     // A reference can only reach an owned declaration/export or an adapter binding.
     // Keep owned names and adapter bindings; native semantics still resolve
-    // aliases and shadows. Ordinary external property names need no query.
+    // aliases and shadows. Keep local const path aliases for the subprocess
+    // adapter and loader parameters for binding receipts; other local values and
+    // ordinary external property names cannot identify top-level components.
     const componentNames = new Set(['default'])
     const fileNames = new Map<string, Set<string>>()
     const collectNames = (node: ts.Node, names: Set<string>): void => {
@@ -248,11 +250,16 @@ export async function createTsrsProgram(
           ts.isImportSpecifier(node) ||
           ts.isNamespaceImport(node) ||
           ts.isImportEqualsDeclaration(node) ||
-          ts.isParameter(node) ||
+          (ts.isParameter(node) &&
+            ts.isFunctionDeclaration(node.parent) &&
+            node.parent.name?.text === 'loadActions') ||
           ts.isBindingElement(node) ||
           (ts.isVariableDeclaration(node) &&
             ts.isVariableDeclarationList(node.parent) &&
-            !!(node.parent.flags & ts.NodeFlags.Const)))
+            !!(node.parent.flags & ts.NodeFlags.Const) &&
+            node.initializer &&
+            (ts.isIdentifier(node.initializer) ||
+              (ts.isCallExpression(node.initializer) && node.initializer.arguments.length === 1))))
       )
         names.add(name.text)
       ts.forEachChild(node, (child) => collectNames(child, names))
@@ -361,6 +368,7 @@ export async function createTsrsProgram(
         // References use property-name identifiers, not whole accesses or ordinary
         // strings. Loader primitives can be a direct variable-initializer callee.
         if (
+          importTarget ||
           (ts.isIdentifier(node) &&
             (referenceNames.has(node.text) || componentNames.has(node.text))) ||
           (ts.isStringLiteralLike(node) && (importSpecifier || declarationNames.has(node))) ||
