@@ -162,6 +162,7 @@ export async function snapshot(
             hash,
             config.policy.maxFeedbackMs - (performance.now() - started),
             signal,
+            source,
           )
           for (const evidence of result.runnerEvidence) evidence.identity = result.identity
         }

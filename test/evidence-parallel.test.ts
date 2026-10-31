@@ -129,13 +129,14 @@ function blockingProject(count = 4, crash = false, descendants = false) {
     ).join('\n')
   const fixture = createProject({
     'package.json': '{"type":"module"}',
-    'handler.ts': `import { existsSync, writeFileSync } from 'node:fs'
+    'handler.ts': `import { existsSync, writeFileSync, renameSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 const wait = new Int32Array(new SharedArrayBuffer(4))
 export function block(input: { id: number }) {
   const file = (name: string) => fileURLToPath(new URL(name, import.meta.url))
-  writeFileSync(file('started-' + input.id), String(process.pid))
+  writeFileSync(file('starting-' + input.id), String(process.pid))
+  renameSync(file('starting-' + input.id), file('started-' + input.id))
   ${descendants ? "spawnSync(process.execPath, [file('descendant.ts'), file('descendant-' + input.id)], { stdio: 'ignore' })" : ''}
   ${crash ? "if (input.id === 0) { while (!existsSync(file('started-1'))) Atomics.wait(wait, 0, 0, 5); process.exit(17) }" : ''}
   while (!existsSync(file('release-' + input.id))) Atomics.wait(wait, 0, 0, 5)
@@ -143,8 +144,10 @@ export function block(input: { id: number }) {
   return { id: input.id }
 }`,
     'bindings.ts': "import { block } from './handler.ts'\nexport const actions = { block }",
-    'descendant.ts': `import { writeFileSync } from 'node:fs'
-writeFileSync(process.argv[2]!, String(process.pid))
+    'descendant.ts': `import { writeFileSync, renameSync } from 'node:fs'
+const marker = process.argv[2]!
+writeFileSync(marker + '.pending', String(process.pid))
+renameSync(marker + '.pending', marker)
 const wait = new Int32Array(new SharedArrayBuffer(4))
 while (true) Atomics.wait(wait, 0, 0, 1000)
 `,
@@ -395,7 +398,17 @@ test('isolated cancellation and deadlines stop descendants of synchronous handle
       const descendants = [0, 1].map((id) =>
         Number(readFileSync(join(fixture.root, `descendant-${id}`), 'utf8')),
       )
-      for (const pid of descendants) assert.equal(noLiveProcess(pid), false)
+      for (const pid of descendants) {
+        assert.ok(
+          Number.isSafeInteger(pid) && pid > 0,
+          'A ready descendant publishes a positive PID',
+        )
+        assert.equal(
+          noLiveProcess(pid),
+          false,
+          `${mode}: descendant ${pid} must still be live before the stop condition`,
+        )
+      }
       if (mode === 'cancel') cancellation.abort()
       await assert.rejects(pending, mode === 'deadline' ? /deadline expired/ : /interrupted/)
       fixture.stopped()

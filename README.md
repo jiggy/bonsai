@@ -662,7 +662,10 @@ regenerated. This does not authenticate hostile execution or attest every
 installed dependency.
 
 Optional `runners` in `bonsai.json` require fresh Vitest JSON, Cucumber Messages,
-or Stryker JSON reports in addition to product observations. Missing, failed,
+or Stryker JSON reports in addition to product observations. Vitest coverage can
+opt into `coverage.scope: "maintained-production"` to require per-file evidence
+for the collected runtime-bearing production files and recompute floors over
+that scope; aggregate-only configurations retain their existing behavior. Missing, failed,
 skipped, stale, or insufficient results block the configured gate. Coverage and
 mutation floors grant no allowance or ancestry. See [supporting verification](docs/verification.md)
 for exact supported formats, runtime requirements, limits, and configuration.

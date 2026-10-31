@@ -73,9 +73,12 @@ function validSource(value: unknown): value is Source {
     value.files.every(
       (file) =>
         record(file) &&
-        knownKeys(file, ['file', 'tokens']) &&
+        knownKeys(file, ['file', 'tokens', 'executable', 'kind']) &&
         typeof file.file === 'string' &&
-        integer(file.tokens),
+        integer(file.tokens) &&
+        (file.executable === undefined || typeof file.executable === 'boolean') &&
+        (file.kind === undefined ||
+          (typeof file.kind === 'string' && ['production', 'test', 'binding'].includes(file.kind))),
     ) &&
     Array.isArray(value.components) &&
     value.components.every(
@@ -140,6 +143,15 @@ function consistentSource(source: Source, files: string[], bindings: string): bo
   // Incomplete graphs may contain duplicate overloads; they already block evidence.
   if (source.problems.length) return true
   const measured = new Set(files)
+  for (const file of source.files) {
+    const kind =
+      file.file === bindings
+        ? 'binding'
+        : /(?:^|\/)(?:test|tests)\/|\.(?:test|spec)\./.test(file.file)
+          ? 'test'
+          : 'production'
+    if (file.kind !== undefined && file.kind !== kind) return false
+  }
   const components = new Map(source.components.map((component) => [component.id, component]))
   if (components.size !== source.components.length) return false
   for (const component of components.values()) {

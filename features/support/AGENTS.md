@@ -39,3 +39,4 @@ The trusted-budget example accesses its Git checkout through a symlink, exercisi
 
 None.
 
+The scoped-coverage arrangement uses actual supporting assertions and explicit executed-function counters to emit compatible per-file coverage records. The omitted-module case deliberately narrows those records. It is not a real Vitest or coverage-engine installation; pinned technical smoke validates upstream compatibility separately.
