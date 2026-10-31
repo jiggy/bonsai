@@ -123,7 +123,7 @@ export function live() {
     }
     const options = ['--root', alias ?? fixture.root, '--base', 'HEAD']
     if (kind === 'explicit-policy') options.push('--policy', join(fixture.root, 'bonsai.json'))
-    const command = operation === 'check' ? ['check'] : ['config', 'show']
+    const command = operation === 'check' ? ['check', '--serial'] : ['config', 'show']
     const report = invoke([...command, ...options])
     return {
       ...report,
@@ -215,7 +215,7 @@ export function unused() { return 42 }
       fixture.config.maintained = fixture.config.maintained.filter((file) => file !== 'dead.ts')
       write(fixture.root, 'bonsai.json', JSON.stringify(fixture.config))
     }
-    const report = invoke(['check', '--root', fixture.root])
+    const report = invoke(['check', '--serial', '--root', fixture.root])
     return {
       ...report,
       handlerExecuted: existsSync(join(fixture.root, 'handler-ran')),

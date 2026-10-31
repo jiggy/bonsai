@@ -163,6 +163,9 @@ export function validSnapshot(value: unknown): value is SerializedSnapshot {
         (analysis.engine === 'rust' &&
           analysis.backend === 'tsrs' &&
           analysis.validation === 'native-diagnostics') ||
+        (analysis.engine === 'rust' &&
+          analysis.backend === 'rust-analyzer' &&
+          analysis.validation === 'rust-analyzer') ||
         (analysis.engine === 'python' &&
           analysis.backend === 'python-ast' &&
           analysis.validation === 'python-ast')

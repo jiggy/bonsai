@@ -203,6 +203,7 @@ Technical tests preserve the detailed proofs beside the relevant implementation.
 | Product rule | Specification |
 | --- | --- |
 | Admission outcomes and supported analysis boundaries | `features/check.feature` |
+| Native Python and Rust adoption | `features/adoption.feature` |
 | Surface deduplication, budget boundaries, and full retained cost | `features/accounting.feature` |
 | Production/test ancestry and effective policy scope | `features/ancestry.feature` |
 | Required execution, freshness, deadlines, and cancellation | `features/evidence.feature` |
