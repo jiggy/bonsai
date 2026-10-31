@@ -25,12 +25,13 @@ import { runCli, executable, cliEnvironment } from './cli.ts'
 const contract =
   'Feature: Native Rust application\nScenario: Read an order\n When I invoke "ready" with {}\n Then response "status" equals "ready"\n'
 
-
 // Explicitly trusted compiler instrumentation preserves lifecycle/integrity probes
 // without granting filesystem or thread operations to maintained candidate code.
 function instrumentRust(before: string, analyzerOverride?: string, events?: string) {
   const installed = (name: string) => {
-    const result = spawnSync('rustup', ['which', '--toolchain', '1.86.0', name], { encoding: 'utf8' })
+    const result = spawnSync('rustup', ['which', '--toolchain', '1.86.0', name], {
+      encoding: 'utf8',
+    })
     assert.equal(result.status, 0, result.stderr)
     return result.stdout.trim()
   }
@@ -39,19 +40,47 @@ function instrumentRust(before: string, analyzerOverride?: string, events?: stri
   const tools = mkdtempSync(join(tmpdir(), 'bonsai-trusted-rust-probe-'))
   const wrapper = join(tools, 'rustc')
   const needle = 'let value = handler(&payload);'
-  writeFileSync(wrapper, '#!' + process.execPath + '\n' + [
-    'import { readFileSync, writeFileSync, appendFileSync } from "node:fs";',
-    'import { spawnSync } from "node:child_process";',
-    'const args = process.argv.slice(2); const source = args.find(arg => arg.endsWith("/harness.rs"));',
-    (events ? 'if (source) appendFileSync(' + JSON.stringify(events) + ', "compile\\n");' : ''),
-    'if (source) { const text = readFileSync(source, "utf8"); const needle = ' + JSON.stringify(needle) + '; if (!text.includes(needle)) process.exit(86); writeFileSync(source, text.replace(needle, ' + JSON.stringify(before + '\n' + needle) + ')); }',
-    'const result = spawnSync(' + JSON.stringify(rustc) + ', args, { stdio: "inherit" }); process.exit(result.status ?? 1);',
-  ].join('\n') + '\n', { mode: 0o755 })
-  writeFileSync(join(tools, 'rustup'), '#!' + process.execPath + '\nimport { appendFileSync } from "node:fs"; const tools = ' +
-    JSON.stringify({ rustc: wrapper, 'rust-analyzer': analyzer }) +
-    '; ' + (events ? 'if (process.argv.at(-1) === "rust-analyzer") appendFileSync(' + JSON.stringify(events) + ', "capture\\n"); ' : '') + 'process.stdout.write(tools[process.argv.at(-1)] + "\\n");\n', { mode: 0o755 })
-  return { env: cliEnvironment({ PATH: tools + ':' + process.env.PATH }),
-    dispose: () => rmSync(tools, { recursive: true, force: true }) }
+  writeFileSync(
+    wrapper,
+    '#!' +
+      process.execPath +
+      '\n' +
+      [
+        'import { readFileSync, writeFileSync, appendFileSync } from "node:fs";',
+        'import { spawnSync } from "node:child_process";',
+        'const args = process.argv.slice(2); const source = args.find(arg => arg.endsWith("/harness.rs"));',
+        events ? 'if (source) appendFileSync(' + JSON.stringify(events) + ', "compile\\n");' : '',
+        'if (source) { const text = readFileSync(source, "utf8"); const needle = ' +
+          JSON.stringify(needle) +
+          '; if (!text.includes(needle)) process.exit(86); writeFileSync(source, text.replace(needle, ' +
+          JSON.stringify(before + '\n' + needle) +
+          ')); }',
+        'const result = spawnSync(' +
+          JSON.stringify(rustc) +
+          ', args, { stdio: "inherit" }); process.exit(result.status ?? 1);',
+      ].join('\n') +
+      '\n',
+    { mode: 0o755 },
+  )
+  writeFileSync(
+    join(tools, 'rustup'),
+    '#!' +
+      process.execPath +
+      '\nimport { appendFileSync } from "node:fs"; const tools = ' +
+      JSON.stringify({ rustc: wrapper, 'rust-analyzer': analyzer }) +
+      '; ' +
+      (events
+        ? 'if (process.argv.at(-1) === "rust-analyzer") appendFileSync(' +
+          JSON.stringify(events) +
+          ', "capture\\n"); '
+        : '') +
+      'process.stdout.write(tools[process.argv.at(-1)] + "\\n");\n',
+    { mode: 0o755 },
+  )
+  return {
+    env: cliEnvironment({ PATH: tools + ':' + process.env.PATH }),
+    dispose: () => rmSync(tools, { recursive: true, force: true }),
+  }
 }
 
 test('a Rust team checks ordinary native bindings without a TypeScript bridge', {
@@ -90,7 +119,12 @@ test('a Rust team checks ordinary native bindings without a TypeScript bridge', 
     assert.equal(result.status, 0)
     assert.equal(report.decision.status, 'pass')
     assert.equal(report.snapshot.evidence.complete, true)
-    assert.deepEqual(readFileSync(events, 'utf8').trim().split('\n'), ['capture', 'capture', 'compile', 'capture'])
+    assert.deepEqual(readFileSync(events, 'utf8').trim().split('\n'), [
+      'capture',
+      'capture',
+      'compile',
+      'capture',
+    ])
     assert.deepEqual(
       report.snapshot.evidence.checks.map((check: { status: string }) => check.status),
       ['passed'],
@@ -391,8 +425,13 @@ test('native Rust graph, process state, unsupported boundaries and source drift 
   assert.equal(structural.report.decision.status, 'incomplete')
   assert.equal(structural.report.snapshot.evidence, undefined)
   assert.ok(structural.report.snapshot.source.problems.join('\n').includes('control-depth-v1'))
-  const drift = check({}, [], {}, root =>
-    'std::fs::write(' + JSON.stringify(join(root, 'orders.rs')) + ', "changed").unwrap();')
+  const drift = check(
+    {},
+    [],
+    {},
+    (root) =>
+      'std::fs::write(' + JSON.stringify(join(root, 'orders.rs')) + ', "changed").unwrap();',
+  )
   assert.equal(drift.exitCode, 2)
   assert.ok(
     drift.report.snapshot.source.problems.includes('Maintained files changed during verification'),
@@ -423,7 +462,8 @@ test('Rust explanation charges actual literal bytes and never runs a handler', {
   const explainCost = (literal: string, spaced = false) => {
     writeFileSync(join(fixture.root, 'orders.rs'), source(literal, spaced))
     const result = runCli(['explain', 'orders.rs', '--root', fixture.root, '--json'], {
-      timeout: 60000, env: probe.env,
+      timeout: 60000,
+      env: probe.env,
     })
     const report = JSON.parse(result.stdout || result.stderr)
     assert.equal(result.status, 0, result.stdout || result.stderr)
@@ -443,7 +483,10 @@ test('Rust explanation charges actual literal bytes and never runs a handler', {
     assert.equal(multibyte - short, Math.ceil(Buffer.byteLength('"é🦀"') / 4) - 1)
     assert.equal(explainCost('"é🦀"', true), multibyte)
     writeFileSync(join(fixture.root, 'orders.rs'), source('r#"{"status":"ready"}"#', false))
-    const checked = runCli(['check', '--root', fixture.root, '--json'], { timeout: 60000, env: probe.env })
+    const checked = runCli(['check', '--root', fixture.root, '--json'], {
+      timeout: 60000,
+      env: probe.env,
+    })
     assert.equal(checked.status, 0, checked.stdout + checked.stderr)
     assert.equal(existsSync(marker), true, 'The trusted marker must prove actual handler execution')
   } finally {
@@ -461,14 +504,17 @@ test('Rust cancellation reaps the native application and candidate PATH tools ne
   const fixture = project(
     {
       'bindings.rs': registry,
-      'orders.rs':
-        'pub fn ready(_input: &str) -> String { loop { std::hint::spin_loop(); } }\n',
+      'orders.rs': 'pub fn ready(_input: &str) -> String { loop { std::hint::spin_loop(); } }\n',
       'orders.feature': contract,
     },
     {},
     { bindings: 'bindings.rs' },
   )
-  const probe = instrumentRust('std::fs::write(' + JSON.stringify(join(fixture.root, 'started')) + ', std::process::id().to_string()).unwrap();')
+  const probe = instrumentRust(
+    'std::fs::write(' +
+      JSON.stringify(join(fixture.root, 'started')) +
+      ', std::process::id().to_string()).unwrap();',
+  )
   let child: ReturnType<typeof spawn> | undefined
   let closed: Promise<number | null> | undefined
   try {
@@ -543,13 +589,21 @@ test('a disposable Rust analyzer content change blocks the completed native chec
     {
       'bindings.rs':
         'mod orders;\npub fn actions() -> &\'static [(&\'static str, fn(&str) -> String)] { &[("ready", orders::ready)] }\n',
-      'orders.rs': 'pub fn ready(_input: &str) -> String { String::from(r#"{"status":"ready"}"#) }\n',
+      'orders.rs':
+        'pub fn ready(_input: &str) -> String { String::from(r#"{"status":"ready"}"#) }\n',
       'orders.feature': contract,
     },
     {},
     { bindings: 'bindings.rs' },
   )
-  const probe = instrumentRust('let mut bytes = std::fs::read(' + JSON.stringify(copied) + ').unwrap(); bytes.push(0); std::fs::write(' + JSON.stringify(copied) + ', bytes).unwrap();', copied)
+  const probe = instrumentRust(
+    'let mut bytes = std::fs::read(' +
+      JSON.stringify(copied) +
+      ').unwrap(); bytes.push(0); std::fs::write(' +
+      JSON.stringify(copied) +
+      ', bytes).unwrap();',
+    copied,
+  )
   try {
     const result = runCli(['check', '--root', fixture.root, '--json'], {
       timeout: 60000,
@@ -599,18 +653,31 @@ test('native Rust transport ignores flushed stdout for unsupported adversarial h
       )
       try {
         const required = compileContracts([{ file: 'orders.feature', text: contract }])
-        const hash = fingerprint(fixture.root, inventory(fixture.root, fixture.config.maintained), fixture.config)
-        const pending = runEvidence(fixture.root, fixture.config, required, hash,
-          fixture.config.policy.maxFeedbackMs, undefined,
-          { profile: serial ? 'in-process-v1' : 'isolated-scenarios-v1', workers: 1 })
+        const hash = fingerprint(
+          fixture.root,
+          inventory(fixture.root, fixture.config.maintained),
+          fixture.config,
+        )
+        const pending = runEvidence(
+          fixture.root,
+          fixture.config,
+          required,
+          hash,
+          fixture.config.policy.maxFeedbackMs,
+          undefined,
+          { profile: serial ? 'in-process-v1' : 'isolated-scenarios-v1', workers: 1 },
+        )
         if (blocked) await assert.rejects(pending, /deadline/)
         else {
           const evidence = await pending
           assert.equal(evidence.complete, true)
           assert.equal(evidence.checks[0]!.status, 'failed')
         }
-        assert.equal(existsSync(join(fixture.root, 'forged-frame-written')), true,
-          'The unsupported adversarial handler must actually flush its forged stdout')
+        assert.equal(
+          existsSync(join(fixture.root, 'forged-frame-written')),
+          true,
+          'The unsupported adversarial handler must actually flush its forged stdout',
+        )
       } finally {
         fixture.dispose()
       }
@@ -672,36 +739,77 @@ test('interrupted Rust inventory preserves large literal costs without a compile
   }
 })
 
-
 test('Rust JSON integers cannot pass observations by rounding and unrelated fields stay independent', {
-  skip: process.env.BONSAI_RUST_PROBE !== '1', timeout: 180000,
+  skip: process.env.BONSAI_RUST_PROBE !== '1',
+  timeout: 180000,
 }, () => {
   const cases = [
-    { json: '{"count":9007199254740993}', selector: 'count', expected: '9007199254740992', status: 'reject' },
-    { json: '{"count":{"values":[9007199254740993]}}', selector: 'count', expected: '{"values":[9007199254740992]}', status: 'reject' },
-    { json: '{"count":9007199254740991}', selector: 'count', expected: '9007199254740991', status: 'pass' },
-    { json: '{"status":"ready","unused":9007199254740993}', selector: 'status', expected: '"ready"', status: 'pass' },
+    {
+      json: '{"count":9007199254740993}',
+      selector: 'count',
+      expected: '9007199254740992',
+      status: 'reject',
+    },
+    {
+      json: '{"count":{"values":[9007199254740993]}}',
+      selector: 'count',
+      expected: '{"values":[9007199254740992]}',
+      status: 'reject',
+    },
+    {
+      json: '{"count":9007199254740991}',
+      selector: 'count',
+      expected: '9007199254740991',
+      status: 'pass',
+    },
+    {
+      json: '{"status":"ready","unused":9007199254740993}',
+      selector: 'status',
+      expected: '"ready"',
+      status: 'pass',
+    },
   ]
-  for (const serial of [false, true]) for (const value of cases) {
-    const fixture = project({
-      'bindings.rs': 'mod orders;\npub fn actions() -> &\'static [(&\'static str, fn(&str) -> String)] { &[("ready", orders::ready)] }\n',
-      'orders.rs': 'pub fn ready(_input: &str) -> String { String::from(r#"' + value.json + '"#) }\n',
-      'orders.feature': 'Feature: Native integer values\nScenario: Read exact values\n When I invoke "ready" with {}\n Then response "' + value.selector + '" equals ' + value.expected + '\n',
-    }, {}, { bindings: 'bindings.rs' })
-    try {
-      const result = runCli(['check', '--root', fixture.root, '--json', ...(serial ? ['--serial'] : [])], { timeout: 60000 })
-      const report = JSON.parse(result.stdout || result.stderr)
-      assert.equal(report.decision.status, value.status, result.stdout + result.stderr)
-      assert.equal(report.snapshot.evidence.complete, true)
-      assert.equal(report.snapshot.evidence.checks[0].status, value.status === 'pass' ? 'passed' : 'failed')
-      if (value.status === 'reject') assert.match(report.snapshot.evidence.checks[0].error, /clone|Symbol|safe range/i)
-    } finally { fixture.dispose() }
-  }
+  for (const serial of [false, true])
+    for (const value of cases) {
+      const fixture = project(
+        {
+          'bindings.rs':
+            'mod orders;\npub fn actions() -> &\'static [(&\'static str, fn(&str) -> String)] { &[("ready", orders::ready)] }\n',
+          'orders.rs':
+            'pub fn ready(_input: &str) -> String { String::from(r#"' + value.json + '"#) }\n',
+          'orders.feature':
+            'Feature: Native integer values\nScenario: Read exact values\n When I invoke "ready" with {}\n Then response "' +
+            value.selector +
+            '" equals ' +
+            value.expected +
+            '\n',
+        },
+        {},
+        { bindings: 'bindings.rs' },
+      )
+      try {
+        const result = runCli(
+          ['check', '--root', fixture.root, '--json', ...(serial ? ['--serial'] : [])],
+          { timeout: 60000 },
+        )
+        const report = JSON.parse(result.stdout || result.stderr)
+        assert.equal(report.decision.status, value.status, result.stdout + result.stderr)
+        assert.equal(report.snapshot.evidence.complete, true)
+        assert.equal(
+          report.snapshot.evidence.checks[0].status,
+          value.status === 'pass' ? 'passed' : 'failed',
+        )
+        if (value.status === 'reject')
+          assert.match(report.snapshot.evidence.checks[0].error, /clone|Symbol|safe range/i)
+      } finally {
+        fixture.dispose()
+      }
+    }
 })
 
-
 test('Rust filesystem and thread capabilities cannot replace the completed result channel', {
-  skip: process.env.BONSAI_RUST_PROBE !== '1', timeout: 120000,
+  skip: process.env.BONSAI_RUST_PROBE !== '1',
+  timeout: 120000,
 }, () => {
   const sources = [
     'use std::fs::write as replace;\npub fn ready(_input: &str) -> String { replace("must-not-run", b"ran").unwrap(); String::from(r#"{"status":"ready"}"#) }\n',
@@ -709,10 +817,16 @@ test('Rust filesystem and thread capabilities cannot replace the completed resul
     'pub fn ready(_input: &str) -> String { std::fs::write("must-not-run", b"ran").unwrap(); std::thread::spawn(|| { let directory = std::env::current_exe().unwrap(); for entry in std::fs::read_dir(directory.parent().unwrap()).unwrap() { let result = entry.unwrap().path().join("result"); let temporary = result.with_extension("forged"); let payload = br#"{"status":"ready"}"#; let mut frame = (payload.len() as u32).to_be_bytes().to_vec(); frame.extend_from_slice(payload); let _ = std::fs::write(&temporary, frame); let _ = std::fs::rename(&temporary, &result); } }); String::from(r#"{"status":"rejected"}"#) }\n',
   ]
   for (const code of sources) {
-    const fixture = project({
-      'bindings.rs': 'mod orders;\npub fn actions() -> &\'static [(&\'static str, fn(&str) -> String)] { &[("ready", orders::ready)] }\n',
-      'orders.rs': code, 'orders.feature': contract,
-    }, {}, { bindings: 'bindings.rs' })
+    const fixture = project(
+      {
+        'bindings.rs':
+          'mod orders;\npub fn actions() -> &\'static [(&\'static str, fn(&str) -> String)] { &[("ready", orders::ready)] }\n',
+        'orders.rs': code,
+        'orders.feature': contract,
+      },
+      {},
+      { bindings: 'bindings.rs' },
+    )
     try {
       const result = runCli(['check', '--root', fixture.root, '--json'], { timeout: 60000 })
       const report = JSON.parse(result.stdout || result.stderr)
@@ -721,6 +835,8 @@ test('Rust filesystem and thread capabilities cannot replace the completed resul
       assert.match(report.snapshot.source.problems.join('\n'), /filesystem\/thread capabilities/)
       assert.equal(report.snapshot.evidence, undefined)
       assert.equal(existsSync(join(fixture.root, 'must-not-run')), false)
-    } finally { fixture.dispose() }
+    } finally {
+      fixture.dispose()
+    }
   }
 })

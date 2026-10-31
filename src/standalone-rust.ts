@@ -528,8 +528,9 @@ async function collectRust(
             node,
           )
         if (
-          standard && (targetUri.includes('/library/std/src/process') ||
-          targetUri.includes('/library/std/src/os/'))
+          standard &&
+          (targetUri.includes('/library/std/src/process') ||
+            targetUri.includes('/library/std/src/os/'))
         )
           problem(
             'Rust subprocess/FFI adapters are not supported',

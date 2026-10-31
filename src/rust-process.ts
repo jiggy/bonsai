@@ -354,7 +354,7 @@ export async function prepareRustProgram(
   checkedContext?: RustTools,
 ) {
   const target = projectBindingTarget(root, config, fingerprint)
-  const tools = checkedContext ?? await rustTools(signal, timeoutMs, root)
+  const tools = checkedContext ?? (await rustTools(signal, timeoutMs, root))
   if (!sameExecutionIdentity(analysisIdentity(compiler), analysisIdentity(tools.compiler)))
     throw new Error('Rust toolchain changed before compilation')
   const directory = mkdtempSync(join(tmpdir(), 'bonsai-rust-program-'))

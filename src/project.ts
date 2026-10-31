@@ -165,7 +165,9 @@ export async function snapshot(
           )
         const current = standaloneRust
           ? analysisIdentity(rustContext!.compiler)
-          : python ? applicationIdentity(identity) : executionIdentity()
+          : python
+            ? applicationIdentity(identity)
+            : executionIdentity()
         if (!sameExecutionIdentity(identity, current))
           source.problems.push('Checker or toolchain changed during source analysis')
       }
