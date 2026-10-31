@@ -263,6 +263,49 @@ test('default verification uses available CPU capacity and never starts more wor
   }
 })
 
+test('each queued application revalidates maintained inputs before importing its bindings', async () => {
+  const fixture = createProject({
+    'package.json': '{"type":"module"}',
+    'data.json': '{"revision":1}',
+    'handler.ts': `import { writeFileSync } from 'node:fs'
+export function advance(input: { id: number }) {
+  if (input.id === 0) writeFileSync(new URL('./data.json', import.meta.url), '{"revision":2}')
+  else writeFileSync(new URL('./second-ran', import.meta.url), 'ran')
+  return { id: input.id }
+}`,
+    'bindings.ts': "import { advance } from './handler.ts'\nexport const actions = { advance }",
+    'state.feature': '',
+  })
+  const text = `Feature: Fresh application inputs
+Scenario: First application
+ When I invoke "advance" with {"id":0}
+ Then response "id" equals 0
+Scenario: Queued application
+ When I invoke "advance" with {"id":1}
+ Then response "id" equals 1
+`
+  try {
+    writeFileSync(join(fixture.root, 'state.feature'), text)
+    const config = readConfig(fixture.root)
+    await assert.rejects(
+      runEvidence(
+        fixture.root,
+        config,
+        compileContracts([{ file: 'state.feature', text }]),
+        identity(fixture.root, config),
+        15000,
+        undefined,
+        isolated(1),
+      ),
+      /Maintained files changed before binding import/,
+    )
+    assert.equal(readFileSync(join(fixture.root, 'data.json'), 'utf8'), '{"revision":2}')
+    assert.equal(existsSync(join(fixture.root, 'second-ran')), false)
+  } finally {
+    fixture.dispose()
+  }
+})
+
 test('isolated verification overlaps synchronous actions, bounds workers, and reports contract order', async () => {
   const fixture = blockingProject()
   const cancellation = new AbortController()

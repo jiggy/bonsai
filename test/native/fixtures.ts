@@ -28,6 +28,21 @@ const files = (sources: Record<string, string>) => ({
 
 export const cases: FixtureCase[] = [
   {
+    name: 'namespace-reexport-alias-and-external-properties',
+    bindings: 'bindings.ts',
+    feature,
+    files: files({
+      'handler.ts': `import * as operations from './exports.ts'
+import * as defaults from './default.ts'
+export function handle() { return { status: operations.exposed().toLowerCase(), other: defaults.default() } }
+`,
+      'exports.ts': "export { original as exposed } from './implementation.ts'\n",
+      'default.ts': "export default function originalDefault() { return 'OK' }\n",
+      'implementation.ts':
+        "export function original() { return 'OK' }\nexport function unused() { return 'unused' }\n",
+    }),
+  },
+  {
     name: 'checkout',
     bindings: 'bindings.ts',
     feature,
