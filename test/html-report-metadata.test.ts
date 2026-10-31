@@ -17,7 +17,10 @@ test('report discovery preserves console formats and stays scoped to check', () 
   assert.deepEqual(help.flags.report.scope, ['check'])
   assert.equal(help.flags.output.short, 'o')
   assert.deepEqual(help.flags.output.choices, ['auto', 'human', 'plain', 'json'])
-  assert.equal(help.commands.check.examples.filter((example: string) => example.includes('--report')).length, 2)
+  assert.equal(
+    help.commands.check.examples.filter((example: string) => example.includes('--report')).length,
+    2,
+  )
   for (const command of ['init', 'explain', 'config', 'version']) {
     const response = runCli(['help', command, '--json'])
     assert.equal(response.status, 0, response.stderr)
@@ -59,16 +62,26 @@ _bonsai
 for candidate in "\${COMPREPLY[@]}"; do printf '%s\\0' "$candidate"; done
 `
     const complete = (...words: string[]) => {
-      const response = spawnSync('bash', ['--noprofile', '--norc', '-c', probe, 'completion', script, ...words], { cwd: root, encoding: 'utf8' })
+      const response = spawnSync(
+        'bash',
+        ['--noprofile', '--norc', '-c', probe, 'completion', script, ...words],
+        { cwd: root, encoding: 'utf8' },
+      )
       assert.equal(response.status, 0, response.stderr)
       assert.equal(response.stderr, '')
       return response.stdout.split('\0').filter(Boolean)
     }
     assert.deepEqual(complete('check', '--rep'), ['--report'])
     assert.deepEqual(complete('explain', '--rep'), [])
-    assert.deepEqual(complete('check', '--root', 'project', '--report', 'out/pro'), ['out/project.html'])
-    assert.deepEqual(complete('check', '--root=project', '--report=out/pro'), ['--report=out/project.html'])
-    assert.deepEqual(complete('check', '--root', 'project', '--policy', 'out/loc'), ['out/local.json'])
+    assert.deepEqual(complete('check', '--root', 'project', '--report', 'out/pro'), [
+      'out/project.html',
+    ])
+    assert.deepEqual(complete('check', '--root=project', '--report=out/pro'), [
+      '--report=out/project.html',
+    ])
+    assert.deepEqual(complete('check', '--root', 'project', '--policy', 'out/loc'), [
+      'out/local.json',
+    ])
     assert.deepEqual(complete('explain', '--root', 'project', '--report', 'out/pro'), [])
   } finally {
     rmSync(root, { recursive: true, force: true })

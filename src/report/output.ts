@@ -59,12 +59,24 @@ export function resolveReportDestination(root: string, config: Config, value: st
     if (within(canonicalRoot, real)) {
       if (/^(?:\.git|\.hg|\.svn)(?:\/|$)/.test(local))
         throw new Error(`HTML report cannot replace version-control data: ${value}`)
-      if (['bonsai.json', 'bun.lock', 'bun.lockb', 'package-lock.json', 'npm-shrinkwrap.json', 'yarn.lock', 'pnpm-lock.yaml'].includes(local))
+      if (
+        [
+          'bonsai.json',
+          'bun.lock',
+          'bun.lockb',
+          'package-lock.json',
+          'npm-shrinkwrap.json',
+          'yarn.lock',
+          'pnpm-lock.yaml',
+        ].includes(local)
+      )
         throw new Error(`HTML report overlaps project input: ${value}`)
       if (!excluded(local))
         for (const entry of config.maintained) {
           if (within(canonical(resolve(root, entry)), real))
-            throw new Error(`HTML report overlaps maintained input: ${value}; choose an excluded generated-output directory`)
+            throw new Error(
+              `HTML report overlaps maintained input: ${value}; choose an excluded generated-output directory`,
+            )
         }
     }
   }

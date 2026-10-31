@@ -92,9 +92,12 @@ test('cancellation and deadline failure preserve the previous report after the t
       if (mode === 'aborted') controller.abort(new Error('Report request cancelled'))
       let observedTemporary = false
       const checkDeadline = () => {
-        if (!readdirSync(fixture.root).some((name) =>
-          !before.includes(name) && lstatSync(join(fixture.root, name)).size > 0,
-        )) return
+        if (
+          !readdirSync(fixture.root).some(
+            (name) => !before.includes(name) && lstatSync(join(fixture.root, name)).size > 0,
+          )
+        )
+          return
         observedTemporary = true
         if (mode === 'deadline') throw new Error('Command deadline expired during report write')
         if (mode === 'cancel-during-write') controller.abort(new Error('Report request cancelled'))

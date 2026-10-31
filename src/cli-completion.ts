@@ -227,15 +227,16 @@ function fish(): string {
     .map(([, flag]) => flag.short as string)
   const definitions = entries.map(([name, flag]) => {
     const scope = flag.scope ? ` -n ${quote(`__bonsai_scope ${flag.scope.join(' ')}`)}` : ''
-    const values = name === 'report'
-      ? ` -f -a ${quote('(__bonsai_target_paths report)')}`
-      : flag.choices
-      ? ` -a ${quote(flag.choices.join(' '))}`
-      : flag.completion === 'directory'
-        ? ` -a ${quote(`(__bonsai_directories ${flag.short ?? ''})`)}`
-        : flag.completion === 'file'
-          ? ' -F'
-          : ''
+    const values =
+      name === 'report'
+        ? ` -f -a ${quote('(__bonsai_target_paths report)')}`
+        : flag.choices
+          ? ` -a ${quote(flag.choices.join(' '))}`
+          : flag.completion === 'directory'
+            ? ` -a ${quote(`(__bonsai_directories ${flag.short ?? ''})`)}`
+            : flag.completion === 'file'
+              ? ' -F'
+              : ''
     return `complete -c bonsai${scope} -l ${name}${flag.short ? ` -s ${flag.short}` : ''}${flag.type === 'string' ? ` -r${flag.completion === 'file' ? '' : ' -f'}` : ''}${values} -d ${quote(flag.description)}`
   })
   return `function __bonsai_context

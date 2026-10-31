@@ -1,13 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  symlinkSync,
-  writeFileSync,
-} from 'node:fs'
+import { existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { readConfig } from '../src/project.ts'
 import { createProject } from './project.ts'
@@ -76,10 +69,12 @@ test('opt-in HTML preserves actual check JSON, every verdict, and one handler ex
           id,
           status,
         })),
-        original.snapshot.evidence?.checks.map(({ id, status }: { id: string; status: string }) => ({
-          id,
-          status,
-        })),
+        original.snapshot.evidence?.checks.map(
+          ({ id, status }: { id: string; status: string }) => ({
+            id,
+            status,
+          }),
+        ),
       )
       inspectHtml(join(fixture.root, 'report.html'))
       const marker = join(fixture.root, 'handler-calls')
@@ -121,7 +116,9 @@ test('saved exclusions permit an output directory without narrowing maintained s
     const report = JSON.parse(result.stdout)
     assert(report.snapshot.source.files.some(({ file }: { file: string }) => file === 'app.ts'))
     assert.equal(
-      report.snapshot.source.files.some(({ file }: { file: string }) => file.startsWith('reports/')),
+      report.snapshot.source.files.some(({ file }: { file: string }) =>
+        file.startsWith('reports/'),
+      ),
       false,
     )
     inspectHtml(join(fixture.root, 'reports/check.html'))
