@@ -569,7 +569,8 @@ test('dotted operating-system imports and aliases cannot admit external reads', 
 })
 
 test('Python selections serialize independently and ignore unrelated non-JSON fields', () => {
-  const selectedFeature = feature +
+  const selectedFeature =
+    feature +
     ' And response "items" equals ["accepted"]\n' +
     ' And response "items[0]" equals "accepted"\n' +
     ' And response "items.length" equals 1\n'
