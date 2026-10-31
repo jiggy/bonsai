@@ -1,5 +1,5 @@
 /** Bounded CPython AST/tokenize adapter; this embedded source is fully charged and checker-hashed. */
-export const pythonProgram = String.raw`import ast, asyncio, builtins, contextlib, hashlib, importlib, importlib.abc, importlib.util, io, json, os, re, sys, sysconfig, tokenize
+export const pythonProgram = String.raw`import ast, asyncio, builtins, codecs, contextlib, hashlib, importlib, importlib.abc, importlib.util, io, json, os, re, sys, sysconfig, tokenize
 # Load supported standard modules before admitting a consuming source directory.
 STANDARD = set("builtins math json decimal fractions statistics collections functools itertools operator datetime time re string typing asyncio os".split())
 # Exact supported exports, rather than every incidental module global.
@@ -89,7 +89,7 @@ def words(text):
 
 def source_text(data):
     encoding, _ = tokenize.detect_encoding(io.BytesIO(data).readline)
-    if encoding not in ("utf-8", "utf-8-sig"):
+    if codecs.lookup(encoding).name not in ("utf-8", "utf-8-sig"):
         raise ValueError("Python source requires UTF-8 encoding, not " + encoding)
     return data.decode(encoding)
 
