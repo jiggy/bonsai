@@ -679,6 +679,119 @@ test('Python exception types and tuples remain supported without admitting calla
   }
 })
 
+test('Python bare raise and cause classes do not escape as ordinary callable values', () => {
+  const project = fixture()
+  try {
+    for (const raised of ['ValueError', 'ValueError from TypeError']) {
+      writeFileSync(
+        join(project.root, 'orders.py'),
+        'def place_order(request):\n    try:\n        raise ' +
+          raised +
+          '\n    except ValueError:\n        return {"status":"accepted"}\n',
+      )
+      for (const serial of [false, true]) assertStatus(project.root, 'pass', serial)
+    }
+    for (const raised of ['open', 'ValueError from open', 'keep(ValueError)']) {
+      writeFileSync(
+        join(project.root, 'orders.py'),
+        'def keep(value):\n    return value\ndef place_order(request):\n    raise ' + raised + '\n',
+      )
+      const result = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
+      assert.equal(result.status, 0, result.stderr)
+      assert.match(JSON.parse(result.stdout).source.problems.join('\n'), /escaped/)
+    }
+  } finally {
+    project.dispose()
+  }
+})
+
+test('deleting Python names cannot restore forbidden builtins behind static decoys', () => {
+  const project = fixture()
+  const marker = join(project.root, 'build/ran')
+  mkdirSync(join(project.root, 'build'))
+  const payload =
+    '(__import__("pathlib").Path(' +
+    JSON.stringify(marker) +
+    ').write_text("ran"), ' +
+    '{"status":__import__("pathlib").Path(' +
+    JSON.stringify(join(project.root, 'build/implementation.txt')) +
+    ').read_text()})[1]'
+  const sources = [
+    'def eval(expression):\n    return {"status":"rejected"}\ndel eval\n' +
+      'def place_order(request):\n    return eval(' +
+      JSON.stringify(payload) +
+      ')\n',
+    'def open(path):\n    return {"status":"rejected"}\ndel open\n' + handler,
+    'from json import loads as eval\ndel eval\n' + handler,
+  ]
+  try {
+    // Deliberately bypass admission to prove the frozen runner's exploit probe
+    // actually reads the excluded payload and writes its marker. These raw
+    // transport results never establish a gate pass.
+    writeFileSync(join(project.root, 'orders.py'), sources[0]!)
+    const analyzed = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
+    assert.equal(analyzed.status, 0, analyzed.stderr)
+    const frame = JSON.parse(analyzed.stdout)
+    for (const status of ['accepted', 'rejected']) {
+      writeFileSync(join(project.root, 'build/implementation.txt'), status)
+      const result = join(project.root, 'raw-' + status)
+      const ran = embedded({
+        mode: 'actions',
+        root: project.root,
+        bindings: 'bindings.py',
+        compiler: frame.compiler,
+        digests: frame.digests,
+        result,
+        operations: [
+          {
+            id: 1,
+            action: 'place-order',
+            input: {},
+            selections: [{ selector: 'status', keys: ['status'] }],
+          },
+        ],
+      })
+      assert.equal(ran.status, 0, ran.stderr)
+      assert.equal(
+        JSON.parse(readFileSync(result, 'utf8')).results[0].observations[0].value,
+        status,
+      )
+      assert.equal(readFileSync(marker, 'utf8'), 'ran')
+      rmSync(marker)
+    }
+    for (const source of sources) {
+      writeFileSync(join(project.root, 'orders.py'), source)
+      for (const serial of [false, true]) {
+        writeFileSync(
+          join(project.root, 'build/implementation.txt'),
+          serial ? 'rejected' : 'accepted',
+        )
+        const report = assertStatus(project.root, 'incomplete', serial)
+        assert.match(report.snapshot.source.problems.join('\n'), /deleting Python names/)
+        assert.equal(report.snapshot.evidence, undefined)
+        assert.equal(existsSync(marker), false)
+      }
+    }
+    writeFileSync(
+      join(project.root, 'orders.py'),
+      'def place_order(request):\n    response = {"status":"accepted", "unused":1}\n    del response["unused"]\n    return response\n',
+    )
+    for (const serial of [false, true]) assertStatus(project.root, 'pass', serial)
+  } finally {
+    project.dispose()
+  }
+})
+
 test('Python stdout frames cannot forge values or complete a blocked plan', () => {
   for (const serial of [false, true]) {
     for (const blocked of [false, true]) {
