@@ -29,7 +29,13 @@ export function verificationPlan(contracts: Contracts, serial = false): Verifica
       }
 }
 
-type Execution = { timeoutMs?: number; signal?: AbortSignal; session?: string; isolated?: boolean; pythonSources?: Record<string, string> }
+type Execution = {
+  timeoutMs?: number
+  signal?: AbortSignal
+  session?: string
+  isolated?: boolean
+  pythonSources?: Record<string, string>
+}
 
 /** Only this verifier process evaluates observations or constructs evidence. */
 export async function collectEvidence(
@@ -151,8 +157,15 @@ export async function runEvidence(
   if (config.bindings.endsWith('.py') && !pythonSources) {
     const { collectPythonSource } = await import('./python.ts')
     const { inventory } = await import('./inventory.ts')
-    const collected = await collectPythonSource(root, inventory(root, config.maintained, config.exclude), config.bindings, signal, timeoutMs - (performance.now() - began))
-    if (collected.source.problems.length || !collected.pythonSources) throw new Error('Python source analysis is incomplete')
+    const collected = await collectPythonSource(
+      root,
+      inventory(root, config.maintained, config.exclude),
+      config.bindings,
+      signal,
+      timeoutMs - (performance.now() - began),
+    )
+    if (collected.source.problems.length || !collected.pythonSources)
+      throw new Error('Python source analysis is incomplete')
     pythonSources = collected.pythonSources
   }
   timeoutMs -= performance.now() - began

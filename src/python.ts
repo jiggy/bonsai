@@ -61,7 +61,10 @@ function pythonProcess(request: unknown, timeoutMs: number, signal?: AbortSignal
     kill()
   }
   const abort = () => fail(new PythonInterrupted('Python execution interrupted'))
-  const timer = setTimeout(() => fail(new PythonInterrupted('Python feedback deadline expired')), timeoutMs)
+  const timer = setTimeout(
+    () => fail(new PythonInterrupted('Python feedback deadline expired')),
+    timeoutMs,
+  )
   signal?.addEventListener('abort', abort, { once: true })
   process.once('exit', kill)
   child.once('error', (error) =>
@@ -175,9 +178,16 @@ export async function collectPythonSource(
     const frame = await process.ready
     if (!validCompiler(frame?.compiler)) throw new Error('Unsupported Python interpreter identity')
     const source: Source = frame.source
-    if (!frame.digests || typeof frame.digests !== 'object' || Array.isArray(frame.digests) ||
-      JSON.stringify(Object.keys(frame.digests)) !== JSON.stringify(files.filter(file => file.endsWith('.py'))) ||
-      !Object.values(frame.digests).every(value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value)))
+    if (
+      !frame.digests ||
+      typeof frame.digests !== 'object' ||
+      Array.isArray(frame.digests) ||
+      JSON.stringify(Object.keys(frame.digests)) !==
+        JSON.stringify(files.filter((file) => file.endsWith('.py'))) ||
+      !Object.values(frame.digests).every(
+        (value) => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value),
+      )
+    )
       throw new Error('Invalid Python source digests')
     parseSnapshot(
       JSON.stringify({
@@ -229,7 +239,17 @@ export async function collectPythonSource(
     const { measureSource } = await import('./source.ts')
     const source = measureSource(root, files)
     source.problems.push(`Python analysis interrupted: ${error.message}`)
-    return { source, interrupted: true, analysis: { engine: 'python', backend: 'python-ast', validation: 'python-ast', status: 'unsupported', version: 'python-stdlib-v1' } }
+    return {
+      source,
+      interrupted: true,
+      analysis: {
+        engine: 'python',
+        backend: 'python-ast',
+        validation: 'python-ast',
+        status: 'unsupported',
+        version: 'python-stdlib-v1',
+      },
+    }
   } finally {
     await process?.close()
     timer?.finish()
