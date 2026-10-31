@@ -975,7 +975,6 @@ test('a rounded Python integer cannot satisfy a different real CLI observation',
   }
 })
 
-
 test('Python UTF-7 cookies cannot hide executable lines from UTF-8 analysis', () => {
   const project = fixture()
   const marker = join(project.root, 'hidden-startup')
@@ -989,21 +988,36 @@ test('Python UTF-7 cookies cannot hide executable lines from UTF-8 analysis', ()
       assert.equal(report.snapshot.evidence, undefined)
       assert.equal(existsSync(marker), false)
     }
-    const analyzed = embedded({ mode: 'analyze', root: project.root,
-      files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+    const analyzed = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
     assert.equal(analyzed.status, 0, analyzed.stderr)
     const frame = JSON.parse(analyzed.stdout)
     const result = join(project.root, 'completed')
-    const ran = embedded({ mode: 'actions', root: project.root, bindings: 'bindings.py',
-      digests: frame.digests, compiler: frame.compiler, result, operations: [] })
+    const ran = embedded({
+      mode: 'actions',
+      root: project.root,
+      bindings: 'bindings.py',
+      digests: frame.digests,
+      compiler: frame.compiler,
+      result,
+      operations: [],
+    })
     assert.notEqual(ran.status, 0)
     assert.match(ran.stderr, /requires UTF-8 encoding/)
     assert.equal(existsSync(marker), false)
     assert.equal(existsSync(result), false)
     for (const cookie of ['# coding: latin-1', '#!/usr/bin/python\n# coding: utf-7']) {
       writeFileSync(join(project.root, 'orders.py'), cookie + '\n' + handler)
-      const checked = embedded({ mode: 'analyze', root: project.root,
-        files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+      const checked = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
       assert.equal(checked.status, 0, checked.stderr)
       assert.match(JSON.parse(checked.stdout).source.problems.join('\n'), /requires UTF-8 encoding/)
     }
@@ -1011,7 +1025,9 @@ test('Python UTF-7 cookies cannot hide executable lines from UTF-8 analysis', ()
       writeFileSync(join(project.root, 'orders.py'), prefix + handler)
       assertStatus(project.root, 'pass')
     }
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('Python OS mutations cannot consume excluded path state', () => {
@@ -1020,19 +1036,31 @@ test('Python OS mutations cannot consume excluded path state', () => {
   try {
     for (const operation of ['mkdir', 'remove', 'unlink', 'rmdir', 'rename', 'replace']) {
       for (const imported of [false, true]) {
-        const code = (imported ? 'from os import ' + operation + ' as mutate' : 'import os as system') +
-          '\ndef place_order(request):\n    ' + (imported ? 'mutate' : 'system.' + operation) +
-          '(__file__ + ".oracle"' + (['rename', 'replace'].includes(operation) ? ', __file__ + ".moved"' : '') +
+        const code =
+          (imported ? 'from os import ' + operation + ' as mutate' : 'import os as system') +
+          '\ndef place_order(request):\n    ' +
+          (imported ? 'mutate' : 'system.' + operation) +
+          '(__file__ + ".oracle"' +
+          (['rename', 'replace'].includes(operation) ? ', __file__ + ".moved"' : '') +
           ')\n    return {"status":"accepted"}\n'
         writeFileSync(join(project.root, 'orders.py'), code)
-        const analyzed = embedded({ mode: 'analyze', root: project.root,
-          files: project.config.maintained.slice().sort(), bindings: 'bindings.py' })
+        const analyzed = embedded({
+          mode: 'analyze',
+          root: project.root,
+          files: project.config.maintained.slice().sort(),
+          bindings: 'bindings.py',
+        })
         assert.equal(analyzed.status, 0, analyzed.stderr)
-        assert.match(JSON.parse(analyzed.stdout).source.problems.join('\n'), /operating-system context|unsupported standard-library/)
+        assert.match(
+          JSON.parse(analyzed.stdout).source.problems.join('\n'),
+          /operating-system context|unsupported standard-library/,
+        )
       }
     }
-    writeFileSync(join(project.root, 'orders.py'),
-      'import os\ndef place_order(request):\n    try:\n        os.remove(__file__ + ".oracle")\n        return {"status":"accepted"}\n    except OSError:\n        return {"status":"rejected"}\n')
+    writeFileSync(
+      join(project.root, 'orders.py'),
+      'import os\ndef place_order(request):\n    try:\n        os.remove(__file__ + ".oracle")\n        return {"status":"accepted"}\n    except OSError:\n        return {"status":"rejected"}\n',
+    )
     for (const present of [true, false]) {
       if (present) writeFileSync(oracle, 'excluded input')
       else rmSync(oracle, { force: true })
@@ -1043,5 +1071,7 @@ test('Python OS mutations cannot consume excluded path state', () => {
         assert.equal(existsSync(oracle), present)
       }
     }
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
