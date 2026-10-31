@@ -4,7 +4,7 @@ Feature: Inspect a saved check without losing the gate's answer
   actual rejection or incomplete result and leave JSON available to automation.
 
   Scenario: Export a rejected mixed-file check without changing its machine-readable answer
-    The order application's single source file contains a specified placeOrder handler
+    The order implementation file contains a specified placeOrder handler
     and an unused legacyPromotion declaration. The reviewed allowance is 100 tokens;
     the complete maintained project costs more than that allowance.
     The developer requests an HTML file while automation reads the same check as JSON.
