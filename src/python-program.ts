@@ -210,7 +210,7 @@ def analyze(request):
                 if target:
                     if kind(file) in ("production", "binding") and kind(target) == "test":
                         problem(file, node, "production imports of test modules require a source adapter")
-                    if imported.split(".")[0] in STANDARD and not level:
+                    if imported.split(".")[0] in (set(sys.stdlib_module_names) | set(sys.modules)) and not level:
                         problem(file, node, "owned module shadows a standard module")
                     module["imports"][local] = (target, member)
                     edge(file, node, init, modules[target]["init"], "module-initialization")
