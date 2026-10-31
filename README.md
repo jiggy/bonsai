@@ -67,7 +67,9 @@ fractions, statistics, collections, functools, itertools, operator, datetime,
 time, re, string, typing, asyncio, and limited write-only os operations, with an
 explicit export allowlist. Subprocess launchers, incidental module globals,
 escaped standard-library/builtin callables, and binding imports from test files
-are unsupported. Asyncio currently supports sleep only. More
+are unsupported. Asyncio currently supports sleep only. Local attribute reads are limited to
+explicit scalar date/number fields; generator and frame access is unsupported.
+Selected integers outside the exact JSON safe range fail their observations. More
 syntax and dependency adapters can be added independently.
 
 Python runs with isolated startup and site initialization disabled. The content

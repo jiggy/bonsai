@@ -63,6 +63,20 @@ decode_json = json.loads
 protocol_write = sys.stdout.write
 protocol_flush = sys.stdout.flush
 
+def transferable(value, depth=0):
+    if depth > 128:
+        raise ValueError("Selected Python value exceeds transfer depth")
+    if type(value) is int and not -(2**53 - 1) <= value <= 2**53 - 1:
+        raise ValueError("Selected Python integer exceeds the exact JSON safe integer range")
+    if type(value) is dict:
+        for key, field in value.items():
+            if type(key) is not str:
+                raise ValueError("Selected Python objects require string keys")
+            transferable(field, depth + 1)
+    elif type(value) in (list, tuple):
+        for field in value:
+            transferable(field, depth + 1)
+
 def emit(value):
     protocol_write(encode_json(value, allow_nan=False, separators=(",", ":")) + "\n")
     protocol_flush()
@@ -186,7 +200,7 @@ def analyze(request):
         for node in ast.walk(tree):
             if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)) and node.id.startswith("__"):
                 problem(file, node, "runtime module metadata mutation requires a source adapter")
-            if isinstance(node, (ast.ClassDef, ast.Global, ast.Nonlocal, ast.NamedExpr, ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp, ast.Match)):
+            if isinstance(node, (ast.ClassDef, ast.Global, ast.Nonlocal, ast.NamedExpr, ast.Yield, ast.YieldFrom, ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp, ast.Match)):
                 problem(file, node, "classes, closures, comprehensions, pattern matching, and runtime name mutation require a source adapter")
             if isinstance(node, (ast.Import, ast.ImportFrom)) and node not in tree.body:
                 problem(file, node, "conditional and function-local imports require a source adapter")
@@ -207,6 +221,12 @@ def analyze(request):
                 if imported == "builtins" or ((imported.startswith("os.") or (imported == "os" and member and member not in {"getpid", "mkdir", "remove", "unlink", "rmdir", "rename", "replace"}))):
                     problem(file, node, "runtime builtins or operating-system context imports require a source adapter")
                 target = resolve_module(file, imported, level)
+                if target and member:
+                    submodule = resolve_module(file, imported + "." + member, level)
+                    if submodule:
+                        if member in modules[target]["names"]:
+                            problem(file, node, "ambiguous package member/submodule requires a source adapter")
+                        target, member = submodule, None
                 if target:
                     if kind(file) in ("production", "binding") and kind(target) == "test":
                         problem(file, node, "production imports of test modules require a source adapter")
@@ -308,6 +328,10 @@ def analyze(request):
                         base = resolved(file, item.value.id) if item.value.id not in local.names else None
                         if base and base[0] == "@stdlib" and base[1] == "os" and item.attr not in {"getpid", "mkdir", "remove", "unlink", "rmdir", "rename", "replace"}:
                             problem(file, item, "operating-system context requires a source adapter")
+                    if not selected_export:
+                        base = resolved(file, item.value.id) if isinstance(item.value, ast.Name) and item.value.id not in local.names else None
+                        if (not base or base[0] != "@module") and item.attr not in {"year", "month", "day", "hour", "minute", "second", "microsecond", "days", "seconds", "numerator", "denominator", "real", "imag"}:
+                            problem(file, item, "unresolved attribute access requires a source adapter")
                     if item.attr.startswith("__"):
                         problem(file, item, "runtime introspection requires a source adapter")
                     if isinstance(item.value, ast.Name) and item.value.id not in local.names:
@@ -458,6 +482,7 @@ elif request["mode"] == "actions":
                         else:
                             raise KeyError("Missing response field: " + selection["selector"])
                     # Clone selections independently: unrelated values cannot break a field.
+                    transferable(selected)
                     observation["value"] = decode_json(encode_json(selected, allow_nan=False, separators=(",", ":")))
                 except Exception as error:
                     observation["error"] = str(error)[:4096]
