@@ -953,6 +953,64 @@ test('resolved maintained helpers may use names reserved for external calls', ()
   }
 })
 
+test('pytest conftest hooks stay charged test support and cannot initialize application bindings', () => {
+  for (const [hook, module, production] of [
+    ['conftest.py', 'conftest', false],
+    ['pkg/conftest.py', 'pkg.conftest', true],
+    ['Conftest.py', 'Conftest', false],
+  ] as const) {
+    const project = fixture({
+      ...(hook.includes('/') ? { 'pkg/__init__.py': '' } : {}),
+      [hook]: 'import settings\nsettings.state["status"] = "accepted"\n',
+      'settings.py': 'state = {"status":"rejected"}\n',
+      'orders.py':
+        'import settings\n' +
+        (production ? 'import ' + module + ' as support\n' : '') +
+        'def place_order(request):\n    return settings.state\n',
+      'bindings.py': (production ? '' : 'import ' + module + ' as support\n') + binding,
+    })
+    try {
+      const marker = join(project.root, 'hook-ran')
+      const probe = profile(
+        join(project.root, hook),
+        '<module>',
+        '_probe_os.close(_probe_os.open(' +
+          JSON.stringify(marker) +
+          ', _probe_os.O_WRONLY | _probe_os.O_CREAT | _probe_os.O_TRUNC, 0o600))',
+      )
+      const analyzed = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
+      assert.equal(analyzed.status, 0, analyzed.stderr)
+      const frame = JSON.parse(analyzed.stdout)
+      assert.match(frame.source.problems.join('\n'), /production imports of test modules/)
+      assert.equal(frame.source.files.find((file: any) => file.file === hook).kind, 'test')
+      assert.ok(frame.source.files.find((file: any) => file.file === hook).tokens > 0)
+      // Raw transport proves the hook and marker are live; admission is bypassed.
+      assert.equal(rawPythonStatus(project.root, frame, probe), 'accepted')
+      assert.equal(existsSync(marker), true)
+      rmSync(marker)
+      const env = instrument(project.root, probe)
+      for (const serial of [false, true]) {
+        const { result, report } = check(project.root, serial, env)
+        assert.equal(result.status, 2)
+        assert.equal(report.decision.status, 'incomplete')
+        assert.match(
+          report.snapshot.source.problems.join('\n'),
+          /production imports of test modules/,
+        )
+        assert.equal(report.snapshot.evidence, undefined)
+        assert.equal(existsSync(marker), false)
+      }
+    } finally {
+      project.dispose()
+    }
+  }
+})
+
 test('Python stdout frames cannot forge values or complete a blocked plan', () => {
   for (const serial of [false, true]) {
     for (const blocked of [false, true]) {
@@ -1140,24 +1198,27 @@ function embedded(request: unknown, probe = '') {
 }
 
 /** Deliberate admission bypass for live exploit controls, never gate evidence. */
-function rawPythonStatus(root: string, frame: any): unknown {
+function rawPythonStatus(root: string, frame: any, probe = ''): unknown {
   const result = join(root, 'raw-probe-result')
-  const ran = embedded({
-    mode: 'actions',
-    root,
-    bindings: 'bindings.py',
-    digests: frame.digests,
-    compiler: frame.compiler,
-    result,
-    operations: [
-      {
-        id: 1,
-        action: 'place-order',
-        input: {},
-        selections: [{ selector: 'status', keys: ['status'] }],
-      },
-    ],
-  })
+  const ran = embedded(
+    {
+      mode: 'actions',
+      root,
+      bindings: 'bindings.py',
+      digests: frame.digests,
+      compiler: frame.compiler,
+      result,
+      operations: [
+        {
+          id: 1,
+          action: 'place-order',
+          input: {},
+          selections: [{ selector: 'status', keys: ['status'] }],
+        },
+      ],
+    },
+    probe,
+  )
   assert.equal(ran.status, 0, ran.stderr)
   const report = JSON.parse(readFileSync(result, 'utf8')).results[0]
   rmSync(result)

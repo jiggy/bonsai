@@ -128,7 +128,7 @@ def analyze(request):
     def problem(file, node, message):
         problems.append(file + ":" + str(getattr(node, "lineno", 1)) + ": " + message)
     def kind(file):
-        return "binding" if file == bindings else "test" if re.search(r"(^|/)(test|tests)(/|_)|\.test\.|\.spec\.|(^|/)test_[^/]+\.py$|_test\.py$", file) else "production"
+        return "binding" if file == bindings else "test" if re.search(r"(^|/)(test|tests)(/|_)|\.test\.|\.spec\.|(^|/)test_[^/]+\.py$|_test\.py$|(?i:(^|/)conftest\.py$)", file) else "production"
     def edge(file, node, source, target, relation="reference"):
         if source and target and source != target:
             edges.append({"from": source, "to": target, "kind": relation, "origin": "static", "sourceRef": {"file": file, "line": getattr(node, "lineno", 1)}})
