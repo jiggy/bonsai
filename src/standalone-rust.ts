@@ -350,7 +350,7 @@ async function collectRust(
       file.kind = kind(file.file)
     }
   for (const file of files)
-    if (/\.(?:[cm]?[jt]sx?|py|pyi|go|c|cc|cpp|h|hpp|java|kt|swift|zig|sh)$/.test(file))
+    if (/\.(?:[cm]?[jt]sx?|py|pyi|rb|php|go|c|cc|cpp|h|hpp|java|kt|swift|zig|sh)$/.test(file))
       source.problems.push('Mixed-language Rust analysis is not supported: ' + file)
   if (
     existsSync(join(root, 'Cargo.toml')) ||

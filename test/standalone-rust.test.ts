@@ -375,6 +375,8 @@ test('native Rust graph, process state, unsupported boundaries and source drift 
     { 'orders.rs': handler + 'struct Hidden;\n' },
     { 'orders.rs': handler.replace('String::from', 'format!') },
     { 'other.py': 'def hidden():\n    return 1\n' },
+    { 'other.rb': 'def hidden\n  1\nend\n' },
+    { 'other.php': '<?php function hidden() { return 1; }\n' },
     { 'Cargo.toml': '[package]\nname="cargo-project"\nversion="0.0.0"\n' },
   ]
   for (const sources of unsupported) {
