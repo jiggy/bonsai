@@ -155,7 +155,7 @@ test('the authored ancestry example detects production retained through a unit t
   await detectsFault(
     { fixture: 'ancestry', case: 'mixed-test' },
     'src/retention.ts',
-    "if (!target || (!allowProduction && target.kind === 'production')) continue",
+    "if (!target || (!next.production && target.kind === 'production')) continue",
     'if (!target) continue',
     'decision.status',
   )

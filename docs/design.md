@@ -174,7 +174,7 @@ worker without new authored manifests or runtime-evidence receipts. Computed or
 cwd-relative targets receive no relationship; recognized targets outside the measured
 TypeScript inventory block verification. At the selected child entry, class
 definition effects also supply startup ancestry; dormant method/constructor bodies
-and instance initializers do not. General import side effects remain an adapter gap.
+and instance initializers do not. Runtime imports and re-exports now add separate `module-initialization` relationships to effectful maintained startup. Type-position references carry `runtime: false`; runtime eligibility propagates independently of structural ancestry. A later runtime path revisits a component without duplicating its obligations. Registry initialization never opens ordinary registry edges, and test support never grants production ancestry. Module cycles deduplicate reachability through shared zero-token module startup nodes without simulating ESM ordering. The full maintained file remains charged. Implicit initialization never joins verification test registrations; test subject admission continues to use explicit references. Ambiguous preserved/inherited/legacy/decorator import modes and Bun tsconfig overrides remain incomplete until worker-context semantics are supported. Computed loading and resource reads beyond the literal UTF-8 adapter remain adapter gaps.
 
 The full-root regressions require exact observation IDs, candidate fingerprints,
 binding receipts, and all three executable boundaries. CI archives the native
@@ -286,3 +286,4 @@ fields do not run merely to render a diagnostic preview. All observations and bo
 execution profiles retain their obligations and deadline. The subprocess still
 provides process-group cleanup; this runtime boundary does not sandbox OS
 privileges, filesystem access, or native debugger access.
+

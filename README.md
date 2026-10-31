@@ -669,7 +669,7 @@ for exact supported formats, runtime requirements, limits, and configuration.
 
 ## Limits and next steps
 
-This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, side-effect-only imports, general asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. General computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
+This is a static ancestry approximation. Classes and function bodies are atomic; Bonsai does not yet prove necessity of individual methods or statements. References establish eligibility, not actual use or minimality. HTTP routes, queues, dependency injection, computed dispatch, general asset reads, and dynamically accessed module exports need adapters. Literal dynamic imports support statically selected named exports, including named destructuring within functions. General computed module paths and computed namespace selections remain incomplete; this is not comprehensive detection of dynamic behavior. Use straightforward named handlers for this release.
 
 Bonsai's internal binding-loader adapter recognizes the exact collector pattern
 that imports a validated project target. Before importing, it checks the selected
@@ -763,7 +763,7 @@ root production code. `explain` shows these relationships without starting child
 Computed paths, cwd-relative strings, mutable URL aliases, wrappers around launch
 APIs, and shell-selected commands receive no entry-point relationship. A recognized
 local target outside inventory or in an unsupported language blocks verification.
-General import side effects need further adapters.
+Runtime imports and re-exports connect their effectful maintained module startup without retaining every export. Explicit type imports and imports used only in type syntax do not activate startup. Cycles are deduplicated; these static relationships do not claim execution coverage or ESM evaluation order. Computed imports and resource reads beyond the literal UTF-8 adapter still need concrete adapters.
 
 The worker executes project code with the developer's privileges. The private JavaScript evidence channel, timeout, and module-cache separation do not sandbox OS privileges, filesystem access, or native debuggers. Run untrusted candidates in an external sandbox. The fingerprint is a content identity for this prototype, not a complete supply-chain or execution-environment attestation.
 
@@ -774,3 +774,13 @@ enforcement, and branch protection remain unfinished. The repository's CI checks
 the implementation, its executable product contracts, its example, and explicit
 release smoke tests; it is not the trusted admission system described in the
 design. See [the design](docs/design.md) and [the implementation roadmap](docs/roadmap.md).
+
+Module initialization supports Bun's default import elision. When a load depends
+on import preservation, preserved or inherited configurations, legacy import flags,
+emitted decorator metadata, and Bun tsconfig overrides remain incomplete. The
+candidate's nearest configuration alone does not establish the evidence worker's
+import mode. Explicit type imports remain erased; bare imports and runtime-used
+bindings establish loads independently of elision. Shared module startup nodes
+carry no extra token cost: complete maintained files are still charged.
+
+

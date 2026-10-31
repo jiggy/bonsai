@@ -82,7 +82,8 @@ function source(value: unknown): boolean {
         text(edge.from) &&
         text(edge.to) &&
         edge.origin === 'static' &&
-        (edge.kind === 'reference' || edge.kind === 'entry-point') &&
+        ['reference', 'entry-point', 'module-initialization'].includes(String(edge.kind)) &&
+        (edge.runtime === undefined || (edge.kind === 'reference' && edge.runtime === false)) &&
         reference(edge.sourceRef),
     ) &&
     object(value.actions) &&

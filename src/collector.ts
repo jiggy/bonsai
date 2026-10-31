@@ -92,10 +92,11 @@ function validSource(value: unknown): value is Source {
     value.relationships.every(
       (edge) =>
         record(edge) &&
-        knownKeys(edge, ['from', 'to', 'kind', 'origin', 'sourceRef']) &&
+        knownKeys(edge, ['from', 'to', 'kind', 'origin', 'sourceRef', 'runtime']) &&
         typeof edge.from === 'string' &&
         typeof edge.to === 'string' &&
-        (edge.kind === 'reference' || edge.kind === 'entry-point') &&
+        ['reference', 'entry-point', 'module-initialization'].includes(String(edge.kind)) &&
+        (edge.runtime === undefined || (edge.kind === 'reference' && edge.runtime === false)) &&
         edge.origin === 'static' &&
         reference(edge.sourceRef) &&
         knownKeys(edge.sourceRef as Record<string, unknown>, ['file', 'line']),

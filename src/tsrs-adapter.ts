@@ -277,25 +277,28 @@ export async function createTsrsProgram(
         // Primitive adapters compare uses with the imported binding's identity;
         // no external value declaration needs to be materialized for that check.
         if (node.parent === ast && ts.isImportDeclaration(node)) {
-          if (
-            !ts.isStringLiteral(node.moduleSpecifier) ||
-            !['node:child_process', 'node:url', 'node:fs'].includes(node.moduleSpecifier.text)
-          )
-            return
+          visit(node.moduleSpecifier)
+          if (node.importClause?.name) visit(node.importClause.name)
           const bindings = node.importClause?.namedBindings
-          if (bindings && ts.isNamedImports(bindings))
+          if (bindings && ts.isNamespaceImport(bindings)) visit(bindings.name)
+          else if (bindings && ts.isNamedImports(bindings))
             for (const binding of bindings.elements) visit(binding.name)
           return
         }
-        if (node.parent === ast && ts.isExportDeclaration(node)) return
+        if (node.parent === ast && ts.isExportDeclaration(node)) {
+          if (node.moduleSpecifier) visit(node.moduleSpecifier)
+          return
+        }
         const key = nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind])
         spans.set(key, node)
         const parent = node.parent
         const importSpecifier =
           parent !== undefined &&
-          ts.isCallExpression(parent) &&
-          parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
-          parent.arguments[0] === node
+          ((ts.isCallExpression(parent) &&
+            parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
+            parent.arguments[0] === node) ||
+            ((ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) &&
+              parent.moduleSpecifier === node))
         const importTarget =
           parent !== undefined &&
           ts.isPropertyAccessExpression(parent) &&

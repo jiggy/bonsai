@@ -12,8 +12,9 @@ export type Component = Reference & {
 export type Relationship = {
   from: string
   to: string
-  kind: 'reference' | 'entry-point'
+  kind: 'reference' | 'entry-point' | 'module-initialization'
   origin: 'static'
+  runtime?: false
   sourceRef: Reference
 }
 export type Check = Reference & {
