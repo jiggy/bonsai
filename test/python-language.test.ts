@@ -69,24 +69,46 @@ function assertStatus(root: string, expected: string, serial = false) {
   return report
 }
 
-
 // Trusted test instrumentation observes execution without granting candidate file access.
 function profile(file: string, name: string, body: string) {
-  return 'import os as _probe_os, sys as _probe_sys\n' +
+  return (
+    'import os as _probe_os, sys as _probe_sys\n' +
     'def _bonsai_probe(frame, event, arg):\n' +
-    '    if event == "call" and frame.f_code.co_filename == ' + JSON.stringify(realpathSync(file)) +
-    ' and frame.f_code.co_name == ' + JSON.stringify(name) + ':\n' +
-    '        _probe_sys.setprofile(None)\n' + body.split('\n').map(line => '        ' + line).join('\n') +
+    '    if event == "call" and frame.f_code.co_filename == ' +
+    JSON.stringify(realpathSync(file)) +
+    ' and frame.f_code.co_name == ' +
+    JSON.stringify(name) +
+    ':\n' +
+    '        _probe_sys.setprofile(None)\n' +
+    body
+      .split('\n')
+      .map((line) => '        ' + line)
+      .join('\n') +
     '\n_probe_sys.setprofile(_bonsai_probe)\n'
+  )
 }
 function instrument(root: string, probe: string) {
-  const binary = spawnSync(process.env.BONSAI_PYTHON_BINARY ?? 'python3',
-    ['-I', '-S', '-c', 'import sys; print(sys.executable)'], { encoding: 'utf8' })
+  const binary = spawnSync(
+    process.env.BONSAI_PYTHON_BINARY ?? 'python3',
+    ['-I', '-S', '-c', 'import sys; print(sys.executable)'],
+    { encoding: 'utf8' },
+  )
   assert.equal(binary.status, 0, binary.stderr)
   const python = binary.stdout.trim()
   const wrapper = join(root, 'trusted-python-probe')
-  writeFileSync(wrapper, '#!' + python + '\nimport os, sys\nargs = sys.argv[1:]\ni = args.index("-c")\nargs[i + 1] = ' +
-    JSON.stringify(probe) + ' + args[i + 1]\nos.execv(' + JSON.stringify(python) + ', [' + JSON.stringify(python) + '] + args)\n', { mode: 0o755 })
+  writeFileSync(
+    wrapper,
+    '#!' +
+      python +
+      '\nimport os, sys\nargs = sys.argv[1:]\ni = args.index("-c")\nargs[i + 1] = ' +
+      JSON.stringify(probe) +
+      ' + args[i + 1]\nos.execv(' +
+      JSON.stringify(python) +
+      ', [' +
+      JSON.stringify(python) +
+      '] + args)\n',
+    { mode: 0o755 },
+  )
   return cliEnvironment({ BONSAI_PYTHON_BINARY: wrapper })
 }
 
@@ -141,20 +163,31 @@ test('wrong Python values cannot author passing evidence in either execution pro
 test('analysis and explain never import application startup; native execution follows imports and aliases', async () => {
   const project = fixture()
   const marker = join(project.root, 'started')
-  const env = instrument(project.root, profile(join(project.root, 'orders.py'), '<module>',
-    'with open(' + JSON.stringify(marker) + ', "w") as stream:\n    stream.write("started")'))
+  const env = instrument(
+    project.root,
+    profile(
+      join(project.root, 'orders.py'),
+      '<module>',
+      'with open(' + JSON.stringify(marker) + ', "w") as stream:\n    stream.write("started")',
+    ),
+  )
   try {
     const source = await snapshot(project.root, readConfig(project.root), false)
     assert.deepEqual(source.source.problems, [])
     assert.equal(existsSync(marker), false)
     assert.equal(source.source.actions['place-order'], 'orders.py#place_order')
-    const explained = runCli(['explain', 'orders.py#place_order', '--root', project.root, '--json'], { env })
+    const explained = runCli(
+      ['explain', 'orders.py#place_order', '--root', project.root, '--json'],
+      { env },
+    )
     assert.equal(explained.status, 0, explained.stdout + explained.stderr)
     assert.equal(existsSync(marker), false)
     const { report } = check(project.root, false, env)
     assert.equal(report.decision.status, 'pass')
     assert.equal(existsSync(marker), true)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('unselected registered Python handlers stay unrooted and fully charged', () => {
@@ -366,21 +399,45 @@ test('JSON serialization errors fail observations rather than inventing results'
 test('Python verification rejects maintained source changed during handler execution', () => {
   const project = fixture()
   const source = join(project.root, 'orders.py')
-  const env = instrument(project.root, profile(source, 'place_order',
-    'with open(' + JSON.stringify(source) + ', "w") as stream:\n    stream.write("changed")'))
+  const env = instrument(
+    project.root,
+    profile(
+      source,
+      'place_order',
+      'with open(' + JSON.stringify(source) + ', "w") as stream:\n    stream.write("changed")',
+    ),
+  )
   try {
     const { report } = check(project.root, false, env)
     assert.equal(report.decision.status, 'incomplete')
-    assert.ok(report.snapshot.source.problems.includes('Maintained files changed during verification'))
-  } finally { project.dispose() }
+    assert.ok(
+      report.snapshot.source.problems.includes('Maintained files changed during verification'),
+    )
+  } finally {
+    project.dispose()
+  }
 })
 
 test('both profiles enforce the deadline and terminate an actually started Python handler', async () => {
   for (const serial of [false, true]) {
-    const project = fixture({ 'orders.py': 'import time\ndef place_order(request):\n    time.sleep(30)\n    return {"status":"accepted"}\n' }, { maxFeedbackMs: 2000 })
+    const project = fixture(
+      {
+        'orders.py':
+          'import time\ndef place_order(request):\n    time.sleep(30)\n    return {"status":"accepted"}\n',
+      },
+      { maxFeedbackMs: 2000 },
+    )
     const marker = join(project.root, 'pid')
-    const env = instrument(project.root, profile(join(project.root, 'orders.py'), 'place_order',
-      'with open(' + JSON.stringify(marker) + ', "w") as stream:\n    stream.write(str(_probe_os.getpid()))'))
+    const env = instrument(
+      project.root,
+      profile(
+        join(project.root, 'orders.py'),
+        'place_order',
+        'with open(' +
+          JSON.stringify(marker) +
+          ', "w") as stream:\n    stream.write(str(_probe_os.getpid()))',
+      ),
+    )
     try {
       const { report } = check(project.root, serial, env)
       assert.equal(report.decision.status, 'incomplete')
@@ -390,7 +447,9 @@ test('both profiles enforce the deadline and terminate an actually started Pytho
       assert.ok(pid > 1)
       await new Promise((resolve) => setTimeout(resolve, 100))
       assert.throws(() => process.kill(pid, 0), { code: 'ESRCH' })
-    } finally { project.dispose() }
+    } finally {
+      project.dispose()
+    }
   }
 })
 
@@ -668,8 +727,15 @@ test('Python source loader freezes every analyzed module before candidate initia
     'orders.py': handler.replace('accepted', 'rejected'),
   })
   const path = join(project.root, 'orders.py')
-  const probe = profile(join(project.root, 'startup.py'), '<module>',
-    'with open(' + JSON.stringify(path) + ', "w") as stream:\n    stream.write(' + JSON.stringify(handler) + ')')
+  const probe = profile(
+    join(project.root, 'startup.py'),
+    '<module>',
+    'with open(' +
+      JSON.stringify(path) +
+      ', "w") as stream:\n    stream.write(' +
+      JSON.stringify(handler) +
+      ')',
+  )
   try {
     const analyzed = embedded({
       mode: 'analyze',
@@ -681,22 +747,25 @@ test('Python source loader freezes every analyzed module before candidate initia
     const frame = JSON.parse(analyzed.stdout)
     assert.deepEqual(frame.source.problems, [])
     const result = join(project.root, 'completed')
-    const ran = embedded({
-      mode: 'actions',
-      root: project.root,
-      bindings: 'bindings.py',
-      digests: frame.digests,
-      compiler: frame.compiler,
-      result,
-      operations: [
-        {
-          id: 1,
-          action: 'place-order',
-          input: { quantity: 1 },
-          selections: [{ selector: 'status', keys: ['status'] }],
-        },
-      ],
-    }, probe)
+    const ran = embedded(
+      {
+        mode: 'actions',
+        root: project.root,
+        bindings: 'bindings.py',
+        digests: frame.digests,
+        compiler: frame.compiler,
+        result,
+        operations: [
+          {
+            id: 1,
+            action: 'place-order',
+            input: { quantity: 1 },
+            selections: [{ selector: 'status', keys: ['status'] }],
+          },
+        ],
+      },
+      probe,
+    )
     assert.equal(ran.status, 0, ran.stderr)
     assert.equal(
       JSON.parse(readFileSync(result, 'utf8')).results[0].observations[0].value,
@@ -1073,46 +1142,69 @@ test('Python OS mutations cannot consume excluded path state', () => {
   }
 })
 
-
 test('relative Python from-list modules and allowlisted regex compilation execute normally', () => {
   const project = fixture({
     'bindings.py': 'from pkg.orders import place_order\nactions = {"place-order":place_order}\n',
     'pkg/__init__.py': '',
-    'pkg/orders.py': 'from . import helper\ndef place_order(request):\n    return helper.calculate(request)\n',
-    'pkg/helper.py': 'import re\ndef calculate(request):\n    return {"status":"accepted" if re.compile("accepted") else "rejected"}\n',
+    'pkg/orders.py':
+      'from . import helper\ndef place_order(request):\n    return helper.calculate(request)\n',
+    'pkg/helper.py':
+      'import re\ndef calculate(request):\n    return {"status":"accepted" if re.compile("accepted") else "rejected"}\n',
     'orders.py': '',
   })
   try {
     assertStatus(project.root, 'pass')
-    writeFileSync(join(project.root, 'pkg/helper.py'), 'from re import compile as pattern\ndef calculate(request):\n    return {"status":"accepted" if pattern("accepted") else "rejected"}\n')
+    writeFileSync(
+      join(project.root, 'pkg/helper.py'),
+      'from re import compile as pattern\ndef calculate(request):\n    return {"status":"accepted" if pattern("accepted") else "rejected"}\n',
+    )
     assertStatus(project.root, 'pass')
-    writeFileSync(join(project.root, 'pkg/orders.py'), 'from . import test_setup\ndef place_order(request):\n    return test_setup.calculate(request)\n')
-    writeFileSync(join(project.root, 'pkg/test_setup.py'), 'def calculate(request):\n    return {"status":"accepted"}\n')
+    writeFileSync(
+      join(project.root, 'pkg/orders.py'),
+      'from . import test_setup\ndef place_order(request):\n    return test_setup.calculate(request)\n',
+    )
+    writeFileSync(
+      join(project.root, 'pkg/test_setup.py'),
+      'def calculate(request):\n    return {"status":"accepted"}\n',
+    )
     project.config.maintained.push('pkg/test_setup.py')
     writeFileSync(join(project.root, 'bonsai.json'), JSON.stringify(project.config))
     const blocked = assertStatus(project.root, 'incomplete')
     assert.match(blocked.snapshot.source.problems.join('\n'), /imports of test modules/)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('Python write-only opens cannot use excluded file state as a contract oracle', () => {
   for (const mode of ['x', 'w', 'a']) {
     const project = fixture()
     const path = join(project.root, 'excluded-oracle')
-    writeFileSync(join(project.root, 'orders.py'),
-      'def place_order(request):\n    try:\n        open(' + JSON.stringify(path) + ', ' + JSON.stringify(mode) + ')\n        return {"status":"rejected"}\n    except:\n        return {"status":"accepted"}\n')
+    writeFileSync(
+      join(project.root, 'orders.py'),
+      'def place_order(request):\n    try:\n        open(' +
+        JSON.stringify(path) +
+        ', ' +
+        JSON.stringify(mode) +
+        ')\n        return {"status":"rejected"}\n    except:\n        return {"status":"accepted"}\n',
+    )
     try {
       for (const present of [true, false]) {
         if (present) writeFileSync(path, 'unmeasured')
         else rmSync(path, { force: true })
         for (const serial of [false, true]) {
           const report = assertStatus(project.root, 'incomplete', serial)
-          assert.match(report.snapshot.source.problems.join('\n'), /external resource reads and writes/)
+          assert.match(
+            report.snapshot.source.problems.join('\n'),
+            /external resource reads and writes/,
+          )
           assert.equal(report.snapshot.evidence, undefined)
           assert.equal(existsSync(path), present)
           if (present) assert.equal(readFileSync(path, 'utf8'), 'unmeasured')
         }
       }
-    } finally { project.dispose() }
+    } finally {
+      project.dispose()
+    }
   }
 })
