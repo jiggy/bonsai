@@ -201,7 +201,7 @@ def analyze(request):
                 if simple:
                     if name in names:
                         problem(file, node, "duplicate or reassigned module name")
-                    names[name] = (identifier, "value")
+                    names[name] = (identifier, "annotation" if isinstance(node, ast.AnnAssign) and node.value is None else "value")
                 module["owners"].append((node, identifier))
                 # Literal registry entries reference callbacks without executing them.
                 value = node.value if isinstance(node, (ast.Assign, ast.AnnAssign, ast.Expr)) else None
@@ -284,7 +284,7 @@ def analyze(request):
             problem(file, modules[file]["tree"], "cyclic module initialization requires a source adapter")
     def resolved(file, name):
         module = modules[file]
-        if name in module["names"]:
+        if name in module["names"] and module["names"][name][1] != "annotation":
             return module["names"][name]
         if name in module["imports"]:
             target, member = module["imports"][name]
@@ -345,10 +345,9 @@ def analyze(request):
             elif isinstance(statement, (ast.Assign, ast.AnnAssign)):
                 targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
                 if len(targets) == 1 and isinstance(targets[0], ast.Name):
-                    binding_order[targets[0].id] = index
                     binding_targets.add(targets[0])
-                    if isinstance(statement, ast.AnnAssign) and statement.value is None:
-                        problem(file, statement, "module annotations without assigned values require a source adapter")
+                    if not isinstance(statement, ast.AnnAssign) or statement.value is not None:
+                        binding_order[targets[0].id] = index
             elif isinstance(statement, (ast.Import, ast.ImportFrom)):
                 for alias in statement.names:
                     binding_order[alias.asname or (alias.name.split(".")[0] if isinstance(statement, ast.Import) else alias.name)] = index
@@ -367,6 +366,8 @@ def analyze(request):
                     continue
                 name, body, locals = targets[0].id, declaration, LocalNames()
             else:
+                continue
+            if name not in dependencies:
                 continue
             dependencies[name].update(item.id for item in ast.walk(body) if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load) and item.id in binding_order and item.id not in locals.names)
         changed = True
@@ -411,7 +412,7 @@ def analyze(request):
             for item in ast.walk(visit):
                 if not function and isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store) and item.id in binding_order and item not in binding_targets:
                     problem(file, item, "module name rebinding requires a source adapter")
-                if not function and isinstance(item, ast.ExceptHandler) and item.name and (item.name in module["names"] or item.name in module["imports"]):
+                if not function and isinstance(item, ast.ExceptHandler) and item.name and item.name in binding_order:
                     problem(file, item, "deleting Python names through exception cleanup requires a source adapter")
                 if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load) and item.id not in local.names:
                     target = active(item.id)
