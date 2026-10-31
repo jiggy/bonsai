@@ -12,13 +12,16 @@ const artifacts = process.env.BONSAI_BROWSER_ARTIFACTS
 assert(tools && artifacts, 'Run the report-browser CI job with isolated browser tooling and artifact paths')
 mkdirSync(artifacts, { recursive: true })
 const require = createRequire(resolve(tools, 'package.json'))
-const { chromium } = require('playwright')
+const playwright = require('playwright')
+const chromium = playwright.chromium
 const tooling = require('playwright/package.json') as { version: string }
 assert.equal(tooling.version, '1.64.1', 'Use the same pinned package and Chromium installation as CI')
 const root = mkdtempSync(join(tmpdir(), 'bonsai-report-browser-'))
 const failures: string[] = []
 const blockedNetwork: string[] = []
 const checkpoints: string[] = []
+const previews: string[] = []
+let previewBytes = 0
 let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined
 let page: Awaited<ReturnType<typeof chromium.launch>> | undefined
 let successful = false
@@ -56,6 +59,16 @@ async function load(html: string) {
 
 async function screenshot(name: string) {
   await page.screenshot({ path: join(artifacts!, name + '.png'), animations: 'disabled' })
+  if (process.env.BONSAI_BROWSER_PREVIEWS === '1' && ['desktop-overview', 'mobile-overview'].includes(name)) {
+    const image = await page.screenshot({ type: 'jpeg', quality: 45, fullPage: false, animations: 'disabled' })
+    const line = `BONSAI_REPORT_PREVIEW:${name}:${Buffer.from(image).toString('base64')}`
+    const size = Buffer.byteLength(line + '\n')
+    if (previewBytes + size <= 200000) {
+      console.log(line)
+      previewBytes += size
+      previews.push(name)
+    } else console.log(`BONSAI_REPORT_PREVIEW_LIMIT:${name}`)
+  }
 }
 
 async function assertFocus(selector: string) {
@@ -182,7 +195,7 @@ export const actions = { 'order.place': placeOrder, 'order.refund': refundOrder,
   if (page) await screenshot('failure').catch(() => {})
   throw error
 } finally {
-  writeFileSync(join(artifacts, 'browser-results.json'), JSON.stringify({ successful, playwright: tooling.version, checkpoints, failures, blockedNetwork, visualReview: 'Screenshots are real browser captures; human visual review is separate from these assertions.' }, null, 2))
+  writeFileSync(join(artifacts, 'browser-results.json'), JSON.stringify({ successful, playwright: tooling.version, checkpoints, failures, blockedNetwork, previews, previewBytes, visualReview: 'Screenshots are real browser captures; human visual review is separate from these assertions.' }, null, 2))
   await browser?.close()
   rmSync(root, { recursive: true, force: true })
 }

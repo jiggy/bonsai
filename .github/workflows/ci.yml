@@ -247,9 +247,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
-      BONSAI_BROWSER_TOOLING: ${{ runner.temp }}/bonsai-browser-tooling
-      BONSAI_BROWSER_ARTIFACTS: ${{ runner.temp }}/bonsai-report-browser
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/bonsai-chromium
+      BONSAI_BROWSER_PREVIEWS: '1'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -272,6 +270,11 @@ jobs:
         with:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
+      - name: Set temporary browser paths
+        run: |
+          printf 'BONSAI_BROWSER_TOOLING=%s\n' "$RUNNER_TEMP/bonsai-browser-tooling" >> "$GITHUB_ENV"
+          printf 'BONSAI_BROWSER_ARTIFACTS=%s\n' "$RUNNER_TEMP/bonsai-report-browser" >> "$GITHUB_ENV"
+          printf 'PLAYWRIGHT_BROWSERS_PATH=%s\n' "$RUNNER_TEMP/bonsai-chromium" >> "$GITHUB_ENV"
       - name: Install isolated pinned browser tooling
         run: |
           mkdir -p "$BONSAI_BROWSER_TOOLING"
