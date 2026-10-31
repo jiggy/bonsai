@@ -1,9 +1,11 @@
-import { existsSync, readFileSync } from 'node:fs'
+import { chmodSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { runCli } from './cli.ts'
 import { project } from './project.ts'
 
-type ReportInput = { case: 'rejected-mixed' | 'missing-binding' }
+type ReportInput = {
+  case: 'rejected-mixed' | 'missing-binding' | 'default' | 'disabled-read-only'
+}
 
 /** Observe the saved representation independently of the CLI's JSON stream. */
 function readHtmlReport(path: string) {
@@ -27,17 +29,21 @@ function readHtmlReport(path: string) {
 }
 
 export function checkHtmlReport(input: ReportInput) {
-  if (input.case !== 'rejected-mixed' && input.case !== 'missing-binding')
+  if (!['rejected-mixed', 'missing-binding', 'default', 'disabled-read-only'].includes(input.case))
     throw new Error(`Unknown HTML report arrangement: ${input.case}`)
   const missingBinding = input.case === 'missing-binding'
-  const ceiling = missingBinding ? 10000 : 100
+  const implicitDestination = input.case === 'default' || input.case === 'disabled-read-only'
+  const readOnly = input.case === 'disabled-read-only'
+  const ceiling = input.case === 'rejected-mixed' ? 100 : 10000
   const application = project(
     {
       'orders.ts': [
         'export function placeOrder(input: { quantity: number }) {',
         "  return { status: input.quantity > 0 ? 'accepted' : 'rejected' }",
         '}',
-        "export function legacyPromotion() { return 'retired promotion' }",
+        ...(implicitDestination
+          ? []
+          : ["export function legacyPromotion() { return 'retired promotion' }"]),
         '',
       ].join('\n'),
       'bindings.ts': missingBinding
@@ -54,14 +60,20 @@ export function checkHtmlReport(input: ReportInput) {
     { bootstrap: ceiling, hardLimit: ceiling },
   )
   try {
-    const destination = join(application.root, 'reports', 'check.html')
+    const destination = implicitDestination
+      ? join(application.root, '.bonsai', 'report.html')
+      : join(application.root, 'reports', 'check.html')
+    if (readOnly) {
+      for (const file of application.config.maintained)
+        chmodSync(join(application.root, file), 0o444)
+      chmodSync(application.root, 0o555)
+    }
     const result = runCli([
       'check',
       '--serial',
       '--root',
       application.root,
-      '--report',
-      destination,
+      ...(readOnly ? ['--no-report'] : implicitDestination ? [] : ['--report', destination]),
       '--json',
     ])
     let command: Record<string, unknown>
@@ -72,6 +84,11 @@ export function checkHtmlReport(input: ReportInput) {
     }
     return { ...command, exitCode: result.status, ...readHtmlReport(destination) }
   } finally {
+    if (readOnly) {
+      chmodSync(application.root, 0o700)
+      for (const file of application.config.maintained)
+        chmodSync(join(application.root, file), 0o600)
+    }
     application.dispose()
   }
 }

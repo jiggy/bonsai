@@ -26,3 +26,19 @@ Feature: Inspect a saved check without losing the gate's answer
     And response "decision.status" equals "incomplete"
     And response "htmlReport.decision.status" equals "incomplete"
 
+  Scenario: A normal check saves a report without an export option
+    A developer checks an order implementation whose only declaration is its specified
+    placeOrder handler. All required behavior succeeds within its 10000-token allowance.
+    The developer can inspect the saved report after this ordinary check finishes.
+    When I invoke "check" with {"fixture": "html-report", "case": "default"}
+    Then response "artifacts.exists" equals true
+    And response "exitCode" equals 0
+
+  Scenario: Opting out permits checking a read-only project without creating a report
+    The order application has read-only permissions on its implementation, bindings,
+    specification, package, configuration and root directory. Its pure placeOrder handler
+    needs no writes to satisfy the specification.
+    The developer disables the HTML report to check this application without an artifact.
+    When I invoke "check" with {"fixture": "html-report", "case": "disabled-read-only"}
+    Then response "artifacts.exists" equals false
+    And response "exitCode" equals 0

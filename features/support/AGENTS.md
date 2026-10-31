@@ -8,7 +8,7 @@ Arrange isolated projects and observe Bonsai's public CLI and reusable GitHub Ac
 
 ## Local Contracts
 
-`report.ts` arranges mixed-source and missing-binding projects, invokes the real `check --report` command, and independently reads the saved report's data alongside the original JSON. It does not calculate policy decisions or ancestry.
+`report.ts` arranges mixed-source, missing-binding, and valid projects; invokes real `check` commands with explicit, default, or disabled HTML output; and independently reads any saved report alongside the original JSON. The opt-out arrangement makes all project inputs and its root read-only, then restores permissions before cleanup. It does not calculate policy decisions or ancestry.
 
 - Use the real CLI and production native checker. Helpers must not calculate expected policy decisions or mark observations passed.
 - Keep fixtures independent and remove them in `finally`. Runtime logs and markers stay outside their explicit maintained input lists.
