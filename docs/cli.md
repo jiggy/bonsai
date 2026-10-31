@@ -61,7 +61,7 @@ Runs independent scenarios concurrently in fresh workers, using available CPU ca
 
 EXAMPLES
   $ bonsai check
-  $ bonsai check --report .bonsai/report.html
+  $ bonsai check --root examples/checkout --serial
   $ bonsai check --root examples/checkout --report .bonsai/report.html --json
 
 OPTIONS

@@ -19,7 +19,7 @@ test('report discovery preserves console formats and stays scoped to check', () 
   assert.deepEqual(help.flags.output.choices, ['auto', 'human', 'plain', 'json'])
   assert.equal(
     help.commands.check.examples.filter((example: string) => example.includes('--report')).length,
-    2,
+    1,
   )
   for (const command of ['init', 'explain', 'config', 'version']) {
     const response = runCli(['help', command, '--json'])

@@ -247,6 +247,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
+      BONSAI_BROWSER_QA: '1'
       BONSAI_BROWSER_PREVIEWS: '1'
     steps:
       - uses: actions/checkout@v4
@@ -282,7 +283,7 @@ jobs:
           bun add --cwd "$BONSAI_BROWSER_TOOLING" --exact --ignore-scripts playwright@1.64.1
           bun "$BONSAI_BROWSER_TOOLING/node_modules/playwright/cli.js" install --with-deps chromium
       - name: Check generated HTML in Chromium
-        run: bun test/report-browser.ts
+        run: bun test --isolate --timeout 180000 test/report-browser.test.ts
       - name: Save browser captures and actual check reports
         if: always()
         uses: actions/upload-artifact@v4
