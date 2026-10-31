@@ -90,7 +90,7 @@ and process reaping, candidate PATH rejection, and a changed disposable analyzer
 after completed native evidence. Platform-wide support and ordinary Cargo
 adoption remain future work.
 
-The authored Rust-team example in `features/check.feature` exercises this real CLI
+The authored Rust-team example in `features/adoption.feature` exercises this real CLI
 outcome. It reuses the existing check exit/status observations and grants no
 additional allowance. Complete repository self-host tests require the pinned
 components above; CI installs them explicitly before measurement. This does not

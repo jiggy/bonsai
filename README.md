@@ -534,7 +534,7 @@ Rust sources were removed rather than excluded. The optional
 [experimental standalone Rust adapter](docs/standalone-rust.md) accepts a narrow
 standard-library-only native binding crate with pinned rust-analyzer/rustc 1.86.0.
 It supports named native handlers without a TypeScript bridge; Cargo workspaces,
-macros, user traits/types, generated code and mixed-language graphs remain
+macros, user traits/types, `std::fs`/`std::thread` operations, generated code and mixed-language graphs remain
 incomplete. TypeScript/Python projects need no Rust toolchain. All maintained Rust
 source remains charged.
 
