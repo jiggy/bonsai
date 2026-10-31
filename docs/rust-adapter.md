@@ -10,7 +10,7 @@ can count and classify declarations, and Cargo can compile them, but neither alo
 supplies Bonsai's resolved contract-to-component graph.
 
 The probe uses the rust-analyzer component shipped with the explicitly selected
-Rust 1.85.0 toolchain. It opens one disposable, dependency-free Cargo binary and
+Rust 1.86.0 toolchain. It opens one disposable, dependency-free Cargo binary and
 uses bounded LSP requests to resolve an aliased action across modules, expand a
 declarative macro, and distinguish active `cfg` definitions. It builds and executes
 the same target twice, with and without the `experimental` feature. The native
@@ -23,7 +23,7 @@ supported-language claim changes in this experiment.
 ## Run the experiment
 
 ```sh
-rustup toolchain install 1.85.0 --profile minimal --component rust-analyzer --component rust-src
+rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
 BONSAI_RUST_PROBE=1 bun test --isolate --timeout 180000 test/rust-backend.test.ts
 ```
 
@@ -46,8 +46,29 @@ The analyzer executable measures 36,819,280 bytes (about 35.1 MiB), excluding
 other toolchain components and caches. Versions and sizes are observations, not
 content attestation. This is not a production gate benchmark.
 
-Proceed with a compiler-aware rust-analyzer collector experiment, using the
-language-neutral fact/action boundary. Do not ship a parser-only Rust gate.
+The next source-graph probe actually failed on the 1.85.0 component: it returned
+`-32601` for `rust-analyzer/viewSyntaxTree`. The 1.86.0 component provides that
+API. An explicit inline `linkedProjects` crate disables Cargo discovery, build
+scripts, and procedural macros, while matching the compiler's sysroot and target
+`cfg`. It derives declarations from the returned syntax tree and edges from LSP
+definitions, then feeds those facts into Bonsai's real `buildSnapshot`.
+
+Both feature profiles passed this graph experiment in 2.98s and 2.70s, including
+the controlled fixture's Cargo build and native response. The 1.86.0 analyzer
+executable is 37,414,448 bytes. Selected-handler ancestry and unused-handler
+rejection worked. Rust-looking string data did not create declarations; syntax
+byte offsets were converted to LSP UTF-16 positions. Eight unresolved references
+and missing macro-generated method edges remain explicit blockers. These partial
+facts preserve the production unsupported-language diagnostics and cannot pass a
+gate. Macro expansion success alone does not establish complete macro ancestry.
+
+Continue with a bounded standalone std-only Rust binding adapter before Cargo
+workspace support. Its source analysis must use the proven semantic backend
+without executing project build scripts. Runtime actions can use an ordinary
+literal native registry and a generated persistent stdio harness; the existing
+verifier remains responsible for assertions. Reject unsupported macros, traits,
+conditional/generated source, external crates, and mixed-language dependencies
+until their graph can be established. Do not ship a parser-only Rust gate.
 The unresolved work is systematic reference collection, completeness diagnostics,
 toolchain/target identity, resource/initialization semantics, and execution
 isolation for build scripts and procedural macros.

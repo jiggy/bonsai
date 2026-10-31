@@ -1,7 +1,7 @@
 name: Rust backend feasibility
 on:
   push:
-    branches: [feat/rust-language]
+    branches: [feat/rust-language, feat/rust-source-collector]
   pull_request:
     paths:
       - test/rust-backend.test.ts
@@ -25,7 +25,7 @@ jobs:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
       - name: Install the pinned optional experimental backend
-        run: rustup toolchain install 1.85.0 --profile minimal --component rust-analyzer --component rust-src
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Exercise semantic queries and native Rust dispatch
         env:
           BONSAI_RUST_PROBE: '1'

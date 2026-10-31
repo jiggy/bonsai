@@ -36,7 +36,7 @@ The normal test step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temporary d
 
 CI emits a compact actual root verdict, observation completion, ancestry count, and timing summary from the already-saved self-check report before archiving it. This is measured diagnostic output, not another verification run or a changed feedback deadline.
 
-`rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.85.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
+`rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.86.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
 
 ## Work Guidance
 
