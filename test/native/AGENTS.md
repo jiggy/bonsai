@@ -22,7 +22,7 @@ The reference collector lives in `test/reference.ts` and uses development-only `
 
 Keep development commands small and their JSON reports versioned. Keep the native runtime and development oracle distinct; neither reference assumptions nor benchmark samples authorize a pass.
 
-Primitive local path aliases must preserve subprocess entry ancestry when pruning irrelevant symbol requests.
+Primitive local path aliases must preserve subprocess entry ancestry when pruning irrelevant symbol requests. Public namespace/reexport aliases and cross-file script globals must remain visible; private module declarations are local query candidates.
 
 ## Verification
 
