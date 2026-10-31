@@ -280,8 +280,7 @@ export async function createTsrsProgram(
         if (ts.isExportDeclaration(statement) && statement.exportClause) {
           const clause = statement.exportClause
           if (ts.isNamespaceExport(clause)) componentNames.add(clause.name.text)
-          else
-            for (const binding of clause.elements) componentNames.add(binding.name.text)
+          else for (const binding of clause.elements) componentNames.add(binding.name.text)
         }
       }
       const parseDiagnostics = (
