@@ -133,6 +133,7 @@ jobs:
       - name: Verify unit, CLI, and executable feature contracts
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
+          RAYON_NUM_THREADS: '1'
         run: bun run test
       - name: Summarize actual root verdict and timings
         if: always()
