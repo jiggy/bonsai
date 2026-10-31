@@ -62,7 +62,7 @@ up), and ignores formatting-only indentation/newline tokens.
 This is a standard-library slice, not general Python or virtual-environment
 support. Third-party imports, mixed executable languages/FFI, classes, decorators,
 closures/comprehensions, conditional imports, reflection, unresolved attribute
-dispatch, computed or special-device writes, attribute mutation, operating-system mutations, external-resource reads, and unimplemented structural metrics produce
+dispatch, filesystem opens (including write-only creation/truncation), attribute mutation, operating-system mutations, external-resource reads, and unimplemented structural metrics produce
 incomplete analysis. Supported standard modules are math, json, decimal,
 fractions, statistics, collections, functools, itertools, operator, datetime,
 time, re, string, typing, asyncio, and os.getpid, with an
