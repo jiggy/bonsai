@@ -57,12 +57,12 @@ Check behavior, ancestry, and the retained-code budget
 USAGE
   bonsai check [flags]
 
-Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.
+Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Saves an offline .bonsai/report.html after evaluation without changing console output. Use --report PATH to choose another destination or --no-report to skip the file. Phase timings appear in --verbose and --json.
 
 EXAMPLES
   $ bonsai check
-  $ bonsai check --report .bonsai/report.html
-  $ bonsai check --root examples/checkout --report .bonsai/report.html --json
+  $ bonsai check --root examples/checkout --serial
+  $ bonsai check --root examples/checkout --report .bonsai/review.html --json
 
 OPTIONS
   -r, --root string         project directory (default current directory)
@@ -70,7 +70,8 @@ OPTIONS
       --policy string       explicit policy file, or - for piped JSON
       --engine string       compatibility option: rust (always used by default)
       --serial              run scenarios in order with shared application state
-      --report string       write an offline HTML report (path relative to --root)
+      --report string       offline HTML path relative to --root (default .bonsai/report.html)
+      --no-report           skip writing the offline HTML report
       --timeout string      command deadline in seconds (default none)
       --limit string        maximum human results (default 20, 0 shows all)
   -j, --json                write JSON data and JSON errors

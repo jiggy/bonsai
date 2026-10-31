@@ -14,7 +14,7 @@ import type { ReportData } from '../src/report/model.ts'
 const template = readFileSync(new URL('../src/report/template.html', import.meta.url), 'utf8')
 const attributes = (markup: string): Record<string, string> =>
   Object.fromEntries(
-    [...markup.matchAll(/(?:\s|^)([\w:-]+)(?:="([^"]*)")?(?=\s|>|$)/g)].map((m) => [
+    [...markup.matchAll(/(?:\s|^)([\w:-]+)(?:="([^"]*)")?(?=\s|\/?>|$)/g)].map((m) => [
       m[1]!,
       m[2] ?? '',
     ]),
@@ -32,7 +32,7 @@ const copyable = (markup: string) =>
       (_, entity: string) => ({ amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'" })[entity]!,
     )
 
-function fixture(empty = false): ReportData {
+function fixture(empty = false, changeSource?: (source: Source) => void): ReportData {
   const source: Source = {
     files: empty
       ? []
@@ -127,6 +127,7 @@ function fixture(empty = false): ReportData {
       : { 'place-order': 'order', 'order-quantity': 'quantity', 'cancel-order': 'cancel' },
     problems: [],
   }
+  changeSource?.(source)
   const checks = empty
     ? []
     : [
@@ -396,6 +397,20 @@ test('empty and zero-cost facts remain explicit without invalid numeric chart ge
     ])
       assert.doesNotMatch(ui.get(id).innerHTML, /NaN|Infinity/, id)
     if (!zero) assert.match(ui.text('file-inspector'), /No indexed files/)
+    else {
+      const cell = ui.control('feature-matrix', 'data-cell-file', 'src/shared.ts')
+      assert.equal(
+        cell.attrs['data-cell-feature'],
+        'features/orders.feature',
+        'A known zero-token link remains an inspectable matrix cell',
+      )
+      cell.click()
+      assert.match(ui.text('workspace-summary'), /src\/shared\.ts · 0 full tokens/)
+      assert.match(
+        ui.get('file-inspector').innerHTML,
+        /data-workspace-scope="spec:features\/orders.feature" aria-pressed="true"/,
+      )
+    }
   }
 })
 
@@ -460,6 +475,16 @@ test('nearby specification footprints keep separate selections and exact source 
     [45, 47],
   )
   assert(measurements.every((m) => m['data-files'] === '3'))
+  const domain = Number(attributes(plot.match(/<svg\b[^>]*>/)![0])['data-domain-x'])
+  assert(Number.isFinite(domain) && domain >= 47)
+  for (const measurement of measurements)
+    assert(
+      Math.abs(
+        Number(measurement.cx) -
+          (58 + ((720 - 58 - 30) * Number(measurement['data-tokens'])) / domain),
+      ) < 0.00001,
+      'Source dots use the displayed adaptive domain',
+    )
   assert(Number(measurements[0]!.cx) < Number(measurements[1]!.cx))
   assert.equal(measurements[0]!.cy, measurements[1]!.cy)
   const labels = points.map((m) =>
@@ -481,6 +506,90 @@ test('nearby specification footprints keep separate selections and exact source 
     ui.control('feature-scatter', 'data-feature', 'features/orders.feature').attrs['aria-pressed'],
     'true',
   )
+})
+
+test('numbered specification badges stay separate across nearby file-count rows', () => {
+  const data = fixture(false, (source) => {
+    source.components.find((component) => component.id === 'cancel')!.tokens = 9
+    for (const [handler, count] of [
+      ['order', 7],
+      ['cancel', 8],
+    ] as const) {
+      for (let index = 0; index < count; index++) {
+        const id = `${handler}-helper-${index}`,
+          file = `src/${id}.ts`
+        source.files.push({ file, tokens: 1 })
+        source.components.push({
+          id,
+          file,
+          name: id,
+          line: 1,
+          tokens: 1,
+          kind: 'production',
+        })
+        source.relationships.push({
+          from: handler,
+          to: id,
+          kind: 'reference',
+          origin: 'static',
+          sourceRef: { file: 'src/nested/orders.ts', line: 1 },
+        })
+      }
+    }
+  })
+  const ui = harness(data),
+    plot = ui.get('feature-scatter').innerHTML,
+    points = [...plot.matchAll(/<g\b[^>]*data-feature="([^"]+)"[^>]*>([\s\S]*?)<\/g>/g)],
+    measurements = points.map((point) =>
+      attributes(point[2]!.match(/<circle\b[^>]*data-feature-location[^>]*>/)![0]),
+    ),
+    labels = points.map((point) =>
+      attributes(point[2]!.match(/<circle\b[^>]*data-feature-label[^>]*>/)![0]),
+    )
+  assert.deepEqual(
+    measurements.map((measurement) => Number(measurement['data-tokens'])),
+    [52, 52],
+  )
+  assert.deepEqual(
+    measurements.map((measurement) => Number(measurement['data-files'])).sort((a, b) => a - b),
+    [10, 11],
+  )
+  assert.equal(
+    measurements[0]!.cx,
+    measurements[1]!.cx,
+    'Equal costs keep equal source x positions',
+  )
+  const yTicks = [...plot.matchAll(/<line\b([^>]*)\/><text\b[^>]*>(\d+)<\/text>/g)].map((tick) => ({
+    value: Number(tick[2]),
+    position: Number(attributes(tick[1]!).y1),
+  }))
+  const lower = yTicks[0]!,
+    upper = yTicks[yTicks.length - 1]!
+  for (const measurement of measurements)
+    assert(
+      Math.abs(
+        Number(measurement.cy) -
+          (lower.position +
+            ((upper.position - lower.position) * Number(measurement['data-files'])) / upper.value),
+      ) < 0.00001,
+      'Source dots retain exact file-count positions while their numbered badges move',
+    )
+  assert(labels.every((label) => Number.isFinite(Number(label.r)) && Number(label.r) > 0))
+  assert(
+    Math.hypot(
+      Number(labels[0]!.cx) - Number(labels[1]!.cx),
+      Number(labels[0]!.cy) - Number(labels[1]!.cy),
+    ) >=
+      Number(labels[0]!.r) + Number(labels[1]!.r),
+    'Numbered badges do not overlap when adjacent file counts are close on the chart',
+  )
+  for (const point of points) {
+    ui.choose('feature-scatter', 'data-feature', point[1]!)
+    assert.equal(
+      ui.control('feature-map-key', 'data-feature', point[1]!).attrs['aria-pressed'],
+      'true',
+    )
+  }
 })
 
 test('syntax highlighting preserves copyable configuration text while keeping candidate markup inert', () => {

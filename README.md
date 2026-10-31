@@ -72,9 +72,12 @@ options.
 
 ### Save an offline check report
 
-Use `bonsai check --report .bonsai/report.html` to save an interactive, standalone
-HTML report alongside the normal terminal, JSON, or plain result. Relative report
-paths resolve against `--root`. The report includes file cost versus specification
+Every evaluated `bonsai check` saves an interactive, standalone HTML report to
+`.bonsai/report.html` alongside the normal terminal, JSON, or plain result.
+Use `--report PATH` to choose another destination or `--no-report` to skip the file,
+including when checking a read-only project. These two options are mutually exclusive.
+Report paths resolve against `--root`; `--quiet` suppresses hints and still saves the file.
+The report includes file cost versus specification
 reach, nested retained-token inventory, mixed files with components lacking links,
 specification footprints, effective settings, bindings, and recorded verification.
 Fonts and interactions are embedded; opening it needs no server or network access.
@@ -87,10 +90,12 @@ Missing or mismatched evidence stays unavailable, and partial source facts remai
 explicit. Supporting runner and structural facts stay separate from specification
 ancestry and retained-token accounting.
 
-The destination and its temporary sibling must be outside the effective maintained
+The default or explicit destination and its temporary sibling must be outside the effective maintained
 inventory or within its saved exclusions. Bonsai refuses source, policy, lockfile,
 and symlink destinations before executing handlers; it never silently changes the
-inventory. Existing initialization excludes `.bonsai`. Rendering and atomic file
+inventory. Existing initialization excludes `.bonsai`. If an older configuration maintains
+that directory, choose an already excluded destination or use `--no-report`; Bonsai
+doesn't add an exclusion automatically. Rendering and atomic file
 delivery remain under the command deadline, outside candidate feedback. A failed
 or interrupted write preserves the previous complete file. Delivery errors are
 separate from the gate decision: existing rejection/incomplete exit statuses remain;

@@ -13,18 +13,23 @@ test('report discovery preserves console formats and stays scoped to check', () 
   const help = JSON.parse(result.stdout)
   assert.equal(help.flags.report.type, 'string')
   assert.equal(help.flags.report.completion, 'file')
-  assert.match(help.flags.report.description, /offline HTML.*relative to --root/)
+  assert.match(
+    help.flags.report.description,
+    /offline HTML.*relative to --root.*default \.bonsai\/report\.html/,
+  )
   assert.deepEqual(help.flags.report.scope, ['check'])
+  assert.equal(help.flags['no-report'].type, 'boolean')
+  assert.deepEqual(help.flags['no-report'].scope, ['check'])
   assert.equal(help.flags.output.short, 'o')
   assert.deepEqual(help.flags.output.choices, ['auto', 'human', 'plain', 'json'])
-  assert.equal(
-    help.commands.check.examples.filter((example: string) => example.includes('--report')).length,
-    2,
-  )
+  assert(help.commands.check.examples.includes('bonsai check'))
+  assert(help.commands.check.examples.some((example: string) => example.includes('--report')))
+  assert(help.commands.check.examples.includes('bonsai check --root examples/checkout --serial'))
   for (const command of ['init', 'explain', 'config', 'version']) {
     const response = runCli(['help', command, '--json'])
     assert.equal(response.status, 0, response.stderr)
     assert.equal(JSON.parse(response.stdout).flags.report, undefined, command)
+    assert.equal(JSON.parse(response.stdout).flags['no-report'], undefined, command)
   }
 })
 
@@ -33,6 +38,8 @@ test('report requires a path and rejects unrelated commands before project work'
     ['check', '--report', '--json'],
     ['explain', 'source.ts', '--report', 'report.html', '--json'],
     ['config', 'show', '--report', 'report.html', '--json'],
+    ['explain', 'source.ts', '--no-report', '--json'],
+    ['config', 'show', '--no-report', '--json'],
   ]) {
     const result = runCli(args)
     assert.equal(result.status, 2, result.stderr)
@@ -40,6 +47,20 @@ test('report requires a path and rejects unrelated commands before project work'
     const error = JSON.parse(result.stderr)
     assert.equal(error.code, 'USAGE')
     assert.match(error.error, /report/)
+  }
+})
+
+test('report and no-report conflict before project work in either order', () => {
+  for (const options of [
+    ['--report', 'report.html', '--no-report'],
+    ['--no-report', '--report=report.html'],
+  ]) {
+    const result = runCli(['check', '--root', '/missing-report-project', ...options, '--json'])
+    assert.equal(result.status, 2, result.stderr)
+    assert.equal(result.stdout, '')
+    const error = JSON.parse(result.stderr)
+    assert.equal(error.code, 'USAGE')
+    assert.match(error.error, /--report.*--no-report/)
   }
 })
 
@@ -73,6 +94,8 @@ for candidate in "\${COMPREPLY[@]}"; do printf '%s\\0' "$candidate"; done
     }
     assert.deepEqual(complete('check', '--rep'), ['--report'])
     assert.deepEqual(complete('explain', '--rep'), [])
+    assert.deepEqual(complete('check', '--no-rep'), ['--no-report'])
+    assert.deepEqual(complete('explain', '--no-rep'), [])
     assert.deepEqual(complete('check', '--root', 'project', '--report', 'out/pro'), [
       'out/project.html',
     ])

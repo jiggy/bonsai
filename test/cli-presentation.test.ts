@@ -13,7 +13,7 @@ import {
   wrap,
 } from '../src/cli-interface.ts'
 import { cliEnvironment, executable, runCli } from './cli.ts'
-import { hasPty, quote } from './terminal.ts'
+import { characters, hasPty, quote } from './terminal.ts'
 
 const example = resolve('examples/checkout')
 
@@ -84,6 +84,29 @@ test('canonical help and generated documentation stay unstyled when redirected',
   assert.equal(markdown.status, 0, markdown.stderr)
   assert.doesNotMatch(markdown.stdout, /\x1b\[/)
   assert.match(markdown.stdout, /maximum human results \(default 20, 0 shows all\)/)
+})
+
+test('conflicting report flags keep wrapped alert text readable without relying on color', {
+  skip: !hasPty,
+}, () => {
+  const args = ['check', '--report', 'report.html', '--no-report']
+  const styled = run(args, { COLUMNS: '40' }, true)
+  assert.equal(styled.status, 2, styled.stderr)
+  const visible = characters(styled.stdout)
+  const plain = visible.map((character) => character.value).join('')
+  assert.match(plain, /Can't combine --report with\n\s+--no-report/)
+  const start = plain.indexOf("Can't combine")
+  const end = plain.indexOf('  Next →', start)
+  assert.ok(end > start)
+  for (const character of visible.slice(start, end).filter((character) => character.value.trim())) {
+    assert.equal(character.color, 31, 'Every alert continuation stays red')
+    assert.equal(character.dim, false, 'Every alert continuation stays readable')
+  }
+  for (const line of plain.trimEnd().split('\n')) assert.ok(displayWidth(line) <= 40, line)
+  const monochrome = run([...args, '--no-color'], { COLUMNS: '40' }, true)
+  assert.equal(monochrome.status, 2, monochrome.stderr)
+  assert.doesNotMatch(monochrome.stdout, /\x1b\[/)
+  assert.equal(plain, monochrome.stdout)
 })
 
 test('human errors wrap to the diagnostic width and ASCII mode covers every structural glyph', () => {

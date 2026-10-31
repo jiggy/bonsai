@@ -940,21 +940,102 @@ export function reportClient(D: ReportData) {
     h += headroom
     top += headroom
     for (const point of points) point.y = y(point.st.files.length)
-    const plot = groups
-      .flatMap((group) =>
-        group.map(({ f, st, index, x: xx, y: yy }, i) => {
-          const offset = group.length > 1,
-            midpoint = (group[0].x + group[group.length - 1].x) / 2
-          const lane = Math.floor(i / capacity),
-            laneStart = lane * capacity,
-            laneCount = Math.min(capacity, group.length - laneStart),
-            span = (laneCount - 1) * 48
-          const start = Math.max(left + 16, Math.min(w - right - 16 - span, midpoint - span / 2))
-          const labelX = offset ? start + (i - laneStart) * 48 : xx
-          const labelY = offset ? yy - 32 - lane * 36 : yy
-          return `<g class="feature-map-point scatter-point ${state.feature === f.id ? 'is-selected' : ''}" role="button" tabindex="0" data-feature="${e(f.id)}" aria-pressed="${state.feature === f.id}" aria-label="${index}. ${e(f.path)}: ${n(st.tokens)} source component tokens, ${st.files.length} distinct files">${offset ? `<polyline class="feature-point-leader" points="${xx},${yy} ${labelX},${labelY + 13}"/>` : ''}<circle class="feature-source-dot" data-feature-location="${e(f.id)}" data-tokens="${st.tokens}" data-files="${st.files.length}" cx="${xx}" cy="${yy}" r="3"/><circle class="feature-point-badge" data-feature-label="${e(f.id)}" cx="${labelX}" cy="${labelY}" r="13"/><circle class="selection-ring" cx="${labelX}" cy="${labelY}" r="19"/><text class="feature-marker-number" x="${labelX}" y="${labelY}">${index}</text></g>`
-        }),
-      )
+    type Position = { x: number; y: number }
+    const spatial = (distance: number) => {
+      const cells = new Map<string, Position[]>()
+      return {
+        add(point: Position) {
+          const key = Math.floor(point.x / distance) + ',' + Math.floor(point.y / distance)
+          const cell = cells.get(key) || []
+          cell.push(point)
+          cells.set(key, cell)
+        },
+        near(point: Position, ignore?: Position) {
+          const col = Math.floor(point.x / distance),
+            row = Math.floor(point.y / distance)
+          for (let dx = -1; dx <= 1; dx++)
+            for (let dy = -1; dy <= 1; dy++)
+              if (
+                (cells.get(col + dx + ',' + (row + dy)) || []).some(
+                  (other) =>
+                    other !== ignore && Math.hypot(point.x - other.x, point.y - other.y) < distance,
+                )
+              )
+                return true
+          return false
+        },
+      }
+    }
+    const sources = spatial(proximity),
+      occupied = spatial(32)
+    for (const point of points) sources.add(point)
+    const labels: { point: (typeof points)[number]; position: Position }[] = []
+    let fallback = 0,
+      minimumY = 45
+    for (const group of groups) {
+      const midpoint = (group[0].x + group[group.length - 1].x) / 2
+      for (let i = 0; i < group.length; i++) {
+        const point = group[i],
+          offset = group.length > 1 || sources.near(point, point)
+        const lane = Math.floor(i / capacity),
+          laneStart = lane * capacity,
+          span = (Math.min(capacity, group.length - laneStart) - 1) * 48
+        const start = Math.max(left + 16, Math.min(w - right - 16 - span, midpoint - span / 2))
+        const preferred = {
+          x: offset ? start + (i - laneStart) * 48 : point.x,
+          y: offset ? point.y - 32 - lane * 36 : point.y,
+        }
+        let position: Position | undefined = occupied.near(preferred) ? undefined : preferred
+        // Nearby candidates keep leaders short; the finite header grid is the fallback.
+        for (const [dx, dy] of [
+          [-36, 0],
+          [36, 0],
+          [0, -36],
+          [-36, -36],
+          [36, -36],
+          [0, 36],
+          [-36, 36],
+          [36, 36],
+        ]) {
+          if (position) break
+          const candidate = { x: preferred.x + dx, y: preferred.y + dy }
+          if (
+            candidate.x >= left + 16 &&
+            candidate.x <= w - right - 16 &&
+            candidate.y >= 45 &&
+            candidate.y <= h - bottom - 16 &&
+            !occupied.near(candidate)
+          )
+            position = candidate
+        }
+        while (!position && fallback < points.length * 4 + capacity) {
+          const candidate = {
+            x: left + 16 + (fallback % capacity) * 48,
+            y: top - 32 - Math.floor(fallback / capacity) * 36,
+          }
+          fallback++
+          if (!occupied.near(candidate)) position = candidate
+        }
+        position ??= { x: Math.max(left + 16, Math.min(w - right - 16, point.x)), y: minimumY - 36 }
+        occupied.add(position)
+        minimumY = Math.min(minimumY, position.y)
+        labels.push({ point, position })
+      }
+    }
+    // Additional callout room translates the axes and source dots together, never their values.
+    const shift = Math.max(0, 45 - minimumY)
+    h += shift
+    top += shift
+    for (const point of points) point.y += shift
+    for (const label of labels) label.position.y += shift
+    const plot = labels
+      .map(({ point: { f, st, index, x: xx, y: yy }, position: { x: labelX, y: labelY } }) => {
+        const offset = labelX !== xx || labelY !== yy,
+          distance = Math.hypot(xx - labelX, yy - labelY) || 1
+        const edgeX = labelX + (13 * (xx - labelX)) / distance,
+          edgeY = labelY + (13 * (yy - labelY)) / distance
+        return `<g class="feature-map-point scatter-point ${state.feature === f.id ? 'is-selected' : ''}" role="button" tabindex="0" data-feature="${e(f.id)}" aria-pressed="${state.feature === f.id}" aria-label="${index}. ${e(f.path)}: ${n(st.tokens)} source component tokens, ${st.files.length} distinct files">${offset ? `<polyline class="feature-point-leader" points="${xx},${yy} ${edgeX},${edgeY}"/>` : ''}<circle class="feature-source-dot" data-feature-location="${e(f.id)}" data-tokens="${st.tokens}" data-files="${st.files.length}" cx="${xx}" cy="${yy}" r="3"/><circle class="feature-point-badge" data-feature-label="${e(f.id)}" cx="${labelX}" cy="${labelY}" r="13"/><circle class="selection-ring" cx="${labelX}" cy="${labelY}" r="19"/><text class="feature-marker-number" x="${labelX}" y="${labelY}">${index}</text></g>`
+      })
       .join('')
     $('feature-scatter').innerHTML =
       `<svg viewBox="0 0 ${w} ${h}" data-domain-x="${maxX}" data-domain-y="${maxY}" role="group" aria-label="Specification implementation size versus distinct files touched. Each numbered label selects one specification. Small dots preserve exact positions; nearby labels move for readability. Missing-handler footprints are not plotted."><text x="${left}" y="18" class="axis-title">Distinct files touched</text>${yDomain.ticks.map((i) => `<line x1="${left}" x2="${w - right}" y1="${y(i)}" y2="${y(i)}" class="grid-line"/><text x="${left - 14}" y="${y(i) + 4}" text-anchor="end">${i}</text>`).join('')}${xDomain.ticks.map((v) => `<text x="${x(v)}" y="${h - bottom + 25}" text-anchor="middle">${axisNumber(v)}</text>`).join('')}<text x="${(w + left - right) / 2}" y="${h - 8}" text-anchor="middle" class="axis-title">Reachable source component tokens</text>${plot}</svg>`

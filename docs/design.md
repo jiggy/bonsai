@@ -56,9 +56,11 @@ One package, with six principal modules:
 
 ## Standalone check reports
 
-`check --report PATH` projects its already evaluated decision, snapshot, timings,
-and effective configuration into one offline HTML artifact. Existing JSON and
-plain output contracts remain unchanged. The renderer owns presentation and no
+`check` projects its already evaluated decision, snapshot, timings, and effective
+configuration into `.bonsai/report.html` by default. `--report PATH` selects another
+destination; `--no-report` skips generation, including for read-only projects.
+The options are mutually exclusive. Existing JSON, plain, and quiet output contracts
+remain unchanged. The renderer owns presentation and no
 acceptance rules; it does not recollect the project or execute handlers. Exact
 observation ancestry remains distinct from evidence and component necessity.
 

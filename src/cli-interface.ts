@@ -36,8 +36,13 @@ export const flags = {
   },
   report: {
     type: 'string',
-    description: 'write an offline HTML report (path relative to --root)',
+    description: 'offline HTML path relative to --root (default .bonsai/report.html)',
     completion: 'file',
+    scope: ['check'],
+  },
+  'no-report': {
+    type: 'boolean',
+    description: 'skip writing the offline HTML report',
     scope: ['check'],
   },
   timeout: {
@@ -105,11 +110,11 @@ export const commands = {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
     description:
-      'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.',
+      'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Saves an offline .bonsai/report.html after evaluation without changing console output. Use --report PATH to choose another destination or --no-report to skip the file. Phase timings appear in --verbose and --json.',
     examples: [
       'bonsai check',
-      'bonsai check --report .bonsai/report.html',
-      'bonsai check --root examples/checkout --report .bonsai/report.html --json',
+      'bonsai check --root examples/checkout --serial',
+      'bonsai check --root examples/checkout --report .bonsai/review.html --json',
     ],
   },
   explain: {
