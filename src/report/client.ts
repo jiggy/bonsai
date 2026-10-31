@@ -1456,7 +1456,8 @@ export function reportClient(D: ReportData) {
     const target = ev.target as HTMLElement | null
     if (target && target.matches('[role="button"]') && (ev.key === 'Enter' || ev.key === ' ')) {
       ev.preventDefault()
-      target.click()
+      if (typeof target.click === 'function') target.click()
+      else target.dispatchEvent(new MouseEvent('click', { bubbles: true }))
     }
   })
   document.addEventListener('change', (ev) => {
