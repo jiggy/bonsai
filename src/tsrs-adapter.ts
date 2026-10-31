@@ -234,6 +234,29 @@ export async function createTsrsProgram(
     const elements: ts.ElementAccessExpression[] = []
     const importSpecifiers: ts.StringLiteralLike[] = []
     const importTargets: ts.Expression[] = []
+    // A reference can only reach an owned declaration/export or an adapter binding.
+    // Keep owned names and adapter bindings; native semantics still resolve
+    // aliases and shadows. Ordinary external property names need no query.
+    const componentNames = new Set(['default'])
+    const fileNames = new Map<string, Set<string>>()
+    const collectNames = (node: ts.Node, names: Set<string>): void => {
+      const name = (node as ts.NamedDeclaration).name
+      if (
+        name &&
+        ts.isIdentifier(name) &&
+        (ts.isImportClause(node) ||
+          ts.isImportSpecifier(node) ||
+          ts.isNamespaceImport(node) ||
+          ts.isImportEqualsDeclaration(node) ||
+          ts.isParameter(node) ||
+          ts.isBindingElement(node) ||
+          (ts.isVariableDeclaration(node) &&
+            ts.isVariableDeclarationList(node.parent) &&
+            !!(node.parent.flags & ts.NodeFlags.Const)))
+      )
+        names.add(name.text)
+      ts.forEachChild(node, (child) => collectNames(child, names))
+    }
     let unsupportedLexical = false
     for (const file of names) {
       const ast = ts.createSourceFile(
@@ -243,6 +266,24 @@ export async function createTsrsProgram(
         true,
       )
       localFiles.set(canonical(file), ast)
+      const references = new Set(['URL', 'process'])
+      collectNames(ast, references)
+      fileNames.set(canonical(file), references)
+      for (const statement of ast.statements) {
+        const declarations = ts.isVariableStatement(statement)
+          ? [...statement.declarationList.declarations]
+          : [statement]
+        for (const declaration of declarations) {
+          const name = (declaration as ts.NamedDeclaration).name
+          if (name && ts.isIdentifier(name)) componentNames.add(name.text)
+        }
+        if (ts.isExportDeclaration(statement) && statement.exportClause) {
+          const clause = statement.exportClause
+          if (ts.isNamespaceExport(clause)) componentNames.add(clause.name.text)
+          else
+            for (const binding of clause.elements) componentNames.add(binding.name.text)
+        }
+      }
       const parseDiagnostics = (
         ast as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
       ).parseDiagnostics
@@ -259,6 +300,7 @@ export async function createTsrsProgram(
     const remoteFiles = await Promise.all(names.map((file) => nativeProgram.getSourceFile(file)))
     for (const [index, file] of names.entries()) {
       const ast = localFiles.get(canonical(file))!
+      const referenceNames = fileNames.get(canonical(file))!
       const text = ast.text
       const remote = remoteFiles[index]
       if (!remote || remote.text !== text)
@@ -320,7 +362,8 @@ export async function createTsrsProgram(
         // References use property-name identifiers, not whole accesses or ordinary
         // strings. Loader primitives can be a direct variable-initializer callee.
         if (
-          ts.isIdentifier(node) ||
+          (ts.isIdentifier(node) &&
+            (referenceNames.has(node.text) || componentNames.has(node.text))) ||
           (ts.isStringLiteralLike(node) && (importSpecifier || declarationNames.has(node))) ||
           (ts.isPropertyAccessExpression(node) && (importTarget || initializerCallee))
         ) {

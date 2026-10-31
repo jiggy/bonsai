@@ -20,6 +20,8 @@ Assert outputs, streams, exit codes, and candidate behavior. Check presentation 
 
 ## Work Guidance
 
+Queued-application drift regression in `evidence-parallel.test.ts` changes a maintained input in one scenario and requires the next fresh loader to reject before importing or calling its handler, independently of final snapshot integrity.
+
 `evidence-authenticity.test.ts` covers handler attempts to rewrite genuine evidence using process IPC, raw descriptor frames, prototype setters, heap-key recovery, event-dispatch hooks, port-start replacement during binding import, and forged public parent-port messages, through both verification profiles and the real CLI. Its direct action-plan probe verifies genuine selected values without compiler or broker setup and requires deadline rejection when a raw-descriptor attacker never settles. Result authentication belongs to the subprocess main heap, after the candidate thread stops; no verifier descriptor may remain in candidate reach. Preserve public evidence schemas, failure previews, every observation, state profiles, cancellation, and descendant cleanup.
 
 `github-action.test.ts` exercises the real action entry point against independent Git consumers. Preserve strict base policy/inventory, over-budget growth and pruning, failed/incomplete verification, serial invocation, missing history, actual metrics, and rejection of missing/malformed/contradictory reports. Hosted composite smoke checks live in `.github/workflows/action.yml`; setup failures do not establish the intended gate behavior.

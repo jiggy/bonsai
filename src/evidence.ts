@@ -46,11 +46,23 @@ export async function collectEvidence(
   identity?: ExecutionIdentity,
   execution: Execution = {},
 ): Promise<Evidence> {
+  return collectActionEvidence(root, config, contracts, fingerprint, identity, execution)
+}
+
+async function collectActionEvidence(
+  root: string,
+  config: Config,
+  contracts: Contracts,
+  fingerprint: string,
+  identity: ExecutionIdentity | undefined,
+  execution: Execution,
+  binding?: ReturnType<typeof projectBindingTarget>,
+): Promise<Evidence> {
   const started = performance.now()
   identity = applicationIdentity(
     identity ?? (await identityForBindings(config.bindings, execution.signal, execution.timeoutMs)),
   )
-  const target = projectBindingTarget(root, config, fingerprint)
+  const target = binding ?? projectBindingTarget(root, config, fingerprint)
   const evidence: Evidence = {
     schema: 'bonsai-evidence-v2',
     identity,
@@ -253,6 +265,7 @@ async function isolatedEvidence(
   let next = 0
   try {
     if (signal?.aborted) abort()
+    const target = projectBindingTarget(root, config, fingerprint)
     const { openNativeSession } = await import('./native-session.ts')
     const lanes = Array.from({ length: Math.min(workers, shards.length) }, async () => {
       let session: Awaited<ReturnType<typeof openNativeSession>> | undefined
@@ -263,13 +276,21 @@ async function isolatedEvidence(
           remaining()
           const index = queue[next++]!
           const shard = shards[index]!
-          const evidence = await collectEvidence(root, config, shard, fingerprint, identity, {
-            timeoutMs: remaining(),
-            signal: cancellation.signal,
-            session: session?.value,
-            isolated: true,
-            pythonSources,
-          })
+          const evidence = await collectActionEvidence(
+            root,
+            config,
+            shard,
+            fingerprint,
+            identity,
+            {
+              timeoutMs: remaining(),
+              signal: cancellation.signal,
+              session: session?.value,
+              isolated: true,
+              pythonSources,
+            },
+            target,
+          )
           validateScenarioEvidence(evidence, shard, config, fingerprint, identity)
           results[index] = evidence
         }
