@@ -1,5 +1,5 @@
 /** Bounded CPython AST/tokenize adapter; this embedded source is fully charged and checker-hashed. */
-export const pythonProgram = String.raw`import ast, asyncio, builtins, codecs, contextlib, hashlib, importlib, importlib.abc, importlib.util, io, json, os, re, sys, sysconfig, tokenize
+export const pythonProgram = String.raw`import ast, asyncio, builtins, codecs, collections, contextlib, hashlib, importlib, importlib.abc, importlib.util, io, json, os, re, sys, sysconfig, tokenize
 # Load supported standard modules before admitting a consuming source directory.
 STANDARD = set("builtins math json decimal fractions statistics collections functools itertools operator datetime time re string typing asyncio os".split())
 # Exact supported exports, rather than every incidental module global.
@@ -26,6 +26,8 @@ def data_export(name):
     return name in {"math.pi", "math.e", "math.tau", "math.inf", "math.nan"} or (name.startswith("string.") and supported_export(name))
 for module in sorted(STANDARD):
     importlib.import_module(module)
+
+MAPPING_TYPES = (dict, collections.Counter, collections.defaultdict)
 
 LIBRARY = sysconfig.get_config_var("LDLIBRARY")
 LIBDIR = sysconfig.get_config_var("LIBDIR")
@@ -71,7 +73,7 @@ def transferable(value, depth=0):
         raise ValueError("Selected Python value exceeds transfer depth")
     if type(value) is int and not -(2**53 - 1) <= value <= 2**53 - 1:
         raise ValueError("Selected Python integer exceeds the exact JSON safe integer range")
-    if type(value) is dict:
+    if type(value) in MAPPING_TYPES:
         for key, field in value.items():
             if type(key) is not str:
                 raise ValueError("Selected Python objects require string keys")
@@ -301,6 +303,16 @@ def analyze(request):
                     return False
                 node = parent
             return False
+        def exception_use(node, target):
+            if target[0] != "@builtin":
+                return False
+            value = getattr(builtins, target[1], None)
+            if not isinstance(value, type) or not issubclass(value, BaseException):
+                return False
+            while isinstance(parents.get(node), ast.Tuple):
+                node = parents[node]
+            parent = parents.get(node)
+            return isinstance(parent, ast.ExceptHandler) and parent.type is node
         def qualified(node, locals):
             if isinstance(node, ast.Name) and node.id not in locals:
                 target = resolved(file, node.id)
@@ -330,7 +342,7 @@ def analyze(request):
                         direct = isinstance(parent, ast.Call) and parent.func is item
                         attribute = isinstance(parent, ast.Attribute) and parent.value is item and target[0] == "@stdlib"
                         annotation = annotation_use(item)
-                        if not (direct or attribute or annotation or (target[0] == "@stdlib" and data_export(target[1])) or target[1] in ("True", "False", "None", "__name__", "__file__", "__package__")):
+                        if not (direct or attribute or annotation or exception_use(item, target) or (target[0] == "@stdlib" and data_export(target[1])) or target[1] in ("True", "False", "None", "__name__", "__file__", "__package__")):
                             problem(file, item, "escaped standard-library or builtin values require a source adapter")
                     if target is None:
                         problem(file, item, "unresolved global name: " + item.id)
@@ -493,7 +505,7 @@ elif request["mode"] == "actions":
                 try:
                     selected = value
                     for key in selection["keys"]:
-                        if type(selected) is dict and key in selected:
+                        if type(selected) in MAPPING_TYPES and key in selected:
                             selected = selected[key]
                         elif type(selected) in (list, tuple) and key == "length":
                             selected = len(selected)
@@ -511,7 +523,7 @@ elif request["mode"] == "actions":
             # A bounded preview never traverses unselected containers or calls user hooks.
             try:
                 preview = {}
-                if type(value) is dict:
+                if type(value) in MAPPING_TYPES:
                     for key in list(value)[:8]:
                         if type(key) is str:
                             field = value[key]
