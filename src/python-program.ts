@@ -338,6 +338,8 @@ def analyze(request):
             else:
                 visit = node
             for item in ast.walk(visit):
+                if not function and isinstance(item, ast.ExceptHandler) and item.name and (item.name in module["names"] or item.name in module["imports"]):
+                    problem(file, item, "deleting Python names through exception cleanup requires a source adapter")
                 if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load) and item.id not in local.names:
                     target = resolved(file, item.id)
                     if target and target[0] == "@builtin" and target[1] in forbidden:
