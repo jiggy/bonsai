@@ -46,7 +46,8 @@ test('delivery timeout preserves an established incomplete status and reports th
     const fixture = createProject(
       {
         'app.ts': "export function ready() { return { status: 'ok' } }\n",
-        'bindings.ts': "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
+        'bindings.ts':
+          "import { ready } from './app.ts'\nexport const actions = { ready: ready }\n",
         'ready.feature':
           'Feature: Readiness\nScenario: Read the status\n When I invoke "ready" with {}\n Then response "status" equals "ok"\n' +
           (outcome === 'incomplete'
