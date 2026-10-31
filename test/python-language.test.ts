@@ -802,6 +802,157 @@ test('deleting Python names cannot restore forbidden builtins behind static deco
   }
 })
 
+test('Python initializers cannot capture builtins through self or forward bindings', () => {
+  const cases: [string, string, Record<string, string>?][] = [
+    ['open = open\n', 'open'],
+    ['def capture():\n    return open\nopen = capture()\n', 'open'],
+    ['alias = open\nopen = 0\n', 'alias'],
+    ['open: object\n', 'open'],
+    ['def capture(value=open):\n    return value\nopen = capture()\n', 'open'],
+    [
+      'def capture():\n    return open\nalias = capture()\ndef open(path, mode="r"):\n    return None\n',
+      'alias',
+    ],
+    [
+      'def capture():\n    return open\nalias = None\nif True:\n    alias = capture()\nopen = 0\n',
+      'alias',
+    ],
+    [
+      'def capture():\n    return open\nimport capture_helper\nopen = 0\n',
+      'capture_helper.alias',
+      { 'capture_helper.py': 'from orders import capture\nalias = capture()\n' },
+    ],
+  ]
+  for (const [index, [setup, callable, helpers]] of cases.entries()) {
+    const project = fixture(helpers)
+    mkdirSync(join(project.root, 'build'))
+    const marker = join(project.root, 'build/ran')
+    const oracle = join(project.root, 'build/oracle')
+    writeFileSync(
+      join(project.root, 'orders.py'),
+      setup +
+        'def place_order(request):\n' +
+        '    output = list(map(' +
+        callable +
+        ', [' +
+        JSON.stringify(marker) +
+        '], ["w"]))[0]\n' +
+        '    print("ran", file=output, flush=True)\n' +
+        '    try:\n        stream = list(map(' +
+        callable +
+        ', [' +
+        JSON.stringify(oracle) +
+        ']))[0]\n' +
+        '        return {"status":list(stream)[0]}\n' +
+        '    except OSError:\n        return {"status":"rejected"}\n',
+    )
+    try {
+      const analyzed = embedded({
+        mode: 'analyze',
+        root: project.root,
+        files: project.config.maintained.slice().sort(),
+        bindings: 'bindings.py',
+      })
+      assert.equal(analyzed.status, 0, analyzed.stderr)
+      const frame = JSON.parse(analyzed.stdout)
+      assert.ok(frame.source.problems.length > 0, 'Initializer capture must block analysis')
+      // The deliberately unsupported raw runner proves both oracle outcomes;
+      // it bypasses admission and never establishes passing gate evidence.
+      for (const status of ['accepted', 'rejected']) {
+        if (status === 'accepted') writeFileSync(oracle, status)
+        else rmSync(oracle, { force: true })
+        assert.equal(rawPythonStatus(project.root, frame), status)
+        assert.equal(readFileSync(marker, 'utf8'), 'ran\n')
+        rmSync(marker)
+      }
+      if ([0, 1, 7].includes(index)) {
+        for (const serial of [false, true]) {
+          const report = assertStatus(project.root, 'incomplete', serial)
+          assert.equal(report.snapshot.evidence, undefined)
+          assert.equal(existsSync(marker), false)
+        }
+      }
+    } finally {
+      project.dispose()
+    }
+  }
+})
+
+test('Python wildcard imports cannot replace resolved module aliases', () => {
+  const project = fixture({
+    'helper.py': 'import os as x\n',
+    'decoy.py': 'def remove(path):\n    return None\n',
+  })
+  mkdirSync(join(project.root, 'build'))
+  const oracle = join(project.root, 'build/oracle')
+  writeFileSync(
+    join(project.root, 'orders.py'),
+    'import decoy as x\nfrom helper import *\n' +
+      'def place_order(request):\n    try:\n        x.remove(' +
+      JSON.stringify(oracle) +
+      ')\n' +
+      '        return {"status":"accepted"}\n    except OSError:\n        return {"status":"rejected"}\n',
+  )
+  try {
+    const analyzed = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
+    assert.equal(analyzed.status, 0, analyzed.stderr)
+    const frame = JSON.parse(analyzed.stdout)
+    assert.match(frame.source.problems.join('\n'), /wildcard imports/)
+    // Raw transport only: prove the overwritten alias really deletes the oracle.
+    writeFileSync(oracle, 'present')
+    assert.equal(rawPythonStatus(project.root, frame), 'accepted')
+    assert.equal(existsSync(oracle), false)
+    assert.equal(rawPythonStatus(project.root, frame), 'rejected')
+    for (const serial of [false, true]) {
+      writeFileSync(oracle, 'present')
+      const report = assertStatus(project.root, 'incomplete', serial)
+      assert.equal(report.snapshot.evidence, undefined)
+      assert.equal(readFileSync(oracle, 'utf8'), 'present')
+    }
+  } finally {
+    project.dispose()
+  }
+})
+
+test('resolved maintained helpers may use names reserved for external calls', () => {
+  const helper =
+    'def read(request):\n    return {"status":"accepted"}\n' +
+    'def system(request):\n    return read(request)\n' +
+    'def open(request):\n    return system(request)\n'
+  const project = fixture({ 'helper.py': helper })
+  try {
+    for (const source of [
+      'import helper\ndef place_order(request):\n    return helper.open(helper.system(helper.read(request)))\n',
+      'from helper import read, system, open\ndef place_order(request):\n    return open(system(read(request)))\n',
+    ]) {
+      writeFileSync(join(project.root, 'orders.py'), source)
+      for (const serial of [false, true]) assertStatus(project.root, 'pass', serial)
+    }
+    writeFileSync(
+      join(project.root, 'orders.py'),
+      'import os\ndef place_order(request):\n    return os.system("must not execute")\n',
+    )
+    const result = embedded({
+      mode: 'analyze',
+      root: project.root,
+      files: project.config.maintained.slice().sort(),
+      bindings: 'bindings.py',
+    })
+    assert.equal(result.status, 0, result.stderr)
+    assert.match(
+      JSON.parse(result.stdout).source.problems.join('\n'),
+      /operating-system|unsupported standard-library/,
+    )
+  } finally {
+    project.dispose()
+  }
+})
+
 test('Python stdout frames cannot forge values or complete a blocked plan', () => {
   for (const serial of [false, true]) {
     for (const blocked of [false, true]) {
@@ -977,6 +1128,33 @@ function embedded(request: unknown, probe = '') {
     ['-I', '-S', '-B', '-X', 'utf8', '-c', probe + pythonProgram],
     { input: JSON.stringify(request) + '\n', encoding: 'utf8', timeout: 10000 },
   )
+}
+
+/** Deliberate admission bypass for live exploit controls, never gate evidence. */
+function rawPythonStatus(root: string, frame: any): unknown {
+  const result = join(root, 'raw-probe-result')
+  const ran = embedded({
+    mode: 'actions',
+    root,
+    bindings: 'bindings.py',
+    digests: frame.digests,
+    compiler: frame.compiler,
+    result,
+    operations: [
+      {
+        id: 1,
+        action: 'place-order',
+        input: {},
+        selections: [{ selector: 'status', keys: ['status'] }],
+      },
+    ],
+  })
+  assert.equal(ran.status, 0, ran.stderr)
+  const report = JSON.parse(readFileSync(result, 'utf8')).results[0]
+  rmSync(result)
+  assert.equal(report.error, undefined)
+  assert.equal(report.observations[0].error, undefined)
+  return report.observations[0].value
 }
 
 test('Python source loader freezes every analyzed module before candidate initialization', () => {

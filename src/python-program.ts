@@ -228,6 +228,9 @@ def analyze(request):
             else:
                 entries = [(alias.asname or alias.name, node.module or "", alias.name, node.level) for alias in node.names]
             for local, imported, member, level in entries:
+                if member == "*":
+                    problem(file, node, "wildcard imports require a source adapter")
+                    continue
                 if local.startswith("__"):
                     problem(file, node, "imports cannot overwrite module metadata: " + local)
                 if local in module["names"] or local in module["imports"]:
@@ -263,6 +266,22 @@ def analyze(request):
                     module["imports"][local] = ("@stdlib", imported + ("." + member if member else ""))
                 else:
                     problem(file, node, "import is not a supported standard module or maintained Python module: " + imported)
+    # Cyclic imports can expose a module's functions before its bindings exist.
+    pending = {file: {target for target, _ in module["imports"].values() if target in modules} for file, module in modules.items()}
+    dependents = {file: set() for file in modules}
+    for file, targets in pending.items():
+        for target in targets:
+            dependents[target].add(file)
+    ready = [file for file, targets in pending.items() if not targets]
+    while ready:
+        target = ready.pop()
+        for dependent in dependents[target]:
+            pending[dependent].discard(target)
+            if not pending[dependent]:
+                ready.append(dependent)
+    for file, targets in pending.items():
+        if targets:
+            problem(file, modules[file]["tree"], "cyclic module initialization requires a source adapter")
     def resolved(file, name):
         module = modules[file]
         if name in module["names"]:
@@ -318,9 +337,55 @@ def analyze(request):
                 node = parents[node]
             parent = parents.get(node)
             return isinstance(parent, ast.ExceptHandler) and parent.type is node
+        statements = {node: index for index, node in enumerate(module["tree"].body)}
+        binding_order, binding_targets = {}, set()
+        for statement, index in statements.items():
+            if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                binding_order[statement.name] = index
+            elif isinstance(statement, (ast.Assign, ast.AnnAssign)):
+                targets = statement.targets if isinstance(statement, ast.Assign) else [statement.target]
+                if len(targets) == 1 and isinstance(targets[0], ast.Name):
+                    binding_order[targets[0].id] = index
+                    binding_targets.add(targets[0])
+                    if isinstance(statement, ast.AnnAssign) and statement.value is None:
+                        problem(file, statement, "module annotations without assigned values require a source adapter")
+            elif isinstance(statement, (ast.Import, ast.ImportFrom)):
+                for alias in statement.names:
+                    binding_order[alias.asname or (alias.name.split(".")[0] if isinstance(statement, ast.Import) else alias.name)] = index
+        dependencies = {name: set() for name in binding_order}
+        for declaration, identifier in module["owners"]:
+            function_declaration = isinstance(declaration, (ast.FunctionDef, ast.AsyncFunctionDef))
+            if function_declaration:
+                locals = LocalNames()
+                for statement in declaration.body:
+                    locals.visit(statement)
+                locals.names.update(arg.arg for arg in declaration.args.posonlyargs + declaration.args.args + declaration.args.kwonlyargs + [arg for arg in (declaration.args.vararg, declaration.args.kwarg) if arg])
+                name, body = declaration.name, ast.Module(body=declaration.body, type_ignores=[])
+            elif isinstance(declaration, (ast.Assign, ast.AnnAssign)):
+                targets = declaration.targets if isinstance(declaration, ast.Assign) else [declaration.target]
+                if len(targets) != 1 or not isinstance(targets[0], ast.Name):
+                    continue
+                name, body, locals = targets[0].id, declaration, LocalNames()
+            else:
+                continue
+            dependencies[name].update(item.id for item in ast.walk(body) if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load) and item.id in binding_order and item.id not in locals.names)
+        changed = True
+        while changed:
+            changed = False
+            for name, references in dependencies.items():
+                expanded = set(references)
+                for reference in list(references):
+                    expanded.update(dependencies[reference])
+                if expanded != references:
+                    dependencies[name] = expanded
+                    changed = True
+        def active(name):
+            if not function and name in binding_order and binding_order[name] >= current_order:
+                return ("@builtin", name) if hasattr(builtins, name) else None
+            return resolved(file, name)
         def qualified(node, locals):
             if isinstance(node, ast.Name) and node.id not in locals:
-                target = resolved(file, node.id)
+                target = active(node.id)
                 return target[1] if target and target[0] == "@stdlib" else None
             if isinstance(node, ast.Attribute):
                 base = qualified(node.value, locals)
@@ -328,6 +393,12 @@ def analyze(request):
             return None
         for node, owner in module["owners"]:
             function = isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            top = node
+            while parents.get(top) is not module["tree"] and top in parents:
+                top = parents[top]
+            current_order = statements.get(top, len(statements))
+            expression = node.value if isinstance(node, (ast.Assign, ast.AnnAssign, ast.Expr)) else node
+            eager = expression is None or not inert(expression) or (isinstance(node, ast.AnnAssign) and not inert(node.annotation))
             local = LocalNames()
             if function:
                 for statement in node.body:
@@ -338,10 +409,16 @@ def analyze(request):
             else:
                 visit = node
             for item in ast.walk(visit):
+                if not function and isinstance(item, ast.Name) and isinstance(item.ctx, ast.Store) and item.id in binding_order and item not in binding_targets:
+                    problem(file, item, "module name rebinding requires a source adapter")
                 if not function and isinstance(item, ast.ExceptHandler) and item.name and (item.name in module["names"] or item.name in module["imports"]):
                     problem(file, item, "deleting Python names through exception cleanup requires a source adapter")
                 if isinstance(item, ast.Name) and isinstance(item.ctx, ast.Load) and item.id not in local.names:
-                    target = resolved(file, item.id)
+                    target = active(item.id)
+                    if not function and eager and item.id in dependencies:
+                        missing = sorted(name for name in dependencies[item.id] if binding_order[name] >= current_order)
+                        if missing:
+                            problem(file, item, "module initializer requires prior bindings: " + ", ".join(missing))
                     if target and target[0] == "@builtin" and target[1] in forbidden:
                         problem(file, item, "runtime reflection requires a source adapter")
                     if target and target[0] in ("@builtin", "@stdlib"):
@@ -367,17 +444,17 @@ def analyze(request):
                     if isinstance(item.ctx, (ast.Store, ast.Del)):
                         problem(file, item, "attribute mutation requires a source adapter")
                     if isinstance(item.value, ast.Name):
-                        base = resolved(file, item.value.id) if item.value.id not in local.names else None
+                        base = active(item.value.id) if item.value.id not in local.names else None
                         if base and base[0] == "@stdlib" and base[1] == "os" and item.attr not in EXPORTS["os"]:
                             problem(file, item, "operating-system context requires a source adapter")
                     if not selected_export:
-                        base = resolved(file, item.value.id) if isinstance(item.value, ast.Name) and item.value.id not in local.names else None
+                        base = active(item.value.id) if isinstance(item.value, ast.Name) and item.value.id not in local.names else None
                         if (not base or base[0] != "@module") and item.attr not in {"year", "month", "day", "hour", "minute", "second", "microsecond", "days", "seconds", "numerator", "denominator", "real", "imag"}:
                             problem(file, item, "unresolved attribute access requires a source adapter")
                     if item.attr.startswith("__"):
                         problem(file, item, "runtime introspection requires a source adapter")
                     if isinstance(item.value, ast.Name) and item.value.id not in local.names:
-                        target = resolved(file, item.value.id)
+                        target = active(item.value.id)
                         if target and target[0] == "@module":
                             selected = modules[target[1]]["names"].get(item.attr)
                             if selected:
@@ -386,7 +463,7 @@ def analyze(request):
                                 problem(file, item, "unresolved module attribute: " + item.attr)
                 if isinstance(item, ast.Call):
                     call = item.func
-                    target = resolved(file, call.id) if isinstance(call, ast.Name) and call.id not in local.names else None
+                    target = active(call.id) if isinstance(call, ast.Name) and call.id not in local.names else None
                     if target and target[0] == "@builtin" and target[1] in forbidden:
                         problem(file, item, "reflection and dynamic imports require a source adapter")
                     if isinstance(call, ast.Name):
@@ -397,11 +474,12 @@ def analyze(request):
                         if target == ("@builtin", "open"):
                             problem(file, item, "external resource reads and writes require a source adapter")
                     elif isinstance(call, ast.Attribute):
-                        base = resolved(file, call.value.id) if isinstance(call.value, ast.Name) and call.value.id not in local.names else None
+                        base = active(call.value.id) if isinstance(call.value, ast.Name) and call.value.id not in local.names else None
                         selected_call = qualified(call, local.names)
                         if not (selected_call and supported_export(selected_call)) and (not base or base[0] not in ("@stdlib", "@module")):
                             problem(file, item, "unresolved attribute dispatch requires a source adapter")
-                        if call.attr in {"listdir", "scandir", "walk", "system", "popen", "fork", "execv", "execve", "spawnv", "spawnve", "read", "read_text", "read_bytes", "getenv"}:
+                        owned_call = base and base[0] == "@module" and modules[base[1]]["names"].get(call.attr, (None, None))[1] == "function"
+                        if not owned_call and call.attr in {"listdir", "scandir", "walk", "system", "popen", "fork", "execv", "execve", "spawnv", "spawnve", "read", "read_text", "read_bytes", "getenv"}:
                             problem(file, item, "external context or process dispatch requires a source adapter")
                     else:
                         problem(file, item, "computed dispatch requires a source adapter")
