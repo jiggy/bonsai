@@ -172,3 +172,4 @@ that trust boundary.
 the pinned framework CLIs into a disposable consumer, generate its lockfile, then
 install with that frozen lock and exercise fresh passing/skipped reports, coverage,
 and mutation results. CI runs this in a separate read-only job with Node 24.
+

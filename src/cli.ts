@@ -730,6 +730,12 @@ async function main(): Promise<void> {
       : policyValue
         ? loadConfig(root, resolve(policyValue))
         : loadConfig(temporary ?? root)
+  if (config.bindings.endsWith('.py') && text('engine') !== undefined)
+    throw new CliError(
+      '--engine rust selects the TypeScript checker and cannot analyze Python bindings',
+      'USAGE',
+      'Omit --engine to select the installed Python adapter from the .py binding file',
+    )
   if (command === 'config') {
     const result = {
       root,

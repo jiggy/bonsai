@@ -22,7 +22,7 @@ The website workflow runs `website:build` and `website:check` with read-only con
 
 The isolated deploy job has only `pages: write` and `id-token: write`, targets the `github-pages` environment, and deploys the uploaded artifact without a checkout or candidate commands. Other branches may be checked manually but cannot deploy.
 
-Formatting covers Biome-managed files. Read-only validation installs the pinned native TypeScript checker through Bun and runs differential source comparisons, types, the full test suite, and the demo. There is no authored Cargo crate. Keep native analysis commands out of write-capable jobs.
+Formatting covers Biome-managed files. Read-only validation installs the pinned native TypeScript checker through Bun and runs differential source comparisons, types, a focused native-session lifecycle check, the full test suite, and the demo. The lifecycle check preserves compiler reaping when owner death occurs with stdin EOF withheld. There is no authored Cargo crate. Keep native analysis commands out of write-capable jobs.
 
 `native-platforms` runs installation regressions on `macos-15-intel` (darwin-x64) and `macos-15` (darwin-arm64), asserting Bun's actual platform and architecture. Intel builds the immutable upstream tsrs revision matching the pinned SDK with its optimized `ci` profile without LTO; Apple Silicon uses its published package. Both require a real explicit-override check with passing evidence, and Intel also exercises the actual unsupported packaged target. There is no authored Cargo crate. These jobs validate the same merge result and formatting commit as Linux. Formatting check reporting includes native-platform failures. Use the ordinary suite's isolated Bun runner and 30-second test timeout for these targeted regressions, including the multi-command check/explain case.
 
@@ -39,6 +39,8 @@ The native platform job also runs `test/cli-base-paths.test.ts` on both macOS ar
 The normal test step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temporary directory. The native root regression saves its actual decision, snapshot, and command timings before assertions. Always upload that report as `bonsai-self-check` when available, retaining failures as well as successes for 14 days. This records existing verification, without another full check or changed deadline.
 
 CI emits a compact actual root verdict, observation completion, ancestry count, and timing summary from the already-saved self-check report before archiving it. This is measured diagnostic output, not another verification run or a changed feedback deadline.
+
+`python-contract` is a read-only focused feedback job using pinned CPython 3.12, the genuine Python-team contract, and native Python technical regressions. The normal verify job also sets up that interpreter for the complete suite. This CI setup does not install interpreters during product checks or require Python for TypeScript consumers.
 
 `rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.86.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
 

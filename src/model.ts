@@ -99,13 +99,21 @@ export type Snapshot = {
   runnerEvidence?: RunnerEvidence[]
   verification?: Verification
   timing?: CheckTiming
-  analysis?: {
-    engine: 'rust'
-    backend: 'tsrs'
-    validation: 'native-diagnostics'
-    status: 'complete' | 'unsupported'
-    version: string
-  }
+  analysis?:
+    | {
+        engine: 'rust'
+        backend: 'tsrs'
+        validation: 'native-diagnostics'
+        status: 'complete' | 'unsupported'
+        version: string
+      }
+    | {
+        engine: 'python'
+        backend: 'python-ast'
+        validation: 'python-ast'
+        status: 'complete' | 'unsupported'
+        version: string
+      }
 }
 export type Decision = {
   status: 'pass' | 'reject' | 'incomplete'

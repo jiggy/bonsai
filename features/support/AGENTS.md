@@ -31,6 +31,8 @@ State the arranged context in feature prose, not only a fixture identifier. Keep
 
 The trusted-budget example accesses its Git checkout through a symlink, exercising real root-identity validation on every host. Keep the alias outside the target tree, clean up both paths, and let the CLI resolve identity rather than canonicalizing away the example's context.
 
+`python.ts` arranges a Python-only consuming project with native bindings and observes the canonical check report; backend metadata and syntax permutations remain technical tests.
+
 `runners.ts` arranges a real Bun assertion and a Vitest-compatible report to distinguish configured supporting success, failure, skipped work, and stale output. It is not an installed Vitest runner; pinned framework compatibility belongs in the explicit technical smoke test. Do not manufacture passed product observations or gate decisions in this arrangement.
 
 ## Verification

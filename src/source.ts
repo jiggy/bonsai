@@ -51,7 +51,11 @@ export function measureSource(root: string, files: string[]): Source {
       file,
       tokens: countTokens(readFileSync(resolve(root, file), 'utf8'), /\.[cm]?ts$/.test(file)),
     })
-    if ((/\.[cm]?[jt]sx?$/.test(file) && !/\.[cm]?ts$/.test(file)) || file.endsWith('.rs'))
+    if (
+      (/\.[cm]?[jt]sx?$/.test(file) && !/\.[cm]?ts$/.test(file)) ||
+      file.endsWith('.rs') ||
+      file.endsWith('.py')
+    )
       source.problems.push(`Unsupported source language: ${file}`)
   }
   return source

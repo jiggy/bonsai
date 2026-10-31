@@ -25,7 +25,7 @@ export const flags = {
   },
   engine: {
     type: 'string',
-    description: 'compatibility option: rust (always used by default)',
+    description: 'TypeScript compatibility option: rust',
     choices: ['rust'],
     scope: ['check', 'explain'],
   },
@@ -105,7 +105,7 @@ export const commands = {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
     description:
-      'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.',
+      'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Selects native Python analysis for .py bindings, otherwise the Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.',
     examples: [
       'bonsai check',
       'bonsai check --root examples/checkout --serial',
@@ -116,7 +116,7 @@ export const commands = {
     summary: 'Show why a file or component is retained',
     usage: 'bonsai explain <file-or-component> [flags]',
     description:
-      'Inspects ancestry and relationships with the native Rust TypeScript checker without running handlers. Use - to read one target per line from stdin.',
+      'Inspects ancestry and relationships without running handlers, using the adapter selected by the binding file. Use - to read one target per line from stdin.',
     examples: [
       'bonsai explain src/checkout.ts --root examples/checkout',
       "bonsai explain 'src/checkout.ts#placeOrder' --root examples/checkout --json",

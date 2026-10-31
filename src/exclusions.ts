@@ -5,6 +5,8 @@ export const defaultExclusions: string[] = [
   '.hg',
   '.svn',
   'node_modules',
+  '__pycache__',
+  '.venv',
   'dist',
   'build',
   'coverage',

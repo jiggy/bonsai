@@ -6,13 +6,13 @@
 
 Bonsai gives a codebase a finite space to grow. Executable product contracts earn a global allowance; retained code consumes it. Code without contract ancestry blocks acceptance, even when its own unit test imports it.
 
-This is an initial working prototype for **TypeScript with in-process application handlers**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It includes a reusable [GitHub Action](docs/github-action.md) for PR allowance checks. It does not yet provide a hostile-code sandbox, independently published admission service, or general framework support.
+This is an initial working prototype for **TypeScript and a bounded native Python slice**. It includes contract compilation and execution, symbol-level analysis, a generated retention graph, a pure policy evaluator, and a CLI. It includes a reusable [GitHub Action](docs/github-action.md) for PR allowance checks. It does not yet provide a hostile-code sandbox, independently published admission service, or general framework support.
 
 The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`](website/README.md) and published to GitHub Pages by the Website Actions workflow after changes merge into `main`.
 
 ## Try it
 
-Requires Bun 1.4.3 or later. The CLI uses the packaged Rust TypeScript checker;
+Requires Bun 1.4.3 or later. TypeScript projects use the packaged Rust TypeScript checker;
 users on supported prebuilt targets do not need Node, Cargo, or a Rust compiler. Supported prebuilt targets are
 Linux x64/arm64 (GNU or musl) and macOS arm64. See [native installation](docs/native-prototype.md)
 for platform limits and repairs. Intel macOS needs a
@@ -27,6 +27,64 @@ bun run demo
 bun run bonsai explain src/checkout.ts --root examples/checkout
 bun run bonsai check --root examples/checkout --json
 ```
+
+## Native Python projects
+
+Keep ordinary Python handlers and a small binding file:
+
+```python
+from orders import place_order
+
+actions = {"place-order": place_order}
+```
+
+Set `bindings` to `bindings.py` in the same `bonsai.json`; `bonsai init` reuses
+that file without importing it. The existing contract DSL, one retained-code ledger,
+ancestry, read-only `explain`, and both verification profiles apply. No TypeScript
+shim is required. Bun remains the CLI runtime. An installed CPython 3.10–3.15 is
+needed only for Python projects (`python3` by default, or `BONSAI_PYTHON_BINARY`).
+Checks never install an interpreter or packages. The current npm package still
+installs its existing TypeScript compiler dependencies; this adapter avoids
+starting them on the Python path, not their installation.
+
+The first slice accepts named module-level handlers, explicit maintained-module
+imports and aliases, and a literal `actions` dictionary. It parses all maintained
+Python with standard-library `ast` and `tokenize` without importing the candidate.
+Source execution verifies each module against its analyzed SHA-256 digest and
+freezes all module bytes before initialization, bypassing existing bytecode caches. Required imported
+initialization receives ancestry; registering an unused function does not root
+its body. Every retained file is charged even when unrooted. The versioned
+`python-stdlib-v1` metric counts lexical tokens, charges comments by words and
+punctuation and string/f-string payloads by UTF-8 bytes divided by four (rounded
+up), and ignores formatting-only indentation/newline tokens.
+
+This is a standard-library slice, not general Python or virtual-environment
+support. Third-party imports, mixed executable languages/FFI, classes, decorators,
+closures/comprehensions, conditional imports, reflection, unresolved attribute
+dispatch, computed or special-device writes, attribute mutation, external-resource reads, and unimplemented structural metrics produce
+incomplete analysis. Supported standard modules are math, json, decimal,
+fractions, statistics, collections, functools, itertools, operator, datetime,
+time, re, string, typing, asyncio, and limited write-only os operations, with an
+explicit export allowlist. Subprocess launchers, incidental module globals,
+escaped standard-library/builtin callables, and binding imports from test files
+are unsupported. Asyncio currently supports sleep only. More
+syntax and dependency adapters can be added independently.
+
+Python runs with isolated startup and site initialization disabled. The content
+receipt binds actual interpreter, configured/mapped libpython and preloaded standard-module source, bytecode
+and extension bytes plus the checker and fixed options. Root uv/Poetry/Pipenv/
+pylock lockfile presence and bytes also affect candidate fingerprints. The receipt covers the analyzer/interpreter context, not every dependency an application may load later from the standard library. This is
+not interpreter authentication, complete dependency attestation, or OS isolation.
+Startup/analysis timeouts preserve measured inventory and an incomplete report.
+Existing filesystem/process permissions still apply. `--engine rust` remains a
+TypeScript compatibility option; omit it for Python inference.
+
+Python executes an entire selected action plan with closed bootstrap input and
+non-authoritative stdout/stderr. Only a completed result written after handler
+return and read after successful process exit reaches the existing verifier.
+Unselected non-JSON fields do not invalidate serializable observations. This
+transport boundary does not sandbox Python's OS or filesystem privileges.
+
 
 ## Verify pull requests with GitHub Actions
 
@@ -109,10 +167,10 @@ no knowledge of the configuration schema is needed. Existing configuration and
 application files are never overwritten, and initialization never runs handlers
 or package scripts. A missing project configuration suggests this command directly.
 
-Initialization reuses root-level `bindings.ts`, then `bonsai.bindings.ts`, and
+Initialization reuses root-level `bindings.ts`, `bonsai.bindings.ts`, `bindings.py`, then `bonsai_bindings.py`, and
 existing `.feature` files in the selected project. A directory with its own
 `bonsai.json` is a separate project; its inventory and contracts stay outside the
-parent's scope. If absent, initialization creates `bonsai.bindings.ts` with an empty
+parent's scope. If absent, initialization creates `bonsai_bindings.py` for Python-only discovery, otherwise `bonsai.bindings.ts`, with an empty
 actions registry and a commented scenario in `features/bonsai.feature`. Connect
 your real named handlers and uncomment/adapt scenarios for their observable results.
 These starters earn no behavior allowance and cannot produce a passing gate.
@@ -348,7 +406,7 @@ against `--root` in Bash, zsh, and fish. They don't run handlers.
 
 ### CLI migration
 
-Rust is now the sole source engine. Existing `--engine rust` commands remain valid;
+TypeScript uses the Rust source engine; `.py` bindings select native Python. Existing TypeScript `--engine rust` commands remain valid;
 replace `check --engine typescript` with `check` and `explain --engine typescript`
 with `explain`. Unsupported native inputs remain incomplete rather than falling
 back. The `--json` report fields are preserved. Default output is human-oriented at a terminal and plain records
@@ -377,7 +435,7 @@ bun run ./src/cli.ts check --verbose
 bun run ./src/cli.ts check --root examples/checkout --verbose
 ```
 
-Rust is the only production engine. Existing `--engine rust` invocations remain
+TypeScript uses the Rust production engine. Existing TypeScript `--engine rust` invocations remain
 valid; remove `--engine typescript` from older commands. There is no fallback
 compiler. TypeScript remains a dependency for lexical scanning, parsing, JSONC,
 and ambient-type discovery; it does not construct or check a JavaScript compiler
@@ -603,7 +661,7 @@ ceiling = floor(min(hardLimit,
 requiredReduction = max(0, retainedSize - ceiling)
 ```
 
-All files in the inventory count, including unrooted source, tests, bindings, features, fixtures, and configuration. Shared files count once, without a reuse discount. The initial metric counts TypeScript lexical tokens, charges literal payload in four-byte blocks, and counts comment content. Other files use Unicode word and punctuation tokens. This is a deterministic pressure metric, not a claim to measure human comprehension. Binary assets, JSX, and other languages need dedicated adapters; keep them out of a prototype deployment rather than assuming meaningful analysis.
+All files in the inventory count, including unrooted source, tests, bindings, features, fixtures, and configuration. Shared files count once, without a reuse discount. The initial metric counts TypeScript lexical tokens, charges literal payload in four-byte blocks, and counts comment content. Python uses the versioned AST/tokenize adapter metric described above. Other text files use Unicode word and punctuation tokens. This is a deterministic pressure metric, not a claim to measure human comprehension. Binary assets, JSX, and other languages need dedicated adapters; keep them out of a prototype deployment rather than assuming meaningful analysis.
 
 The inventory is explicit and must be reviewed. Unlisted local TypeScript and JSON imports are detected. An unrelated file outside the inventory is outside the gate's scope. Initialization proposes exclusions for dependencies, lockfiles, local caches, generated outputs, and nested projects; checks use the saved configuration. Documentation counts when included in the maintained scope. Formatting outside literals does not create TypeScript headroom. Source-symbol costs in explanations exclude some statement scaffolding; the authoritative repository total always comes from whole files.
 
@@ -678,7 +736,7 @@ The base is read from an archive without running its code. Its `bonsai.json` sup
 ## What the prototype establishes
 
 - Top-level functions, classes, variables, and type declarations are separate components. Importing one function does not retain every declaration in its file.
-- Contracted handlers root production dependencies through TypeScript symbol references, including imports, aliases, and type references.
+- Contracted TypeScript handlers root dependencies through symbols, imports, aliases, and type references; native Python uses its bounded AST name-resolution and initialization graph.
 - A unit test can inherit ancestry from retained production subjects. It cannot root another production subject or a dead dependency cycle.
 - Tests are identified by `test/`, `tests/`, `.test.`, or `.spec.` paths. This is static subject association, **not evidence that the unit tests passed**.
 - Verification runs in fresh subprocesses with a shared deadline, so stale module caches and nonterminating handlers cannot silently pass. Feedback time includes candidate collection and execution, excluding optional base analysis and final report formatting.
@@ -714,7 +772,7 @@ or exports. This adapter does not authorize arbitrary application runtime import
 Fixed Bun/Node child entry points are supported as described below. The supported
 checkout example is available through `bun run bonsai check --root examples/checkout`.
 
-The production backend uses the pinned tsrs TypeScript 7 checker. A separate
+The TypeScript production backend uses the pinned tsrs TypeScript 7 checker. A separate
 development oracle uses TypeScript 5.9; shared lexical parsing and graph rules
 preserve Bonsai's supported accounting. The native adapter explicitly preserves
 ambient type discovery and blocks known semantic gaps, including disabling the

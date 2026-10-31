@@ -38,6 +38,9 @@ export function fingerprint(root: string, files: string[], config: Config): stri
     'npm-shrinkwrap.json',
     'yarn.lock',
     'pnpm-lock.yaml',
+    ...(config.bindings.endsWith('.py')
+      ? ['uv.lock', 'poetry.lock', 'Pipfile.lock', 'pylock.toml']
+      : []),
   ]) {
     const absolute = resolve(root, file)
     let stat

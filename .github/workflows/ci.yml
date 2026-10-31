@@ -76,6 +76,26 @@ jobs:
           git push origin "HEAD:refs/heads/$TARGET_BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
+  python-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: bun install --frozen-lockfile
+      - name: Verify Python project adoption through the real CLI
+        run: bun run test:specs -- --scenario "Python team"
+      - name: Verify native Python analysis and runtime boundaries
+        if: always()
+        run: bun test --isolate --timeout 30000 test/python-language.test.ts
+
   verify:
     needs: [format, apply-formatting]
     if: >-
@@ -101,10 +121,15 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - run: bun install --frozen-lockfile
       - run: bun run format:check
       - run: bun run check
       - run: bun run native:compare
+      - name: Verify native session owner shutdown
+        run: bun test --isolate --timeout 30000 test/native-session-lifecycle.test.ts
       - name: Verify unit, CLI, and executable feature contracts
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
@@ -328,3 +353,4 @@ jobs:
             -f name=verify -f head_sha="$FORMATTED_SHA" \
             -f status=completed -f conclusion="$conclusion" \
             -f details_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
