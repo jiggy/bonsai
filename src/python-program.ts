@@ -210,6 +210,8 @@ def analyze(request):
                     edge(file, node, init, identifier)
                 edge(file, node, identifier, init, "module-initialization")
         for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and isinstance(node.ctx, ast.Del):
+                problem(file, node, "deleting Python names requires a source adapter")
             if isinstance(node, ast.Name) and isinstance(node.ctx, (ast.Store, ast.Del)) and node.id.startswith("__"):
                 problem(file, node, "runtime module metadata mutation requires a source adapter")
             if isinstance(node, (ast.ClassDef, ast.Global, ast.Nonlocal, ast.NamedExpr, ast.Yield, ast.YieldFrom, ast.Lambda, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp, ast.Match)):
@@ -309,6 +311,9 @@ def analyze(request):
             value = getattr(builtins, target[1], None)
             if not isinstance(value, type) or not issubclass(value, BaseException):
                 return False
+            parent = parents.get(node)
+            if isinstance(parent, ast.Raise) and (parent.exc is node or parent.cause is node):
+                return True
             while isinstance(parents.get(node), ast.Tuple):
                 node = parents[node]
             parent = parents.get(node)
