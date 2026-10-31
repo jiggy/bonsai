@@ -100,6 +100,8 @@ The optional control-depth diagnostic CLI control uses maintained Python stubs; 
 
 ## Verification
 
+Python annotation regressions cover nested builtin and qualified/imported typing expressions in parameter, return, module, and local annotations through both CLI execution profiles. Calls inside annotations, runtime callable escapes, and reflection remain blocking controls.
+
 `bun run test` includes the executable product contracts and gives each test file a fresh module/global scope with Bun's `--isolate`; tests remain sequential. This prevents compiler-oracle and worker lifecycle state from being shared across files. It does not extend any product feedback deadline. `bun run test:features` runs the product contracts alone.
 
 ## Child DOX Index
