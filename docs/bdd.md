@@ -210,6 +210,7 @@ Technical tests preserve the detailed proofs beside the relevant implementation.
 | Human diagnostics, automation, and recovery guidance | `features/ux.feature` |
 | Help, version, and completion discovery | `features/discover.feature` |
 | Read-only inspection | `features/inspect.feature` |
+| Saved check inspection with faithful rejection/incomplete decisions | `features/report.feature` |
 
 The migrated accounting, source, check, project, and UX proofs live in
 `test/accounting-contracts.test.ts`, `test/source-contracts.test.ts`,

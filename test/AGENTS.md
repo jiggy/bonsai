@@ -8,6 +8,8 @@ Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which checks the
 
 `cli.ts` supplies fixed-entry CLI launches and environment defaults. `runCli` returns raw results; an explicit `env` replaces defaults. `project.ts` writes provided fixture sources and policy. `terminal.ts` supplies PTY probing, quoting, and ANSI state. Keep specialized async, copied-checker, and PTY lifecycle handling local.
 
+`report-browser.ts` is an explicit CI-only browser check, outside ordinary test discovery and the published package. It generates reports through the actual CLI, verifies that HTML creation does not replay handlers, then opens only the report bytes with Chromium `setContent`. Load the isolated pinned Playwright tool through its temporary package context, block HTTP(S) requests, and archive actual screenshots separately from assertion results. Do not claim visual quality without reviewing those captures.
+
 `native/` owns development-only comparison and benchmark tools. Keep their real production dependencies traceable; test classification does not grant ancestry to unrelated production. `native-session-owner.ts` is the maintained child entry for owner-death tests, taking the consuming root, JSON file list, and descriptor destination as arguments. Optional `--ready <path>` arguments signal completed warmup and enable graceful SIGTERM cleanup for reuse probes; ordinary owner-death callers retain their existing behavior. Its real collector/session imports stay visible to the source graph rather than embedded in generated script strings.
 
 ## Local Contracts
@@ -87,6 +89,8 @@ Package-install regressions must pack the actual npm payload and verify native c
 Use asynchronous child invocations while a test owns the broker, so its event loop can serve requests. Protocol regressions cover busy-worker fallback through the real CLI, per-request diagnostic bounds, malformed identities and facts, worker death before acknowledgment, cancellation, and owner death after warm startup. A delayed native proxy must prove successful requests wait for process exit and cancellation still reaps it after the SDK clears its process field. Keep application call counts and process identities observable without changing compiler module contents.
 
 `identity-cli.test.ts` mutates only a disposable installed-checker copy after actual native analysis to prove identity changes block before handler execution. `native-session-content.test.ts` checks frozen cached-code keys and real fresh-worker fallback after copied checker/SDK changes, with unchanged candidate files. `native-session-ux.test.ts` proves that ordinary, verbose, and machine checks reuse one matching lexical process while retaining fresh source analysis. These probes never modify the installed dependency tree. Report-path overlap tests preserve authored input bytes before any command can run.
+
+`html-report-model.test.ts` covers pure fact projection and context compatibility; `html-report-output.test.ts` covers maintained-input protection and atomic delivery; `html-report-cli.test.ts` covers actual command outcomes and single execution; `html-report-metadata.test.ts` covers scoped flags and root-aware completion. Renderer and client tests cover offline serialization and interaction logic; a DOM stand-in does not establish browser appearance.
 
 ## Verification
 

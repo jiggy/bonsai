@@ -105,7 +105,7 @@ Use the repository CLI skills for changes to the command contract and presentati
 
 ## Child DOX Index
 
-None. This file owns the full subtree.
+- [report/AGENTS.md](report/AGENTS.md): offline dashboard projection, browser interaction, embedded assets, and artifact delivery.
 
 Supporting coverage may opt into `coverage.scope: "maintained-production"`. File `kind` and optional `executable` metadata come from the collector, independently of report selection. Reuse one built-in Bun transpiler per collection with the TypeScript loader and Bun target, then inspect emitted lexical syntax; only empty statements and local empty export markers are erased. After context, lexical-parse, and macro guards, definite runtime function/class/variable declarations and direct call statements can skip duplicate emission; ambiguous forms keep the Bun path. Explicitly match default TypeScript import trimming, with tree shaking and dead-code elimination disabled. Keep original source graphs and full-file charging unchanged. Preflight macro attributes and macro module specifiers before any transformation so analysis and explain never execute candidate macros.
 

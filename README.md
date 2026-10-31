@@ -70,6 +70,33 @@ File targets accept project-relative paths (including `./`) and absolute paths.
 Recovery commands preserve the effective root, base, policy, and explicit engine
 options.
 
+### Save an offline check report
+
+Use `bonsai check --report .bonsai/report.html` to save an interactive, standalone
+HTML report alongside the normal terminal, JSON, or plain result. Relative report
+paths resolve against `--root`. The report includes file cost versus specification
+reach, nested retained-token inventory, mixed files with components lacking links,
+specification footprints, effective settings, bindings, and recorded verification.
+Fonts and interactions are embedded; opening it needs no server or network access.
+
+A rejected or incomplete check still produces its report after an evaluated
+snapshot is available. Setup errors before that point retain the ordinary error
+output. The HTML uses the same decision and collected facts; it does not run
+handlers or analysis again, infer runtime coverage, or earn additional allowance.
+Missing or mismatched evidence stays unavailable, and partial source facts remain
+explicit. Supporting runner and structural facts stay separate from specification
+ancestry and retained-token accounting.
+
+The destination and its temporary sibling must be outside the effective maintained
+inventory or within its saved exclusions. Bonsai refuses source, policy, lockfile,
+and symlink destinations before executing handlers; it never silently changes the
+inventory. Existing initialization excludes `.bonsai`. Rendering and atomic file
+delivery remain under the command deadline, outside candidate feedback. A failed
+or interrupted write preserves the previous complete file. Delivery errors are
+separate from the gate decision: existing rejection/incomplete exit statuses remain;
+a passing check with failed report delivery exits with a runtime/permission error.
+Human report-path hints go to stderr and respect `--quiet`.
+
 ### Start using Bonsai in a project
 
 Run `bonsai init` in an existing project, or `bonsai init --root path/to/project`.

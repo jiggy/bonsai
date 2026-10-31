@@ -238,8 +238,59 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run test:runners
 
+  report-browser:
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BONSAI_BROWSER_TOOLING: ${{ runner.temp }}/bonsai-browser-tooling
+      BONSAI_BROWSER_ARTIFACTS: ${{ runner.temp }}/bonsai-report-browser
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/bonsai-chromium
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$FORMATTED_SHA"
+          git merge --no-edit "$FORMATTED_SHA"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - name: Install isolated pinned browser tooling
+        run: |
+          mkdir -p "$BONSAI_BROWSER_TOOLING"
+          printf '%s\n' '{"private":true}' > "$BONSAI_BROWSER_TOOLING/package.json"
+          bun add --cwd "$BONSAI_BROWSER_TOOLING" --exact --ignore-scripts playwright@1.64.1
+          bun "$BONSAI_BROWSER_TOOLING/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Check generated HTML in Chromium
+        run: bun test/report-browser.ts
+      - name: Save browser captures and actual check reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bonsai-report-browser
+          path: ${{ runner.temp }}/bonsai-report-browser
+          if-no-files-found: ignore
+          retention-days: 14
+
   report-formatting-check:
-    needs: [apply-formatting, verify, native-platforms, runner-adapters]
+    needs: [apply-formatting, verify, native-platforms, runner-adapters, report-browser]
     if: always() && needs.apply-formatting.outputs.sha != ''
     permissions:
       checks: write
@@ -254,6 +305,7 @@ jobs:
           RESULT: ${{ needs.verify.result }}
           NATIVE_RESULT: ${{ needs.native-platforms.result }}
           RUNNER_RESULT: ${{ needs.runner-adapters.result }}
+          BROWSER_RESULT: ${{ needs.report-browser.result }}
         run: |
           conclusion="$RESULT"
           if [ "$conclusion" = success ] && [ "$NATIVE_RESULT" != success ]; then
@@ -261,6 +313,9 @@ jobs:
           fi
           if [ "$conclusion" = success ] && [ "$RUNNER_RESULT" != success ]; then
             conclusion="$RUNNER_RESULT"
+          fi
+          if [ "$conclusion" = success ] && [ "$BROWSER_RESULT" != success ]; then
+            conclusion="$BROWSER_RESULT"
           fi
           if [ "$conclusion" = skipped ]; then
             conclusion=failure

@@ -34,6 +34,12 @@ export const flags = {
     description: 'run scenarios in order with shared application state',
     scope: ['check'],
   },
+  report: {
+    type: 'string',
+    description: 'write an offline HTML report (path relative to --root)',
+    completion: 'file',
+    scope: ['check'],
+  },
   timeout: {
     type: 'string',
     description: 'command deadline in seconds (default none)',
@@ -99,11 +105,11 @@ export const commands = {
     summary: 'Check behavior, ancestry, and the retained-code budget',
     usage: 'bonsai check [flags]',
     description:
-      'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Phase timings appear in --verbose and --json.',
+      'Runs independent scenarios concurrently in fresh workers, using available CPU capacity and at most one worker per scenario. Use --serial for ordered scenarios sharing application state. Checks source with the native Rust TypeScript checker. Rejected or incomplete gates block acceptance. Add --report PATH for a self-contained offline HTML report without changing console output. Phase timings appear in --verbose and --json.',
     examples: [
       'bonsai check',
-      'bonsai check --root examples/checkout --json',
-      'bonsai check --root examples/checkout --serial',
+      'bonsai check --report .bonsai/report.html',
+      'bonsai check --root examples/checkout --report .bonsai/report.html --json',
     ],
   },
   explain: {

@@ -46,6 +46,8 @@ Document native analysis as the default and `--engine rust` as a compatibility s
 
 Document prebuilt platform coverage and source-checkout versus installed-package repairs. Never imply a prepared npm version has been published or ask users to compile a missing published platform package. Unpublished targets may use an explicit local build matching the pinned SDK through `BONSAI_NATIVE_BINARY`; distinguish this from prebuilt package support and automatic installation.
 
+Document saved HTML reports as projections of the evaluated invocation, including offline operation, partial facts, unchanged machine output, explicit report destinations, and atomic delivery. Keep delivery errors separate from the gate verdict and generated output outside effective maintained scope.
+
 ## Work Guidance
 
 Update CLI reference and migration notes with behavior changes.
