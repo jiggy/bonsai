@@ -160,3 +160,23 @@ test('human recovery links remain intact at narrow terminal widths', () => {
   assert.ok(result.includes(url))
   assert.doesNotMatch(result, /…/)
 })
+
+test('narrow report hints keep the filename visible in the primary text role', () => {
+  const line = {
+    text: 'HTML report: /tmp/a-long-consuming-project/.bonsai/report.html',
+    role: 'text' as const,
+  }
+  for (const width of [40, 80]) {
+    const rendered = renderHuman('check', [line], { width, color: true })
+    const visible = characters(rendered)
+    const plain = visible.map((character) => character.value).join('')
+    const filename = plain.indexOf('report.html')
+    assert.ok(filename >= 0, plain)
+    for (const part of plain.split('\n')) assert.ok(displayWidth(part) <= width, part)
+    for (const character of visible.slice(filename, filename + 'report.html'.length)) {
+      assert.equal(character.color, 37)
+      assert.equal(character.dim, false)
+    }
+    assert.equal(stripVTControlCharacters(rendered), renderHuman('check', [line], { width }))
+  }
+})

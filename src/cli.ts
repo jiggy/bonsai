@@ -1065,8 +1065,19 @@ async function main(): Promise<void> {
       )
     }
   }
-  if (reportSaved && human && !quiet)
-    await writeReport(`HTML report: ${reportDestination}`, process.stderr)
+  if (reportSaved && human && !quiet) {
+    const hint = `HTML report: ${reportDestination}`
+    await writeReport(
+      process.stderr.isTTY
+        ? renderHuman('check', [{ text: hint, role: 'text' }], {
+            width: width(process.stderr),
+            color: colorEnabled(process.stderr.isTTY, noColor),
+            ascii: ascii(),
+          })
+        : hint,
+      process.stderr,
+    )
+  }
 }
 
 main()

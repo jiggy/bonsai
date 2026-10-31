@@ -13,7 +13,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readConfig } from '../src/project.ts'
 import { createProject } from './project.ts'
-import { runCli } from './cli.ts'
+import { cliEnvironment, runCli } from './cli.ts'
 
 function nodeProject(...args: Parameters<typeof createProject>) {
   const fixture = createProject(...args)
@@ -61,6 +61,22 @@ function inspectHtml(path: string) {
   assert.ok(data, 'The standalone report embeds its own private data')
   assert.doesNotThrow(() => JSON.parse(data[1]))
 }
+
+test('redirected human report hints keep the full destination without terminal styling', () => {
+  const fixture = project()
+  const path = 'reports-with-a-long-directory-name/check-report.html'
+  try {
+    const result = runCli(
+      ['check', '--root', fixture.root, '--output', 'human', '--report', path],
+      { env: cliEnvironment({ COLUMNS: '40', FORCE_COLOR: '1' }), timeout: 30000 },
+    )
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+    assert.equal(result.stderr, `HTML report: ${join(fixture.root, path)}\n`)
+    assert.equal(existsSync(join(fixture.root, path)), true)
+  } finally {
+    fixture.dispose()
+  }
+})
 
 test('default and explicit HTML preserve check JSON, every verdict, and one handler execution per check', () => {
   for (const [outcome, exitCode] of [
