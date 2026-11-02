@@ -86,6 +86,35 @@ test('canonical help and generated documentation stay unstyled when redirected',
   assert.match(markdown.stdout, /maximum human results \(default 20, 0 shows all\)/)
 })
 
+test('conflicting report flags keep wrapped alert text readable without relying on color', {
+  skip: !hasPty,
+}, () => {
+  const args = ['check', '--report', 'report.html', '--no-report']
+  const styled = run(args, { COLUMNS: '40' }, true)
+  assert.equal(styled.status, 2, styled.stderr)
+  const visible = characters(styled.stdout)
+  const plain = visible.map((character) => character.value).join('')
+  assert.match(plain, /Can't combine --report with\n\s+--no-report/)
+  const start = plain.indexOf("Can't combine")
+  const end = plain.indexOf('  Next →', start)
+  assert.ok(end > start)
+  for (const character of visible.slice(start, end).filter((character) => character.value.trim())) {
+    assert.equal(character.color, 31, 'Every alert continuation stays red')
+    assert.equal(character.dim, false, 'Every alert continuation stays readable')
+  }
+  for (const line of plain.trimEnd().split('\n')) assert.ok(displayWidth(line) <= 40, line)
+  const monochrome = run([...args, '--no-color'], { COLUMNS: '40' }, true)
+  assert.equal(monochrome.status, 2, monochrome.stderr)
+  assert.doesNotMatch(monochrome.stdout, /\x1b\[/)
+  const elapsedLine = /^([ \t]*)\d+(?:\.\d+)?(?:ms|s)( elapsed)$/m
+  assert.match(plain, elapsedLine)
+  assert.match(monochrome.stdout, elapsedLine)
+  assert.equal(
+    plain.replace(elapsedLine, '$1<duration>$2'),
+    monochrome.stdout.replace(elapsedLine, '$1<duration>$2'),
+  )
+})
+
 test('human errors wrap to the diagnostic width and ASCII mode covers every structural glyph', () => {
   const result = run(
     ['check', '--root', '/tmp/bonsai-missing-project-with-a-long-directory-name'],
