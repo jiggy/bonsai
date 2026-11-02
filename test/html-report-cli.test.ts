@@ -78,7 +78,7 @@ test('redirected human report hints keep the full destination without terminal s
   }
 })
 
-test('opt-in HTML preserves actual check JSON, every verdict, and one handler execution per check', () => {
+test('default and explicit HTML preserve check JSON, every verdict, and one handler execution per check', () => {
   for (const [outcome, exitCode] of [
     ['pass', 0],
     ['reject', 1],
@@ -90,6 +90,7 @@ test('opt-in HTML preserves actual check JSON, every verdict, and one handler ex
       assert.equal(baseline.status, exitCode, baseline.stderr || baseline.stdout)
       assert.equal(baseline.stderr, '')
       const original = JSON.parse(baseline.stdout)
+      inspectHtml(join(fixture.root, '.bonsai', 'report.html'))
       const generated = invoke(fixture.root, ['--json', '--report', 'report.html'])
       assert.equal(generated.status, exitCode, generated.stderr || generated.stdout)
       assert.equal(generated.stderr, '')
@@ -176,6 +177,77 @@ export function ready() {
     assert.equal(readFileSync(join(fixture.root, 'report.html'), 'utf8'), previous)
     assert.equal(readFileSync(policy, 'utf8'), previous)
     assert.equal(readFileSync(join(fixture.root, 'handler-calls'), 'utf8'), 'called\n')
+  } finally {
+    fixture.dispose()
+  }
+})
+
+test('default HTML follows the selected root while quiet leaves both streams empty', () => {
+  const fixture = project()
+  try {
+    const caller = join(fixture.root, 'caller')
+    mkdirSync(caller)
+    const result = invoke(fixture.root, ['--quiet'], caller)
+    assert.equal(result.status, 0, result.stderr || result.stdout)
+    assert.equal(result.stdout, '')
+    assert.equal(result.stderr, '')
+    inspectHtml(join(fixture.root, '.bonsai', 'report.html'))
+    assert.equal(existsSync(join(caller, '.bonsai', 'report.html')), false)
+    assert.equal(readFileSync(join(fixture.root, 'handler-calls'), 'utf8'), 'called\n')
+  } finally {
+    fixture.dispose()
+  }
+})
+
+test('no-report leaves a fresh project without an artifact and preserves an existing report', () => {
+  const fixture = project()
+  try {
+    const destination = join(fixture.root, '.bonsai', 'report.html')
+    const suppressed = invoke(fixture.root, ['--no-report', '--json'])
+    assert.equal(suppressed.status, 0, suppressed.stderr || suppressed.stdout)
+    assert.equal(suppressed.stderr, '')
+    const original = JSON.parse(suppressed.stdout)
+    assert.equal(existsSync(join(fixture.root, '.bonsai')), false)
+
+    const generated = invoke(fixture.root, ['--json'])
+    assert.equal(generated.status, 0, generated.stderr || generated.stdout)
+    assert.equal(generated.stderr, '')
+    const report = JSON.parse(generated.stdout)
+    assert.deepEqual(report.decision, original.decision)
+    assert.equal(report.snapshot.fingerprint, original.snapshot.fingerprint)
+    assert.deepEqual(report.snapshot.contracts, original.snapshot.contracts)
+    inspectHtml(destination)
+    const bytes = readFileSync(destination)
+
+    const existing = invoke(fixture.root, ['--no-report', '--quiet'])
+    assert.equal(existing.status, 0, existing.stderr || existing.stdout)
+    assert.equal(existing.stdout, '')
+    assert.equal(existing.stderr, '')
+    assert.deepEqual(readFileSync(destination), bytes)
+    assert.equal(
+      readFileSync(join(fixture.root, 'handler-calls'), 'utf8'),
+      'called\ncalled\ncalled\n',
+    )
+  } finally {
+    fixture.dispose()
+  }
+})
+
+test('the default destination cannot silently escape effective maintained scope', () => {
+  const fixture = project()
+  try {
+    const config = readConfig(fixture.root)
+    config.maintained.push('.bonsai')
+    writeFileSync(join(fixture.root, 'bonsai.json'), JSON.stringify(config))
+    const result = invoke(fixture.root, ['--json'])
+    assert.equal(result.status, 2, result.stderr || result.stdout)
+    assert.equal(result.stdout, '')
+    const error = JSON.parse(result.stderr)
+    assert.equal(error.code, 'REPORT_PATH')
+    assert.match(error.run, /--report PATH.*--no-report/)
+    assert.equal(existsSync(join(fixture.root, 'handler-calls')), false)
+    assert.equal(existsSync(join(fixture.root, '.bonsai')), false)
+    assert.deepEqual(readConfig(fixture.root), config)
   } finally {
     fixture.dispose()
   }

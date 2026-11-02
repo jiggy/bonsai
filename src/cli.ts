@@ -442,6 +442,12 @@ async function main(): Promise<void> {
     }
     return
   }
+  if (text('report') !== undefined && enabled('no-report'))
+    throw new CliError(
+      "Can't combine --report with --no-report",
+      'USAGE',
+      'Use --report PATH to choose a file or --no-report to skip it',
+    )
   const engine = text('engine') ?? 'rust'
   if (engine !== 'rust')
     throw new CliError(
@@ -776,7 +782,10 @@ async function main(): Promise<void> {
     )
     return
   }
-  const requestedReport = command === 'check' ? text('report') : undefined
+  const requestedReport =
+    command === 'check' && !enabled('no-report')
+      ? (text('report') ?? '.bonsai/report.html')
+      : undefined
   let reportDestination: string | undefined
   let validateReportPath: ((path: string) => string) | undefined
   if (requestedReport !== undefined) {
@@ -800,7 +809,7 @@ async function main(): Promise<void> {
       throw new CliError(
         error instanceof Error ? error.message : String(error),
         'REPORT_PATH',
-        'Choose an excluded generated-output directory with --report PATH',
+        'Choose an excluded directory with --report PATH or skip HTML with --no-report',
         (error as NodeJS.ErrnoException).code === 'EACCES' ? 3 : 2,
       )
     }
@@ -1056,7 +1065,7 @@ async function main(): Promise<void> {
         new CliError(
           `Can't save HTML report '${reportDestination}': ${error instanceof Error ? error.message : String(error)}`,
           'REPORT_WRITE',
-          'Choose a writable report path with --report PATH; the previous report was not replaced',
+          'Choose a writable --report PATH or use --no-report. Any previous report was preserved',
           gateExitCode || (errno === 'EACCES' || errno === 'EPERM' ? 3 : 1),
         ),
       )

@@ -12,6 +12,8 @@ Core gate tests, subprocess CLI tests, and `self-host.test.ts`, which checks the
 
 `html-report-timeout.test.ts` dispatches the registered command deadline during actual report delivery, checking first-failure exit status, matching structured diagnostics, and preservation of the prior artifact. Keep its uninstrumented verdict controls, independent named-filesystem-import preload control, and positive dispatch marker; a failed setup or a timeout before evaluation does not establish the delivery regression.
 
+`html-report-cli.test.ts` covers default and explicit destinations, `--no-report`, unchanged JSON and quiet streams, single handler execution, and effective maintained-scope protection. Metadata and wrapped conflict diagnostics remain in the CLI metadata and presentation tests.
+
 `native/` owns development-only comparison and benchmark tools. Keep their real production dependencies traceable; test classification does not grant ancestry to unrelated production. `native-session-owner.ts` is the maintained child entry for owner-death tests, taking the consuming root, JSON file list, and descriptor destination as arguments. Optional `--ready <path>` arguments signal completed warmup and enable graceful SIGTERM cleanup for reuse probes; ordinary owner-death callers retain their existing behavior. Its real collector/session imports stay visible to the source graph rather than embedded in generated script strings.
 
 ## Local Contracts
