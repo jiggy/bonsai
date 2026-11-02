@@ -27,6 +27,16 @@ The repository homepage names `bonsai.jig.md`, but this change does not configur
 
 The walkthrough is an interactive illustration of the checkout example, not a browser execution of Bonsai. Update claims against the current README and design notes. Preserve keyboard tabs, shared demo state, copy controls, and reduced-motion behavior.
 
+The manual setup block matches the root README's **In your project** quickstart;
+`website:check` verifies that the copyable commands stay aligned. It currently
+uses an explicit GitHub package source because npm's old `0.0.0-alpha.0` lacks `init`.
+This preview follows the default branch and Bun's cache, resolves dependency
+ranges, and keeps the checker outside the project. The root README retains a
+separate frozen-dependency checkout route for reproducible runs.
+The initial block stops after initialization. Connecting real handlers and
+scenarios comes before the next check. Switch both public quickstarts to npm only
+after the released version and tag pass the README's fresh-consumer verification.
+
 OpenRunde's SIL Open Font License is included in `public/assets/fonts/OpenRunde-LICENSE.txt`. The generated lavender landscape is decorative. The pruning and principle illustrations are native SVG embedded in the page. Keep fonts and imagery local; the page needs no runtime API, analytics, or third-party scripts.
 
 The README banner (`public/assets/readme-banner.png`, 1500×500) and social card (`public/assets/social-card.png`, 1200×630) share the landing page's light lavender landscape and headline. Open Graph and Twitter cards both use the social PNG, with explicit dimensions, type, and alternative text. The build rewrites both image URLs for the configured site; the checker verifies the metadata and PNG dimensions. The new filename distinguishes it from the retired social image in sharing caches.

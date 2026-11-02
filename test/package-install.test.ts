@@ -87,6 +87,8 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
     assert.equal(result.signal, null, result.stderr)
     return result
   }
+  const bonsai = (args: string[], cwd = consumer, env = environment) =>
+    run(['x', '--bun', '--no-install', '--package', '@jigging/bonsai', 'bonsai', ...args], cwd, env)
   try {
     const packed = run(
       ['pm', 'pack', '--ignore-scripts', '--filename', join(root, 'bonsai.tgz')],
@@ -120,35 +122,71 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
     const checkerRequire = createRequire(checker)
     for (const dependency of ['typescript', 'tsrs'])
       assert.ok(realpathSync(checkerRequire.resolve(`${dependency}/package.json`)).startsWith(root))
-    const version = run([
-      'x',
-      '--bun',
-      '--no-install',
-      '--package',
-      '@jigging/bonsai',
-      'bonsai',
-      'version',
-      '--json',
-    ])
+    const version = bonsai(['version', '--json'])
     assert.equal(version.status, 0, version.stderr)
     assert.equal(JSON.parse(version.stdout).version, manifest.version)
+
+    const firstRun = join(consumer, 'first-run')
+    mkdirSync(join(firstRun, 'src'), { recursive: true })
+    const application = readFileSync(join(repository, 'examples/checkout/src/checkout.ts'))
+    writeFileSync(join(firstRun, 'src/checkout.ts'), application)
+    const unconfigured = bonsai(['check'], firstRun)
+    assert.equal(unconfigured.status, 2, unconfigured.stderr)
+    assert.equal(unconfigured.stdout, '')
+    assert.match(unconfigured.stderr, /Configuration not found:/)
+    assert.match(unconfigured.stderr, /bonsai init --root/)
+    assert.ok(unconfigured.stderr.includes(firstRun))
+    assert.doesNotMatch(unconfigured.stderr, /ENOENT|statx|^\s*\{/)
+
+    const initialized = bonsai(['init', '--json'], firstRun)
+    assert.equal(initialized.status, 0, initialized.stderr)
+    const starter = JSON.parse(initialized.stdout)
+    assert.deepEqual(readFileSync(join(firstRun, 'src/checkout.ts')), application)
+    assert.equal(existsSync(join(firstRun, 'README.md')), false)
+    assert.equal(starter.config.maintained.includes('README.md'), false)
+    for (const path of starter.config.maintained)
+      assert.ok(existsSync(join(firstRun, path)), `Initialized inventory contains ${path}`)
+    const unfinished = bonsai(['check', '--output', 'human'], firstRun)
+    assert.equal(unfinished.status, 2, unfinished.stderr)
+    assert.equal(unfinished.stdout, '')
+    assert.match(unfinished.stderr, /Incomplete/)
+    assert.match(unfinished.stderr, /No executable scenarios/)
+    assert.match(unfinished.stderr, /Commented starter scenarios don't run/)
+    assert.match(unfinished.stderr, /bonsai.bindings.ts/)
+    assert.doesNotMatch(unfinished.stderr, /ENOENT|statx/)
+
+    cpSync(
+      join(repository, 'examples/checkout/bindings.ts'),
+      join(firstRun, starter.config.bindings),
+    )
+    cpSync(
+      join(repository, 'examples/checkout/features/checkout.feature'),
+      join(firstRun, 'features/bonsai.feature'),
+    )
+    const connected = bonsai(['check', '--json'], firstRun)
+    assert.equal(connected.status, 0, connected.stderr)
+    const connectedReport = JSON.parse(connected.stdout)
+    assert.equal(connectedReport.decision.status, 'pass')
+    assert.equal(connectedReport.snapshot.evidence.complete, true)
+    assert.deepEqual(
+      connectedReport.snapshot.evidence.checks.map((check: { status: string }) => check.status),
+      ['passed', 'passed', 'passed'],
+    )
+    const authored: string[] = ['src/checkout.ts', ...starter.created]
+    const preserved = authored.map((path) => readFileSync(join(firstRun, path)))
+    const repeated = bonsai(['init', '--json'], firstRun)
+    assert.equal(repeated.status, 2, repeated.stderr)
+    assert.equal(repeated.stdout, '')
+    assert.equal(JSON.parse(repeated.stderr).code, 'CONFIG_EXISTS')
+    authored.forEach((path, index) =>
+      assert.deepEqual(readFileSync(join(firstRun, path)), preserved[index], path),
+    )
+    assert.deepEqual(readFileSync(join(firstRun, 'src/checkout.ts')), application)
+
     const project = join(consumer, 'project')
     cpSync(join(repository, 'examples/checkout'), project, { recursive: true })
-    const args = [
-      'x',
-      '--bun',
-      '--no-install',
-      '--package',
-      '@jigging/bonsai',
-      'bonsai',
-      'check',
-      '--root',
-      project,
-      '--json',
-      '--report',
-      '.bonsai/report.html',
-    ]
-    const checked = run(args)
+    const args = ['check', '--root', project, '--json', '--report', '.bonsai/report.html']
+    const checked = bonsai(args)
     assert.equal(checked.status, 0, checked.stderr)
     const report = JSON.parse(checked.stdout)
     const html = readFileSync(join(project, '.bonsai/report.html'), 'utf8')
@@ -189,7 +227,7 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
           ).startsWith(root),
           'GNU hosts must receive both prebuilt Linux variants',
         )
-      const staticCheck = run(args, consumer, {
+      const staticCheck = bonsai(args, consumer, {
         ...environment,
         BONSAI_NATIVE_BINARY: join(musl, 'tsrs'),
       })
@@ -239,7 +277,7 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
     const optional = dirname(compilerRequire.resolve(`${selected}/package.json`))
     renameSync(optional, optional + '.missing')
     try {
-      const missing = run(args)
+      const missing = bonsai(args)
       assert.equal(missing.status, 1, missing.stderr)
       assert.equal(missing.stdout, '')
       const error = JSON.parse(missing.stderr)

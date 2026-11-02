@@ -19,6 +19,65 @@ for platform limits and repairs. Intel macOS needs a
 [local build of the matching compiler](docs/native-prototype.md#local-build-on-intel-macos),
 selected with `BONSAI_NATIVE_BINARY`; Bonsai ignores `TSRS_BINARY`.
 
+### In your project
+
+The npm `latest` and `alpha` tags still point to `0.0.0-alpha.0`, which has no
+`init` command. Use the GitHub source preview until the next package release is published.
+From your project's directory, run:
+
+```sh
+bunx --bun --package \
+  github:jiggy/bonsai bonsai init
+```
+
+Bun installs the checker in its external cache and keeps your working directory
+as the project root. For an unconfigured project, `init` discovers the actual
+inventory and creates configuration and any missing contract starters. It preserves
+existing files and refuses to replace an existing `bonsai.json`. A README is not
+required.
+
+Review `bonsai.json`, connect real named handlers in the generated bindings, and
+adapt the commented `.feature` example to their observable behavior. Then run:
+
+```sh
+bunx --bun --package \
+  github:jiggy/bonsai bonsai check
+```
+
+Checking untouched starters reports `Incomplete` (exit 2) with setup guidance.
+Only connected, verified behavior can pass. The [adoption guide](skills/bonsai/references/adoption.md)
+walks through the first real contract and baseline. In command examples below,
+prefix `bonsai` with `bunx --bun --package github:jiggy/bonsai` for this preview.
+
+The preview follows the repository's default branch and uses Bun's cache. It
+resolves dependency ranges from the package manifest rather than enforcing the
+repository's checked-in lockfile.
+
+#### Use the repository's locked dependencies
+
+For a reusable source checkout with frozen dependencies, run this alternative
+setup from your project directory:
+
+```sh
+bonsai_checkout="$(mktemp -d)" &&
+git clone --depth 1 \
+  https://github.com/jiggy/bonsai.git \
+  "$bonsai_checkout" &&
+(cd "$bonsai_checkout" &&
+  bun install --frozen-lockfile) &&
+bun "$bonsai_checkout/src/cli.ts" init
+```
+
+Keep this checkout outside the project and record
+`git -C "$bonsai_checkout" rev-parse HEAD` to reproduce its source version. Reuse
+`bun "$bonsai_checkout/src/cli.ts" check` after connecting contracts. For CI,
+select a reviewed commit explicitly; a fresh clone of the default branch can
+select a different revision.
+
+### In a Bonsai checkout
+
+To work on Bonsai itself or run its included checkout example:
+
 ```sh
 bun install --frozen-lockfile
 bun run check
@@ -553,17 +612,44 @@ For reproducible CI, select a published version explicitly, for example
 The npm package downloads the matching prebuilt dependency through optional
 packages; no install script or dependency-trust approval builds it locally.
 
-The published `0.0.0-alpha.0` package predates the native implementation. This
+The published `0.0.0-alpha.0` package predates `init` and the native implementation. This
 checkout prepares `0.0.0-alpha.1`; a GitHub update alone does not publish it or move
-the npm `alpha` tag. Validate the actual tarball in a fresh consumer before release.
-It must run outside this checkout with production dependencies, scripts disabled,
-and no native binary override.
+the npm `alpha` tag. Until publication is verified, the landing page and the
+[project quickstart](#in-your-project) use the GitHub source preview.
+
+Run `bun run test:package` before release. It installs the actual tarball in a
+fresh consumer with production dependencies, scripts disabled, and no native
+binary override, then exercises first-run setup in a project without a README
+as well as configured checks. The `prepublishOnly` script runs the type check and
+this package smoke test for ordinary source publication; publishing an already
+packed archive or using `--ignore-scripts` bypasses that guard.
 
 Publish a new version explicitly with `bun publish --access public --tag alpha`.
 `publishConfig` declares public access and the `alpha` tag; pass the tag to prevent
 prereleases using `latest` across client versions. Preview contents with
 `bun pm pack --dry-run --ignore-scripts`. Runtime sources, the skill, documentation,
 and example are included; development compiler oracles and tests are not.
+
+After publication, check the exact version and `@alpha` from a fresh Bun cache.
+For example, after `0.0.0-alpha.1` exists:
+
+```sh
+release_check="$(mktemp -d)" &&
+mkdir "$release_check/project" &&
+(
+  cd "$release_check/project" &&
+  export BUN_INSTALL_CACHE_DIR="$release_check/cache" &&
+  bunx --bun @jigging/bonsai@0.0.0-alpha.1 version &&
+  bunx --bun @jigging/bonsai@alpha version &&
+  bunx --bun @jigging/bonsai@alpha init
+)
+```
+
+Both version commands must report the released version, and `init` must succeed
+without a README. Complete one real binding and scenario and verify `check` from
+that consumer before changing the public quickstart to npm commands. Keep the
+landing page's copyable commands aligned with the README; a tarball test alone
+does not establish which version a registry tag delivers.
 
 ## Formatting and Codex cloud
 

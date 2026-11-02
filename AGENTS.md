@@ -130,6 +130,8 @@ The root owns the reusable `action.yml` manifest, package metadata, runtime depe
 
 `bun run test:runners` is an explicit network-dependent release check for pinned supporting-runner compatibility. Ordinary tests stay network-free; no runner install belongs in product checks.
 
+`prepublishOnly` runs type checking and the installed-package onboarding smoke before publishing from this checkout. The smoke uses a fresh consumer and cache with production dependencies and disabled install scripts. Verify the published version and channel before advertising npm setup; a GitHub update does not publish a package. Prebuilt tarball publication and `--ignore-scripts` bypass lifecycle checks and need explicit validation.
+
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
 - [features/AGENTS.md](features/AGENTS.md): executable contracts for Bonsai’s own observable behavior
 - [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests, native comparisons, and benchmark tooling

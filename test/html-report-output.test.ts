@@ -20,6 +20,10 @@ test('report destinations protect effective maintained paths and the temporary s
     const original = readFileSync(join(fixture.root, 'bindings.ts'))
     assert.throws(() => resolveReportDestination(fixture.root, config, 'bindings.ts'))
     assert.throws(() => resolveReportDestination(fixture.root, config, 'bonsai.json'))
+    assert.throws(
+      () => resolveReportDestination(fixture.root, config, 'bindings.ts/report.html'),
+      /HTML report parent is not a directory/,
+    )
     mkdirSync(join(fixture.root, 'reports'))
     config.maintained.push('reports')
     assert.throws(() => resolveReportDestination(fixture.root, config, 'reports/check.html'))
