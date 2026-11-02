@@ -13,7 +13,15 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
       throw new Error(`Maintained path escapes root: ${path}`)
     const local = relative(root, absolute).split(sep).join('/')
     if (excluded(local)) return
-    const stat = lstatSync(absolute)
+    let stat
+    try {
+      stat = lstatSync(absolute)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      throw new Error(
+        `Maintained path does not exist: ${local}. Restore the path or update the maintained setting in bonsai.json`,
+      )
+    }
     if (stat.isDirectory() && excluded(local, true)) return
     if (!realpathSync(absolute).startsWith(realpathSync(root) + sep))
       throw new Error(`Maintained path escapes root: ${path}`)
