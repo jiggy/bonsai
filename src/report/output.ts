@@ -68,6 +68,10 @@ export function resolveReportDestination(root: string, config: Config, value: st
           'npm-shrinkwrap.json',
           'yarn.lock',
           'pnpm-lock.yaml',
+          'uv.lock',
+          'poetry.lock',
+          'Pipfile.lock',
+          'pylock.toml',
         ].includes(local)
       )
         throw new Error(`HTML report overlaps project input: ${value}`)

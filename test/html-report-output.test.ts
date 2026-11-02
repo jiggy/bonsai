@@ -65,6 +65,33 @@ test('final and parent symlinks cannot redirect report output onto authored inpu
   }
 })
 
+test('Python dependency lockfiles stay protected even when excluded or absent', () => {
+  const fixture = createProject({ 'bindings.py': 'actions = {}\n' })
+  try {
+    const config = readConfig(fixture.root)
+    config.bindings = 'bindings.py'
+    const lockfiles = ['uv.lock', 'poetry.lock', 'Pipfile.lock', 'pylock.toml']
+    config.exclude = lockfiles
+    for (const file of lockfiles) {
+      assert.throws(
+        () => resolveReportDestination(fixture.root, config, file),
+        /overlaps project input/,
+        `Absent ${file} is still an evidence input`,
+      )
+      const original = '# Reviewed dependency resolution\n'
+      writeFileSync(join(fixture.root, file), original)
+      assert.throws(
+        () => resolveReportDestination(fixture.root, config, file),
+        /overlaps project input/,
+        `Excluded ${file} is still an evidence input`,
+      )
+      assert.equal(readFileSync(join(fixture.root, file), 'utf8'), original)
+    }
+  } finally {
+    fixture.dispose()
+  }
+})
+
 test('an atomic report replacement leaves no temporary file', async () => {
   const fixture = createProject({ 'bindings.ts': 'export const actions = {}\n' })
   try {

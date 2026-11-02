@@ -16,7 +16,7 @@ Render the standalone Bonsai check dashboard from the evaluated invocation.
 - Normalize maintained-entry membership against collected files without reinspection. Evidence context matching is distinct from completeness and acceptance; preserve raw records and unknown classifications.
 - Keep all assets offline, licensed, measured, and packaged. Serialize the referenced TypeScript client function rather than adding unsupported authored JavaScript or a runtime build.
 - Escape candidate-controlled strings in HTML and embedded JSON. The private data script is `bonsai-report-data`; it does not replace the public check JSON.
-- Validate final and temporary output destinations against effective inventory and canonical filesystem paths. Never narrow policy to make room for output. Write after candidate integrity, under the command deadline and outside candidate feedback; interrupted writes preserve the previous complete report.
+- Validate final and temporary output destinations against effective inventory and canonical filesystem paths. Protect dependency lockfiles, including Python locks, even when excluded or absent. Never narrow policy to make room for output. Write after candidate integrity, under the command deadline and outside candidate feedback; interrupted writes preserve the previous complete report.
 
 ## Work Guidance
 
