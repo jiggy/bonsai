@@ -42,6 +42,8 @@ CI emits a compact actual root verdict, observation completion, ancestry count, 
 
 `python-contract` is a read-only focused feedback job using pinned CPython 3.12, the genuine Python-team contract, and native Python technical regressions. The normal verify job also sets up that interpreter for the complete suite. This CI setup does not install interpreters during product checks or require Python for TypeScript consumers.
 
+`integration-contracts` gives read-only focused feedback on the publisher vocabulary and selected named-route requirements through real CLI invocations on Linux x64 with Bun 1.4.3. This does not replace complete root verification or installed Jig qualification.
+
 `rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.86.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
 
 ## Work Guidance
