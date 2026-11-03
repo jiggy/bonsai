@@ -9,6 +9,29 @@ analysis, missing or mismatched evidence, invalid configuration, and execution
 errors. Only a complete Bonsai pass succeeds. There is no allowance override in
 the action.
 
+## Licensing
+
+The adapter files `action.yml` and `.github/action/run.ts` use the
+[MIT license](../LICENSE-ACTION). The Bonsai checker they invoke, including
+shared source imported from `src/`, is separately licensed under
+[Bread License 1.0](../LICENSE.md). Downloading the Action does not buy a Bonsai
+company license or extend the adapter's MIT grant to the checker.
+
+Personal non-business use, genuine evaluation, and qualifying business use below
+US$1 million in consolidated Group annual revenue are free. Ordinary development
+and CI at or above that threshold need paid or existing permission; see
+[Bonsai's price schedule](../PRICING.md). Generic runner-infrastructure charges
+do not themselves buy that permission.
+
+For ordinary purchased coverage, pin the reviewed full source commit identified
+by a covered official release. Later uncovered releases need applicable
+permission even when a moving tag selects them automatically. Raw development
+snapshots remain available under applicable free permissions or a separate grant.
+The earlier `v0` release retains its previous terms; a new official release
+containing the adoption must be published before its company-purchase coverage
+can be used. The [component notices](../LICENSES.md) explain distribution and
+source obligations.
+
 ## Add it to a repository
 
 First initialize Bonsai, connect the real application handlers, and commit the
@@ -16,7 +39,8 @@ reviewed `bonsai.json`, bindings, and executable contracts to the base branch.
 A base without configuration fails; the action does not silently fall back to
 the PR's proposed rules.
 
-Save this as `.github/workflows/bonsai.yml`:
+Replace `<reviewed-release-commit-sha>` with the chosen release's full source
+commit, then save this as `.github/workflows/bonsai.yml`:
 
 ```yaml
 name: Bonsai
@@ -41,7 +65,7 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
       - name: Check Bonsai allowance
         id: bonsai
-        uses: jiggy/bonsai@main # Replace main with a reviewed full commit SHA.
+        uses: jiggy/bonsai@<reviewed-release-commit-sha> # Replace with a covered release's full SHA.
       - name: Save Bonsai report
         if: always() && steps.bonsai.outputs.report-path != ''
         uses: actions/upload-artifact@v4
@@ -142,8 +166,9 @@ ambient `BONSAI_POLICY`, `BONSAI_BASE`, and `BONSAI_ROOT` overrides and supplies
 the selected root and base explicitly. Intentional policy or inventory changes
 need their own review and take effect when adopted into the trusted base.
 
-Pin Bonsai to a reviewed full commit SHA containing `action.yml`. The `main`
-example is available after this change merges; no `v1` release is implied.
+Pin Bonsai to a reviewed full commit SHA containing `action.yml`, identified
+by an official release covered by your applicable permission. Publishing source
+or changing a branch does not itself publish that release; no `v1` is implied.
 Protect the consuming workflow and review contract changes: the action cannot
 judge whether newly added observations describe warranted product behavior.
 
