@@ -1,5 +1,6 @@
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
+import { setImmediate as immediate } from 'node:timers/promises'
 import { resolve, relative } from 'node:path'
 import type { ChildProcess } from 'node:child_process'
 import {
@@ -226,15 +227,107 @@ export async function createTsrsProgram(
     )
     const checker = nativeProgram.getProject().checker
 
+    const localFiles = new Map<string, ts.SourceFile>()
+    // A reference can only reach an owned declaration/export or an adapter binding.
+    // Keep owned names and adapter bindings; native semantics still resolve
+    // aliases and shadows. Keep local const path aliases for the subprocess
+    // adapter and loader parameters for binding receipts; other local values and
+    // ordinary external property names cannot identify top-level components.
+    const componentNames = new Set(['default'])
+    const fileNames = new Map<string, Set<string>>()
+    const collectNames = (node: ts.Node, names: Set<string>): void => {
+      const name = (node as ts.NamedDeclaration).name
+      if (
+        name &&
+        ts.isIdentifier(name) &&
+        (ts.isImportClause(node) ||
+          ts.isImportSpecifier(node) ||
+          ts.isNamespaceImport(node) ||
+          ts.isImportEqualsDeclaration(node) ||
+          (ts.isParameter(node) &&
+            ts.isFunctionDeclaration(node.parent) &&
+            node.parent.name?.text === 'loadActions') ||
+          ts.isBindingElement(node) ||
+          (ts.isVariableDeclaration(node) &&
+            ts.isVariableDeclarationList(node.parent) &&
+            !!(node.parent.flags & ts.NodeFlags.Const) &&
+            node.initializer &&
+            (ts.isIdentifier(node.initializer) ||
+              (ts.isCallExpression(node.initializer) && node.initializer.arguments.length === 1))))
+      )
+        names.add(name.text)
+      ts.forEachChild(node, (child) => collectNames(child, names))
+    }
+    const prepareLexical = async () => {
+      // The SDK flushes queued native requests with setImmediate. Let the full
+      // diagnostic batch start before using this worker for independent parsing.
+      await immediate()
+      if (signal?.aborted) throw new Error('Rust analysis interrupted')
+      const problems: string[] = []
+      for (const file of names) {
+        const ast = ts.createSourceFile(
+          file,
+          readFileSync(file, 'utf8'),
+          ts.ScriptTarget.ES2023,
+          true,
+        )
+        localFiles.set(canonical(file), ast)
+        const references = new Set(['URL', 'process'])
+        collectNames(ast, references)
+        fileNames.set(canonical(file), references)
+        for (const statement of ast.statements) {
+          const declarations = ts.isVariableStatement(statement)
+            ? [...statement.declarationList.declarations]
+            : [statement]
+          for (const declaration of declarations) {
+            const name = (declaration as ts.NamedDeclaration).name
+            if (name && ts.isIdentifier(name)) {
+              references.add(name.text)
+              if (
+                !ts.isExternalModule(ast) ||
+                (ts.canHaveModifiers(statement) &&
+                  ts
+                    .getModifiers(statement)
+                    ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
+              )
+                componentNames.add(name.text)
+            }
+          }
+          if (ts.isExportDeclaration(statement) && statement.exportClause) {
+            const clause = statement.exportClause
+            if (ts.isNamespaceExport(clause)) componentNames.add(clause.name.text)
+            else for (const binding of clause.elements) componentNames.add(binding.name.text)
+          }
+        }
+        const parseDiagnostics = (
+          ast as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+        ).parseDiagnostics
+        if (parseDiagnostics.length) {
+          problems.push(
+            `Rust checker unsupported: ${relative(root, file)} uses syntax outside Bonsai's lexical AST adapter`,
+          )
+        }
+      }
+      return problems
+    }
+
     timer?.start('diagnostics')
-    const categories = await Promise.all([
-      nativeProgram.getConfigFileParsingDiagnostics(),
-      nativeProgram.getProgramDiagnostics(),
-      nativeProgram.getSyntacticDiagnostics(),
-      nativeProgram.getBindDiagnostics(),
-      nativeProgram.getGlobalDiagnostics(),
-      nativeProgram.getSemanticDiagnostics(),
+    // Attach rejection handlers to both tasks before lexical I/O can fail.
+    // Preserve native failure precedence and await both before closing its server.
+    const [nativeDiagnostics, lexical] = await Promise.allSettled([
+      Promise.all([
+        nativeProgram.getConfigFileParsingDiagnostics(),
+        nativeProgram.getProgramDiagnostics(),
+        nativeProgram.getSyntacticDiagnostics(),
+        nativeProgram.getBindDiagnostics(),
+        nativeProgram.getGlobalDiagnostics(),
+        nativeProgram.getSemanticDiagnostics(),
+      ]),
+      prepareLexical(),
     ])
+    if (nativeDiagnostics.status === 'rejected') throw nativeDiagnostics.reason
+    if (lexical.status === 'rejected') throw lexical.reason
+    const categories = nativeDiagnostics.value
     const diagnostics = ts.sortAndDeduplicateDiagnostics(categories.flat().map(diagnosticView))
     const problems = diagnostics.map((diagnostic) => {
       const original = categories
@@ -273,7 +366,6 @@ export async function createTsrsProgram(
         )
       }
     }
-    const localFiles = new Map<string, ts.SourceFile>()
     const localSpans = new Map<string, Span>()
     const nativeFiles = new Map<string, NativeSourceFile>()
     const nativeSpans = new Map<string, RemoteSpan>()
@@ -281,83 +373,8 @@ export async function createTsrsProgram(
     const elements: ts.ElementAccessExpression[] = []
     const importSpecifiers: ts.StringLiteralLike[] = []
     const importTargets: ts.Expression[] = []
-    // A reference can only reach an owned declaration/export or an adapter binding.
-    // Keep owned names and adapter bindings; native semantics still resolve
-    // aliases and shadows. Keep local const path aliases for the subprocess
-    // adapter and loader parameters for binding receipts; other local values and
-    // ordinary external property names cannot identify top-level components.
-    const componentNames = new Set(['default'])
-    const fileNames = new Map<string, Set<string>>()
-    const collectNames = (node: ts.Node, names: Set<string>): void => {
-      const name = (node as ts.NamedDeclaration).name
-      if (
-        name &&
-        ts.isIdentifier(name) &&
-        (ts.isImportClause(node) ||
-          ts.isImportSpecifier(node) ||
-          ts.isNamespaceImport(node) ||
-          ts.isImportEqualsDeclaration(node) ||
-          (ts.isParameter(node) &&
-            ts.isFunctionDeclaration(node.parent) &&
-            node.parent.name?.text === 'loadActions') ||
-          ts.isBindingElement(node) ||
-          (ts.isVariableDeclaration(node) &&
-            ts.isVariableDeclarationList(node.parent) &&
-            !!(node.parent.flags & ts.NodeFlags.Const) &&
-            node.initializer &&
-            (ts.isIdentifier(node.initializer) ||
-              (ts.isCallExpression(node.initializer) && node.initializer.arguments.length === 1))))
-      )
-        names.add(name.text)
-      ts.forEachChild(node, (child) => collectNames(child, names))
-    }
-    let unsupportedLexical = false
-    for (const file of names) {
-      const ast = ts.createSourceFile(
-        file,
-        readFileSync(file, 'utf8'),
-        ts.ScriptTarget.ES2023,
-        true,
-      )
-      localFiles.set(canonical(file), ast)
-      const references = new Set(['URL', 'process'])
-      collectNames(ast, references)
-      fileNames.set(canonical(file), references)
-      for (const statement of ast.statements) {
-        const declarations = ts.isVariableStatement(statement)
-          ? [...statement.declarationList.declarations]
-          : [statement]
-        for (const declaration of declarations) {
-          const name = (declaration as ts.NamedDeclaration).name
-          if (name && ts.isIdentifier(name)) {
-            references.add(name.text)
-            if (
-              !ts.isExternalModule(ast) ||
-              (ts.canHaveModifiers(statement) &&
-                ts
-                  .getModifiers(statement)
-                  ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
-            )
-              componentNames.add(name.text)
-          }
-        }
-        if (ts.isExportDeclaration(statement) && statement.exportClause) {
-          const clause = statement.exportClause
-          if (ts.isNamespaceExport(clause)) componentNames.add(clause.name.text)
-          else for (const binding of clause.elements) componentNames.add(binding.name.text)
-        }
-      }
-      const parseDiagnostics = (
-        ast as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
-      ).parseDiagnostics
-      if (!diagnostics.length && parseDiagnostics.length) {
-        unsupportedLexical = true
-        problems.push(
-          `Rust checker unsupported: ${relative(root, file)} uses syntax outside Bonsai's lexical AST adapter`,
-        )
-      }
-    }
-    if (unsupportedLexical) {
+    if (!diagnostics.length && lexical.value.length) {
+      problems.push(...lexical.value)
       return { program: undefined, problems, close }
     }
     const remoteFiles = await Promise.all(names.map((file) => nativeProgram.getSourceFile(file)))

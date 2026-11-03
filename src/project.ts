@@ -123,6 +123,12 @@ export async function snapshot(
     }
     const sourceTimer = new Timer()
     timer.start('source', sourceTimer)
+    // Load trusted parser code while the fresh semantic worker is running.
+    // Settle failures now and rethrow them when contract compilation is reached.
+    const contractModule = import('./contracts.ts').then(
+      (module) => ({ module }),
+      (error: unknown) => ({ error }),
+    )
     const collectSource = python
       ? (await import('./python.ts')).collectPythonSource
       : collectRustSource
@@ -149,8 +155,9 @@ export async function snapshot(
     )
       source.problems.push('Checker or toolchain changed during source analysis')
     timer.start('contracts')
-    const { compileContracts } = await import('./contracts.ts')
-    const contracts = compileContracts(
+    const loadedContracts = await contractModule
+    if ('error' in loadedContracts) throw loadedContracts.error
+    const contracts = loadedContracts.module.compileContracts(
       files
         .filter((file) => file.endsWith('.feature'))
         .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),

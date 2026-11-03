@@ -380,11 +380,13 @@ export function collectSourceGraph(
       }
       if (ts.isIdentifier(child)) {
         const original = checker.getSymbolAtLocation(child)
-        const runtime = runtimeReference(child)
-        if (original && runtime) runtimeUses.add(original)
-        const symbol = unalias(original)
-        const target = symbol && symbols.get(symbol)
-        connect(owner, target, child, 'reference', runtime)
+        if (original) {
+          const runtime = runtimeReference(child)
+          if (runtime) runtimeUses.add(original)
+          const symbol = unalias(original)
+          const target = symbol && symbols.get(symbol)
+          connect(owner, target, child, 'reference', runtime)
+        }
       }
       ts.forEachChild(child, visit)
     }
