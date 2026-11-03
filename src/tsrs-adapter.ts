@@ -34,14 +34,16 @@ export function indexNativeSpans(
   const required = new Set(spans.map(({ start, end, kind }) => nodeKey(start, end, kind)))
   const kinds = new Set(spans.map(({ kind }) => kind))
   const starts = spans.map(({ start }) => start).sort((left, right) => left - right)
-  const bounded = spans.every(({ start, end }) =>
-    Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start,
+  const bounded = spans.every(
+    ({ start, end }) =>
+      Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start,
   )
   const found: RemoteSpan = new Map()
   if (!required.size) return found
   const visit = (node: NativeNode, prune: boolean): void => {
     const { pos, end } = node
-    const known = prune && Number.isSafeInteger(pos) && Number.isSafeInteger(end) && pos >= 0 && end >= pos
+    const known =
+      prune && Number.isSafeInteger(pos) && Number.isSafeInteger(end) && pos >= 0 && end >= pos
     if (known) {
       let low = 0
       let high = starts.length
@@ -448,9 +450,14 @@ export async function createTsrsProgram(
         ts.forEachChild(node, visit)
       }
       visit(ast)
-      const remoteNodes = indexNativeSpans(remote, [...candidates, ...expressions].map((node) => ({
-        start: node.getStart(ast), end: node.end, kind: ts.SyntaxKind[node.kind],
-      })))
+      const remoteNodes = indexNativeSpans(
+        remote,
+        [...candidates, ...expressions].map((node) => ({
+          start: node.getStart(ast),
+          end: node.end,
+          kind: ts.SyntaxKind[node.kind],
+        })),
+      )
       const queries = candidates.map((local) => {
         const native = remoteNodes.get(
           nodeKey(local.getStart(ast), local.end, ts.SyntaxKind[local.kind]),
