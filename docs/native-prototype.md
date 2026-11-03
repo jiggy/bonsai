@@ -7,25 +7,15 @@ production engine. `--engine rust` remains valid for existing commands;
 
 ## Install and run
 
-Use Bun 1.4.3 or later. A source checkout uses its committed lockfile:
+Install Bonsai, then run it in your configured project:
 
 ```sh
-bun install --frozen-lockfile
-bun run ./src/cli.ts check --root examples/checkout --verbose
-bun run ./src/cli.ts explain src/checkout.ts --root examples/checkout --json
+bun add --global @jigging/bonsai
+bonsai check --verbose
+bonsai explain src/orders.ts --json
 ```
 
-After the native npm release is published, the equivalent installation-free
-commands are:
-
-```sh
-bunx --bun @jigging/bonsai@alpha check --verbose
-bunx --bun @jigging/bonsai@alpha explain src/orders.ts --json
-```
-
-Select an exact published version for reproducible CI. The old published
-`0.0.0-alpha.0` lacks native analysis; preparing `0.0.0-alpha.1` in Git does not
-publish it or update the registry tag.
+Select an exact package version for reproducible CI.
 
 The package pins `tsrs@0.18.0-ts7.1.0-dev.20260929`, including prebuilt binaries
 and standard libraries. Its optional platform packages have no install/build
@@ -61,19 +51,18 @@ binary, remove the override before reinstalling:
 
 ```sh
 unset BONSAI_NATIVE_BINARY
-bun install --frozen-lockfile
-bun run ./src/cli.ts check --verbose
+bun add --global @jigging/bonsai --force
+bonsai check --verbose
 ```
 
-That lockfile command applies to a source checkout. Installed-package repairs
-reinstall the published package, rather than asking users to enter a temporary
-`bunx` cache directory. Help and version never start or install a native checker.
+For a source checkout, use `bun install --frozen-lockfile` instead of the global
+reinstall. Help and version never start or install a native checker.
 
 ### Local build on Intel macOS
 
 Installing dependencies again cannot supply an unpublished `darwin-x64` package.
 Build the exact tsrs release matching Bonsai's pinned SDK, using Rustup and Xcode
-Command Line Tools. From the Bonsai checkout:
+Command Line Tools. From your project directory:
 
 ```sh
 mkdir -p .bonsai
@@ -83,7 +72,7 @@ TSRS_TS_VERSION=7.1.0-dev.20260930.4 cargo build --locked --release -p tsrs_cli 
 export BONSAI_NATIVE_BINARY="$PWD/target/release/tsrs"
 cd ../..
 "$BONSAI_NATIVE_BINARY" --version
-bun run ./src/cli.ts check --verbose
+bonsai check --verbose
 ```
 
 Rustup selects the source checkout's pinned Rust 1.99.1 toolchain. The binary

@@ -4,6 +4,13 @@ import { createHash } from 'node:crypto'
 import type { Config } from './model.ts'
 import { excludedBy } from './exclusions.ts'
 
+export class InventoryError extends Error {
+  constructor(path: string) {
+    super(`Maintained path not found: ${path}`)
+    this.name = 'InventoryError'
+  }
+}
+
 export function inventory(root: string, paths: string[], exclude: string[] = []): string[] {
   const found = new Set<string>()
   const excluded = excludedBy(exclude)
@@ -13,7 +20,14 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
       throw new Error(`Maintained path escapes root: ${path}`)
     const local = relative(root, absolute).split(sep).join('/')
     if (excluded(local)) return
-    const stat = lstatSync(absolute)
+    let stat
+    try {
+      stat = lstatSync(absolute)
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') throw new InventoryError(local)
+      throw error
+    }
     if (stat.isDirectory() && excluded(local, true)) return
     if (!realpathSync(absolute).startsWith(realpathSync(root) + sep))
       throw new Error(`Maintained path escapes root: ${path}`)
