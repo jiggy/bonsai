@@ -83,8 +83,11 @@ test('a missing maintained README identifies its required input and allows polic
       const problem = JSON.parse(result.stderr)
       assert.equal(problem.status, 'incomplete')
       assert.equal(problem.code, 'INVENTORY')
-      assert.match(problem.error, /Maintained path not found: README\.md/)
-      assert.match(problem.error, /Restore/)
+      assert.match(problem.error, /Maintained path does not exist: README\.md/)
+      assert.match(
+        problem.error,
+        /Restore the path or update the maintained setting in bonsai\.json/,
+      )
       assert.doesNotMatch(problem.error, /ENOENT|ENOTDIR|lstat|statx/)
       assert.match(problem.run, /^bonsai config show --root /)
       const inspected = inspect(problem.run, fixture.root)
@@ -125,7 +128,7 @@ test('a maintained descendant under a regular file reports the same input error 
       ['INVENTORY', 'INVENTORY'],
     )
     for (const problem of problems) {
-      assert.match(problem.error, /Maintained path not found: blocker\/README\.md/)
+      assert.match(problem.error, /Maintained path does not exist: blocker\/README\.md/)
       assert.doesNotMatch(problem.error, /ENOTDIR|lstat|statx/)
       assert.equal(inspect(problem.run, fixture.root).root, fixture.root)
     }
@@ -166,6 +169,12 @@ test('missing inventory recovery preserves the reviewed base and explicit policy
       const problem = JSON.parse(result.stderr)
       assert.equal(problem.code, 'INVENTORY')
       assert.match(problem.error, /README\.md/)
+      assert.match(
+        problem.error,
+        policy.length
+          ? /Restore the path or update the maintained setting in the selected policy/
+          : /Restore the path required by the selected base/,
+      )
       const inspected = inspect(problem.run, selected.root)
       assert.equal(inspected.root, fixture.root)
       assert.equal(inspected.base, git(fixture.root, 'rev-parse', 'HEAD'))
@@ -180,6 +189,10 @@ test('missing inventory recovery preserves the reviewed base and explicit policy
     assert.equal(piped.status, 2, piped.stderr)
     const problem = JSON.parse(piped.stderr)
     assert.equal(problem.code, 'INVENTORY')
+    assert.match(
+      problem.error,
+      /Restore the path or update the maintained setting in the policy supplied on stdin/,
+    )
     const inspected = inspect(problem.run, selected.root, reviewed)
     assert.equal(inspected.file, 'stdin')
     assert.deepEqual(inspected.config, JSON.parse(reviewed))
@@ -254,7 +267,7 @@ test('missing maintained inputs keep wrapped terminal diagnostics readable and c
     assert.equal(styled.status, 2, styled.stderr)
     const visible = characters(styled.stdout.replaceAll('\r\n', '\n'))
     const plain = visible.map((character) => character.value).join('')
-    assert.match(plain, /Maintained path not found: README\.md/)
+    assert.match(plain, /Maintained path does not exist:\s+README\.md/)
     assert.doesNotMatch(plain, /ENOENT|statx|lstat/)
     const end = plain.indexOf('  Next →')
     assert.ok(end > 0)
