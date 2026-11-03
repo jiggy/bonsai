@@ -26,12 +26,14 @@ jobs:
           bun-version: 1.4.3
       - run: bun install --frozen-lockfile
       - run: bun run format
-      - name: Export formatting patch
+      - run: bun run sync-skills
+      - name: Export formatting and reference patch
         id: patch
         run: |
-          if ! git diff --quiet; then
+          git add --all -- skills/bonsai/reference
+          if ! git diff HEAD --quiet; then
             mkdir -p "$RUNNER_TEMP/format-patch"
-            git diff --binary > "$RUNNER_TEMP/format-patch/format.patch"
+            git diff HEAD --binary > "$RUNNER_TEMP/format-patch/format.patch"
             echo 'changed=true' >> "$GITHUB_OUTPUT"
           fi
       - uses: actions/upload-artifact@v4
@@ -60,7 +62,7 @@ jobs:
           path: ${{ runner.temp }}/format-patch
       # This job only applies data and runs Git. Never run package scripts,
       # install dependencies, or execute files from the candidate checkout here.
-      - name: Commit formatting patch
+      - name: Commit formatting and reference patch
         id: commit
         env:
           TARGET_BRANCH: ${{ github.head_ref || github.ref_name }}
@@ -72,7 +74,7 @@ jobs:
           # Push and PR runs produce the same commit when formatting the same head.
           export GIT_AUTHOR_DATE="$(git show -s --format=%cI HEAD)"
           export GIT_COMMITTER_DATE="$GIT_AUTHOR_DATE"
-          git commit -m 'style: apply formatting'
+          git commit -m 'chore: sync skill references and formatting'
           git push origin "HEAD:refs/heads/$TARGET_BRANCH"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -126,6 +128,7 @@ jobs:
           python-version: '3.12'
       - run: bun install --frozen-lockfile
       - run: bun run format:check
+      - run: bun run check:skills
       - run: bun run check
       - run: bun run native:compare
       - name: Verify native session owner shutdown

@@ -1,15 +1,16 @@
 # Set up a project
 
-Read this branch when the consuming project has no established Bonsai gate. Select a useful end-to-end delivery slice using the main skill before adapting the checker. Return after a verified baseline and rejection probe.
+Use this guide when the project has no established Bonsai gate. First choose a useful end-to-end delivery slice with the [development workflow](workflow.md#1-choose-the-complete-delivery-slice). Finish setup with a verified baseline and rejection probe.
 
 ## 1. Check applicability
 
-Inspect the consuming project's language, module resolution, product entry points, and verification commands. Read the installed Bonsai README's adapter limits before deciding the scope of adoption.
+Inspect the consuming project's language, module resolution, product entry points, and verification commands. Read the [adapter limits](README.md#limits-and-next-steps) before deciding the scope of adoption.
 
-The current adapter follows TypeScript top-level symbols and literal named-handler registrations. For HTTP routing, queues, dependency injection, side-effect registrations, assets, or another language, identify the missing connection explicitly. An in-process pilot can cover a real supported behavior, provided its report states that limited scope.
+TypeScript uses named handlers and a literal exported `actions` registry. [Native Python projects](README.md#native-python-projects) use `.py` bindings with a literal `actions` dictionary and installed CPython within the documented version range. That adapter supports a bounded standard-library slice, not third-party Python frameworks or mixed-language applications. Bun remains the CLI runtime.
 
-For a handler launching a Bun/Node child, read the installed README's fixed child
-entry-point syntax. Literal module-relative URLs and immutable path aliases can
+For HTTP routing, queues, dependency injection, side-effect registrations, general assets, or another language, identify the missing connection explicitly. Authored Rust is not supported by the production adapter. An in-process pilot can cover a real supported behavior, provided its report states that limited scope.
+
+For a handler launching a Bun/Node child, read the [fixed child entry-point syntax](README.md#fixed-child-entry-points). Literal module-relative URLs and immutable path aliases can
 connect maintained TypeScript startup code without retaining unused exports.
 Computed paths, shells, and arbitrary wrappers still need tracing support. Do not
 add contracts merely to hide an unsupported connection.
@@ -26,16 +27,16 @@ bonsai --help
 ```
 
 Run subsequent commands from the consuming project's root. Record `bonsai version`
-and select an exact package version for CI. Supported prebuilt platforms need
-no Cargo or Rust compiler; see the installed platform guide for other targets.
+and select an exact package version for CI. Supported TypeScript prebuilt platforms need
+no Cargo or Rust compiler; see the [platform guide](native-prototype.md#install-and-run) for other targets.
 
-Bonsai uses native Rust source analysis by default. Existing `--engine rust` commands work; remove `--engine typescript`. Missing native packages must be repaired rather than bypassed with a different engine. Read the installed platform matrix before adopting the gate.
+TypeScript analysis uses the Rust TypeScript backend. Existing `--engine rust` commands work for TypeScript; `--engine typescript` is unsupported. Python selects its adapter from the `.py` binding file without an engine flag. Repair missing prerequisites within the documented platform support before adopting the gate.
 
 **Done:** the checker runs independently of the consuming project's package scripts and its version is recorded.
 
 ## 3. Define the maintained inventory
 
-Run `bonsai init` to create `bonsai.json` without writing the schema by hand. It discovers maintained paths, reuses conventional registries and contracts, and creates commented starters when absent. Existing files are preserved and project code never runs. The result lists exclusions and draft settings. Use the checker's README and `bonsai config show` to inspect them. Include production code, contracts, bindings, relevant tests, fixtures, and maintained configuration within the declared adoption scope.
+Run `bonsai init` to create `bonsai.json` without writing the schema by hand. It discovers maintained paths, reuses conventional registries and contracts, and creates commented starters when absent. Existing files are preserved and project code never runs. The result lists exclusions and draft settings. Use the [configuration guide](README.md#configuration-and-environment) and `bonsai config show` to inspect them. Include production code, contracts, bindings, relevant tests, fixtures, and maintained configuration within the declared adoption scope.
 
 Compare the inventory against the actual tree. Every scoped maintained artifact must be accounted for; local dependencies must be included. Identify generated outputs and external dependencies deliberately. Rooting a symbol does not erase its file's retained cost, and excluding a troublesome directory narrows the gate's guarantee.
 
@@ -46,15 +47,15 @@ exclusions. Checks use the saved configuration, including the base version under
 
 Choose project-wide coefficients and a feedback deadline from the measured baseline and the project's intended constraint. The initializer's defaults and example numbers are starting points, not calibrated acceptance rules. Record the calibration rationale; keep the resulting acceptance policy stable during ordinary implementation work.
 
-For releases with supporting runners, use the installed checker's `docs/verification.md` to configure the concrete adapters and reviewed coverage or mutation floors under `runners`. Pin framework dependencies and define their test and coverage scope deliberately. Commands share the existing feedback deadline with product verification. Put fresh reports outside maintained inputs; report paths cannot overlap authored inventory. Supporting results grant no ancestry or allowance, and a configured requirement cannot be replaced by an unintegrated passing suite.
+For releases with supporting runners, use [supporting verification](verification.md) to configure the concrete adapters and reviewed coverage or mutation floors under `runners`. Pin framework dependencies and define their test and coverage scope deliberately. Commands share the existing feedback deadline with product verification. Put fresh reports outside maintained inputs; report paths cannot overlap authored inventory. Supporting results grant no ancestry or allowance, and a configured requirement cannot be replaced by an unintegrated passing suite.
 
 **Done:** each maintained path exists, the binding file is included, the scope has no unexplained exclusions, required verification is explicit, and the policy's initial allowance and deadline have a recorded rationale.
 
 ## 4. Connect one real behavior
 
-Use the checker's `examples/checkout/features/checkout.feature` and `examples/checkout/bindings.ts` as the executable syntax reference. Adapt them to a real product behavior and its actual named handler rather than copying the demo application into the project.
+Use the [contract and TypeScript binding example](README.md#describe-behavior-once), or the [Python binding example](README.md#native-python-projects), as the syntax reference. Adapt the example to a real product behavior and its actual named handler.
 
-The literal `actions` registry serves both static resolution and runtime execution. Keep action identifiers and response selectors explicit. Put cases and expected outcomes in `.feature` files; Bonsai expands each example and owns the response assertions. Read the installed README before introducing other Gherkin forms.
+The literal `actions` registry serves both static resolution and runtime execution. Keep action identifiers and response selectors explicit. Put cases and expected outcomes in `.feature` files; Bonsai expands each example and owns the response assertions. Check the [supported grammar](README.md#describe-behavior-once) before introducing other Gherkin forms.
 
 Start with the complete useful journey: for example, a buyer places an available order and receives the correct items and payable total in a usable order record. Connect acceptance to the real handler and inspect that result before building ancillary validation infrastructure. Then add examples for boundaries that matter to the buyer. The following syntax example covers only the quantity rule; it supplements, rather than replaces, the successful order journey:
 
@@ -103,12 +104,18 @@ Add a project command that preserves the checker's exit status and an agent-inst
 
 > Bonsai: read `.agents/skills/bonsai/SKILL.md` when implementing changes under the gate or resolving its failures. Run `<project gate command>` before claiming acceptance.
 
-Use the installed skill's actual location and the real command. Copy this entire skill directory, including `references/`, into the agent system's skill location when installing it; the reference link must remain valid.
+Install the skill with the standard installer:
+
+```sh
+npx skills add jiggy/bonsai
+```
+
+Use the installed skill's actual location and the real project command in the instruction pointer. The installer includes `SKILL.md` and its local `reference/` directory. Installing this skill and installing the Bonsai executable are separate steps.
 
 State the governing BDD rule in the project's agent instructions: choose a complete user journey and its smallest useful delivery slice before decomposing it; drive implementation from its acceptance examples and inspect the assembled result before expanding. Reviewed product promises determine the allowance. Test mechanics and supporting test counts do not qualify promises. Require meaningful failure evidence, preservation of technical regressions in the appropriate tests, full verification after refactoring, and separate reporting of allowance changes and code savings. Keep existing product promises unless the task authorizes their change. A failing budget calls for code reduction, not invented promises.
 
 For initial adoption, run without `--base` until the base revision contains the project-root configuration and contracts. Subsequently, `--base <revision>` requires `--root` to be the Git repository root and uses the base's policy and inventory by default. Ensure that revision is available in local and CI checkouts. Treat additions to the maintained inventory as explicit scope changes; a candidate edit alone does not change the base inventory.
 
-A local or CI command establishes a development loop. Production admission additionally requires an independently controlled checker and effective policy, isolated candidate execution, checking the combined merge tree, and required status enforcement. Consult the installed checker's `docs/roadmap.md` when that stronger integration is requested. Preserve the project's other verification commands alongside Bonsai.
+A local or CI command establishes a development loop. Production admission additionally requires an independently controlled checker and effective policy, isolated candidate execution, checking the combined merge tree, and required status enforcement. Read the [GitHub Action guide](github-action.md) for supported integration and enforcement requirements. Preserve the project's other verification commands alongside Bonsai.
 
 **Done:** agents can find the skill, the project command preserves failure, the first usable base is identified, and the deployment's actual enforcement guarantees are stated accurately.

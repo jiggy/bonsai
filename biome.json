@@ -3,7 +3,7 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!!.agents/skills", "!!skills-lock.json"]
+    "includes": ["**", "!!.agents/skills", "!!skills-lock.json", "!!skills/bonsai/reference"]
   },
   "formatter": {
     "enabled": true,
