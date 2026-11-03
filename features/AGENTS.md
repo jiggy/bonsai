@@ -28,7 +28,7 @@ Cover successful and blocking user outcomes. Backend identity, exact parser stri
 
 Default verification keeps scenarios independent and completes every required observation; `--serial` preserves shared state across ordered scenarios. Actual completion and shutdown belong in product examples. CPU sizing, held-worker progress, shard identities, queue bounds, and protocol permutations retain direct scheduling regressions, including on a one-CPU machine.
 
-Comparative scenarios keep every command input and expected result explicit. Each support call arranges and disposes a fresh consuming project; comparisons do not reuse source, reports, application state, or execution evidence. Dedicated fresh-state and interruption examples retain their execution profiles.
+Comparative scenarios keep every command input and expected result explicit. Each support call arranges and disposes a fresh consuming project; comparisons do not reuse source, reports, application state, or execution evidence. Group only adjacent alternatives under one product rule or recovery journey, preserving their action order and individual observations. Dedicated fresh-state examples retain their execution profiles. Each interruption arranges its own held-work project with its original capacity and deadline.
 
 ## Verification
 

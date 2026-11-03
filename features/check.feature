@@ -12,14 +12,14 @@ Feature: Admit implementations that fulfill their declared behavior within the c
     And response "childExecuted" equals true
     And response "invocationCount" equals 2
 
-  Scenario: An unavailable checker stops before application handlers run
-    The selected local checker executable is absent.
+  Scenario: Unavailable or unsupported source analysis stops before application handlers run
+    The maintainer checks two independent applications. The first has no selected local
+    checker executable; the second required handler selects its imported module at runtime.
+    Neither analysis blocker may bypass source tracing and run the application.
     When I invoke "check" with {"missingNative": true}
     Then response "exitCode" equals 1
     And response "handlerExecuted" equals false
 
-  Scenario: Unsupported runtime imports cannot bypass source tracing
-    The required handler selects its imported module at runtime.
     When I invoke "check" with {"computedImport": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -32,38 +32,36 @@ Feature: Admit implementations that fulfill their declared behavior within the c
     And response "decision.status" equals "pass"
     And response "invocationCount" equals 5
 
-  Scenario: Wrong application behavior is rejected after exercising the required requests
-    The handler incorrectly accepts a zero quantity, although that request must be rejected.
+  Scenario: Completed checks reject incorrect behavior, unjustified code, and excess retained cost
+    The maintainer compares three independent order applications.
+    The first incorrectly accepts a zero quantity, although that request must be rejected.
+    The second has a working handler that shares its module with an unused exported operation.
+    The third fulfills its requests but its maintained source exceeds a one-token limit.
     When I invoke "check" with {"broken": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "handlerExecuted" equals true
     And response "invocationCount" equals 2
 
-  Scenario: An unused symbol in a used module has no product justification
-    A working handler shares its module with an unused exported operation.
     When I invoke "check" with {"unrooted": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "snapshot.unrooted" equals ["orders.ts#unused"]
 
-  Scenario: Passing behavior must fit the retained-code ceiling
-    The application fulfills its requests but its maintained source exceeds a one-token limit.
     When I invoke "check" with {"overBudget": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "decision.ceiling" equals 1
     And response "invocationCount" equals 2
 
-  Scenario: A comment-only requirement file cannot grant admission
-    No executable contract has been authored for the application.
+  Scenario: A comment-only requirement or unbound action cannot grant admission
+    The first application has no executable contract, only a comment in its requirement file.
+    An independent application has a requirement naming an operation its registry does not bind.
     When I invoke "check" with {"missingContracts": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
     And response "handlerExecuted" equals false
 
-  Scenario: An unbound external action cannot grant admission
-    A requirement names an operation that the application registry does not bind.
     When I invoke "check" with {"unbound": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"

@@ -12,9 +12,11 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.finishedInputs" equals [0, 1, 2]
     And response "application.runningPids" equals []
 
-  Scenario: A crashed scenario cancels its peers without starting queued work
-    Application calls are held active while another required call awaits execution.
-    One of the active calls then exits before returning its required response.
+  Scenario: Crashes, deadlines, and cancellation stop active work without starting queued calls
+    In each independent project, application calls are held active while another required
+    call awaits execution. First, one active call exits before returning its required response.
+    Next, calls remain blocked until the existing shared feedback deadline expires.
+    Finally, the maintainer interrupts the command with SIGINT while its calls are held active.
     When I invoke "check" with {"fixture": "verification", "case": "crash"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -22,9 +24,6 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.queuedInputsStarted" equals []
     And response "application.runningPids" equals []
 
-  Scenario: The shared feedback deadline stops all active scenarios
-    Application calls remain blocked while another required call awaits execution.
-    They must stop when the existing shared feedback deadline expires.
     When I invoke "check" with {"fixture": "verification", "case": "timeout"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -32,9 +31,6 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.queuedInputsStarted" equals []
     And response "application.runningPids" equals []
 
-  Scenario: Cancelling a command stops active scenarios and leaves queued work unstarted
-    Application calls are held active while another required call awaits execution.
-    The maintainer interrupts the command with SIGINT.
     When I invoke "check" with {"fixture": "verification", "case": "cancel"}
     Then response "exitCode" equals 130
     And response "code" equals "SIGINT"
