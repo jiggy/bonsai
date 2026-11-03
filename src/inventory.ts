@@ -4,6 +4,13 @@ import { createHash } from 'node:crypto'
 import type { Config } from './model.ts'
 import { excludedBy } from './exclusions.ts'
 
+export class InventoryError extends Error {
+  constructor(path: string) {
+    super(`Maintained path not found: ${path}`)
+    this.name = 'InventoryError'
+  }
+}
+
 export function inventory(root: string, paths: string[], exclude: string[] = []): string[] {
   const found = new Set<string>()
   const excluded = excludedBy(exclude)

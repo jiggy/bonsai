@@ -9,7 +9,7 @@ Keep required product behavior within the project's retained-code allowance. Use
 
 ## 1. Establish the gate
 
-Locate the project's agent instructions, `bonsai.json`, executable bindings, and existing Bonsai command or CI invocation. Identify the effective policy, maintained inventory, checker checkout/version, and base revision used for acceptance.
+Locate the project's agent instructions, `bonsai.json`, executable bindings, and existing Bonsai command or CI invocation. Identify the effective policy, maintained inventory, checker version, and base revision used for acceptance.
 
 For first-time adoption, read [Set up a project](references/adoption.md). Finish that branch with a passing baseline and a demonstrated rejection before returning here.
 
@@ -19,13 +19,13 @@ Use the installed checker's `--help` and README for its supported commands and a
 
 ## 2. Measure the starting point
 
-Run the project's gate with JSON output. If no wrapper exists, use a separate Bonsai checkout:
+Run the project's gate with JSON output. If no wrapper exists, run Bonsai from the consuming project's root:
 
 ```sh
-bun run --cwd "$BONSAI_DIR" --silent bonsai check --root "$PROJECT_DIR" --json
+bonsai check --json
 ```
 
-`BONSAI_DIR` is the absolute checker checkout; `PROJECT_DIR` is the absolute consuming-project root. Preserve any `--base` or `--policy` arguments required by the project's acceptance command. Read the exit status and the report: normal results contain `decision` and `snapshot`; setup errors report `status: incomplete` with a string `error` and actionable metadata on stderr.
+Preserve any `--root`, `--base`, or `--policy` arguments required by the project's acceptance command. Read the exit status and the report: normal results contain `decision` and `snapshot`; setup errors report `status: incomplete` with a string `error` and actionable metadata on stderr.
 
 Record retained size, ceiling, required reduction, contract surface, violations, and individual required-check outcomes, including every configured supporting runner and quality floor. A pre-existing failure remains a blocker to claiming acceptance.
 
@@ -70,7 +70,7 @@ Rerun the same gate against the changed candidate. Use its result to choose the 
 For a component investigation, use the project's wrapper or:
 
 ```sh
-bun run --cwd "$BONSAI_DIR" --silent bonsai explain 'src/orders.ts#placeOrder' --root "$PROJECT_DIR"
+bonsai explain 'src/orders.ts#placeOrder'
 ```
 
 Substitute an actual reported component or file. `explain` performs static analysis; it does not verify behavior. Its ancestry and relationship references guide inspection, while a fresh `check` establishes acceptance. Recheck after every subsequent change to the candidate.

@@ -39,6 +39,16 @@ if (!existsSync(resolve(output, 'index.html'))) {
 scan(output)
 
 const html = readFileSync(resolve(output, 'index.html'), 'utf8').replace(/<!--[\s\S]*?-->/g, '')
+const setupCommands = html
+  .match(/<code id="quickstart-code">([\s\S]*?)<\/code>/)?.[1]
+  .replace(/<[^>]*>/g, '')
+  .replaceAll('&amp;', '&')
+  .trim()
+const readmeCommands = readFileSync(resolve(output, '../README.md'), 'utf8')
+  .match(/### In your project\n[\s\S]*?```sh\n([\s\S]*?)```/)?.[1]
+  .trim()
+if (!setupCommands || setupCommands !== readmeCommands)
+  errors.push('Manual setup commands must match the README project quickstart')
 const tags = [...html.matchAll(/<([a-z][\w:-]*)\b([^>]*?)>/gi)].map((match) => ({
   name: match[1].toLowerCase(),
   attributes: Object.fromEntries(

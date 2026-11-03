@@ -18,17 +18,24 @@ add contracts merely to hide an unsupported connection.
 
 ## 2. Establish a reproducible checker
 
-Reuse the project's installed checker when available. Otherwise obtain a separate checkout of `https://github.com/jiggy/bonsai`, select a reviewed commit, and install its locked dependencies with `bun install --frozen-lockfile`. After the native release is published, `bunx --bun @jigging/bonsai@alpha check` can run it directly, or install globally with `bun add --global @jigging/bonsai@alpha`. Select an exact published version for CI. The old alpha.0 package predates native analysis; preparing a newer version in Git does not publish it. Users need Bun and a supported prebuilt platform, not Cargo or a Rust compiler.
+Reuse the project's installed checker when available. Otherwise install it once:
 
-Set `BONSAI_DIR` to that checkout's absolute path and `PROJECT_DIR` to the consuming project's absolute root. Invoke through `bun run --cwd "$BONSAI_DIR" --silent bonsai …` so the checker's loader and dependencies resolve from its own checkout. Confirm the Bun requirement from its `package.json`, run `--help`, and record the selected revision for reproduction.
+```sh
+bun add --global @jigging/bonsai
+bonsai --help
+```
+
+Run subsequent commands from the consuming project's root. Record `bonsai version`
+and select an exact package version for CI. Supported prebuilt platforms need
+no Cargo or Rust compiler; see the installed platform guide for other targets.
 
 Bonsai uses native Rust source analysis by default. Existing `--engine rust` commands work; remove `--engine typescript`. Missing native packages must be repaired rather than bypassed with a different engine. Read the installed platform matrix before adopting the gate.
 
-**Done:** the checker runs independently of the consuming project's package scripts and its revision is recorded.
+**Done:** the checker runs independently of the consuming project's package scripts and its version is recorded.
 
 ## 3. Define the maintained inventory
 
-Run `init --root "$PROJECT_DIR"` through the selected checker to create `bonsai.json` without writing the schema by hand. It discovers maintained paths, reuses conventional registries and contracts, and creates commented starters when absent. Existing files are preserved and project code never runs. The result lists exclusions and draft settings. Use the checker's README and `config show --root "$PROJECT_DIR"` to inspect them. Include production code, contracts, bindings, relevant tests, fixtures, and maintained configuration within the declared adoption scope.
+Run `bonsai init` to create `bonsai.json` without writing the schema by hand. It discovers maintained paths, reuses conventional registries and contracts, and creates commented starters when absent. Existing files are preserved and project code never runs. The result lists exclusions and draft settings. Use the checker's README and `bonsai config show` to inspect them. Include production code, contracts, bindings, relevant tests, fixtures, and maintained configuration within the declared adoption scope.
 
 Compare the inventory against the actual tree. Every scoped maintained artifact must be accounted for; local dependencies must be included. Identify generated outputs and external dependencies deliberately. Rooting a symbol does not erase its file's retained cost, and excluding a troublesome directory narrows the gate's guarantee.
 
@@ -71,7 +78,7 @@ Keep incidental schema layout, backend identities, exact compiler diagnostics, a
 
 For a new behavior, demonstrate its intended failing acceptance example before implementation. For existing behavior being adopted, begin with a green control and show a controlled violation is rejected. Keep that retrospective evidence distinct from a spec-first red step. Arrange data and invoke real handlers in bindings; leave expected outcomes and assertions in the contracts.
 
-Run `check --root "$PROJECT_DIR" --json` through the checker. Resolve every unrooted component within the declared scope by connecting it to required behavior or removing unsupported material. Expand contracts to the intended adoption scope before claiming the entire inventory is justified.
+Run `bonsai check --json`. Resolve every unrooted component within the declared scope by connecting it to required behavior or removing unsupported material. Expand contracts to the intended adoption scope before claiming the entire inventory is justified.
 
 **Done:** the baseline has a complete `pass`, all required observations executed, and the scope identified in step 1 matches the implemented contracts and inventory.
 

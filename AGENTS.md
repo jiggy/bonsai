@@ -123,12 +123,15 @@ Default section order:
 - Use all applicable CLI skills in `.agents/skills/` for CLI behavior, help, errors, and terminal presentation; verify semantic colors and wrapped alert text, rather than merely checking for ANSI output.
 - Keep automated formatting in CI rather than adding formatting instructions to agent context.
 - During stabilization, report the repository's retained-size overage but defer its remediation. Preserve the gate's measurements and policy while fixing other failures.
+- Keep public setup documentation concise: install from npm, then use `bonsai` commands. Keep temporary release-channel workarounds out of the onboarding flow.
 
 ## Child DOX Index
 
 The root owns the reusable `action.yml` manifest, package metadata, runtime dependencies, environment setup, repository-wide contracts, and the legacy `native/README.md` migration note.
 
 `bun run test:runners` is an explicit network-dependent release check for pinned supporting-runner compatibility. Ordinary tests stay network-free; no runner install belongs in product checks.
+
+`prepublishOnly` runs type checking and the installed-package onboarding smoke before publishing from this checkout. The smoke uses a fresh consumer and cache with production dependencies and disabled install scripts. Validate releases from a fresh installation. Prebuilt tarball publication and `--ignore-scripts` bypass lifecycle checks and need explicit validation.
 
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
 - [features/AGENTS.md](features/AGENTS.md): executable contracts for Bonsai’s own observable behavior

@@ -12,12 +12,33 @@ The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`
 
 ## Try it
 
-Requires Bun 1.4.3 or later. TypeScript projects use the packaged Rust TypeScript checker;
-users on supported prebuilt targets do not need Node, Cargo, or a Rust compiler. Supported prebuilt targets are
-Linux x64/arm64 (GNU or musl) and macOS arm64. See [native installation](docs/native-prototype.md)
-for platform limits and repairs. Intel macOS needs a
-[local build of the matching compiler](docs/native-prototype.md#local-build-on-intel-macos),
-selected with `BONSAI_NATIVE_BINARY`; Bonsai ignores `TSRS_BINARY`.
+### In your project
+
+Install Bonsai with Bun, then initialize it from your project's directory:
+
+```sh
+bun add --global @jigging/bonsai
+bonsai init
+```
+
+`init` discovers your project and creates configuration and any missing contract
+starters without replacing existing files.
+
+Connect the generated bindings to real handlers and adapt the `.feature` starters
+to their behavior. Then run:
+
+```sh
+bonsai check
+```
+
+`check` stays incomplete until the starters describe real, verified behavior.
+The [adoption guide](skills/bonsai/references/adoption.md) walks through your first
+contract and baseline. See [native installation](docs/native-prototype.md) for
+supported platforms.
+
+### In a Bonsai checkout
+
+To work on Bonsai itself or run its included checkout example:
 
 ```sh
 bun install --frozen-lockfile
@@ -538,32 +559,18 @@ The unused Oxc prototype was deleted when tsrs replaced it. Its Cargo files and
 Rust sources were removed rather than excluded. Authored Rust in consuming
 projects remains unsupported and measured until a language adapter exists.
 
-## Install and publish an alpha
+## Publishing
 
-After the native release is published, users can run it without a checkout or
-compilation:
+Set the release version in `package.json`, then publish:
 
 ```sh
-bunx --bun @jigging/bonsai@alpha init
-bunx --bun @jigging/bonsai@alpha check --verbose
+bun publish --access public --tag latest
 ```
 
-For reproducible CI, select a published version explicitly, for example
-`bunx --bun @jigging/bonsai@0.0.0-alpha.1 check --json` after that release exists.
-The npm package downloads the matching prebuilt dependency through optional
-packages; no install script or dependency-trust approval builds it locally.
-
-The published `0.0.0-alpha.0` package predates the native implementation. This
-checkout prepares `0.0.0-alpha.1`; a GitHub update alone does not publish it or move
-the npm `alpha` tag. Validate the actual tarball in a fresh consumer before release.
-It must run outside this checkout with production dependencies, scripts disabled,
-and no native binary override.
-
-Publish a new version explicitly with `bun publish --access public --tag alpha`.
-`publishConfig` declares public access and the `alpha` tag; pass the tag to prevent
-prereleases using `latest` across client versions. Preview contents with
-`bun pm pack --dry-run --ignore-scripts`. Runtime sources, the skill, documentation,
-and example are included; development compiler oracles and tests are not.
+`prepublishOnly` runs type checking and `bun run test:package`, which exercises
+the production tarball in a fresh consumer. Preview package contents with
+`bun pm pack --dry-run --ignore-scripts`. Verify the released version with
+`bonsai version` from a fresh installation.
 
 ## Formatting and Codex cloud
 
@@ -572,7 +579,7 @@ Biome ignores unsupported file types, including Gherkin `.feature` files.
 Run `bun run format` to apply formatting and `bun run format:check` to check it.
 Biome is pinned to the configuration's schema version.
 
-In the Codex cloud environment setup script, install Bun 1.4.3
+In the Codex cloud environment setup script, install Bun
 (or use an image that includes it), then run `bun install --frozen-lockfile`.
 Setup runs before agent edits; it does not format the completed change.
 CI runs `bun run format` for branch pushes and pull requests from this repository,

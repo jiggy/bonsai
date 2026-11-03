@@ -602,10 +602,22 @@ async function main(): Promise<void> {
     return
   }
   const { readConfig, snapshot: collectSnapshot, CollectorError } = await import('./project.ts')
+  const { InventoryError } = await import('./inventory.ts')
   const snapshot = async (...parameters: Parameters<typeof collectSnapshot>) => {
     try {
       return await collectSnapshot(...parameters)
     } catch (error) {
+      if (error instanceof InventoryError) {
+        const repair =
+          parameters[0] === temporary
+            ? `Missing from base '${baseValue}'. Select a --base revision that contains this input`
+            : 'Restore the missing file or directory required by the selected policy'
+        throw new CliError(
+          `${error.message}\n${repair}`,
+          'INVENTORY',
+          invocation(['config', 'show']),
+        )
+      }
       if (error instanceof CollectorError) {
         const problem = new CliError(error.message, error.code, error.run, error.exitCode)
         problem.stack += `\nCaused by: ${error.stack ?? error.message}`
