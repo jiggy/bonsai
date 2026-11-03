@@ -1,9 +1,8 @@
 {
   pkgs ? import (builtins.fetchTarball {
-    url = "https://github.com/NixOS/nixpkgs/archive/9bb52223f4f6a0cc606fd0852d8784f896c137d5.tar.gz";
+    url = "https://github.com/NixOS/nixpkgs/archive/0d765791b09356dd5b356559c1b67c1600ca3c5b.tar.gz";
   }) { },
 }:
-# { pkgs ? import <nixpkgs> {} }:
 
 pkgs.mkShellNoCC {
   packages =  with pkgs; [

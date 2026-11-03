@@ -6,7 +6,7 @@ import { excludedBy } from './exclusions.ts'
 
 export class InventoryError extends Error {
   constructor(path: string) {
-    super(`Maintained path not found: ${path}`)
+    super(`Maintained path does not exist: ${path}`)
     this.name = 'InventoryError'
   }
 }
@@ -24,10 +24,9 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
     try {
       stat = lstatSync(absolute)
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-      throw new Error(
-        `Maintained path does not exist: ${local}. Restore the path or update the maintained setting in bonsai.json`,
-      )
+      const code = (error as NodeJS.ErrnoException).code
+      if (code === 'ENOENT' || code === 'ENOTDIR') throw new InventoryError(local)
+      throw error
     }
     if (stat.isDirectory() && excluded(local, true)) return
     if (!realpathSync(absolute).startsWith(realpathSync(root) + sep))
