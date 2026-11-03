@@ -32,6 +32,31 @@ Preserve regression coverage for budget, ancestry, evidence identity, worker dea
 
 `identity.test.ts` and `snapshot-schema.test.ts` cover content identity, relocation, runtime options, and nested serialized facts. A fixed independently computed digest spans small and streamed files to preserve the byte format during I/O changes. `runner-cli.test.ts` exercises completed analysis receipts through both actual verification profiles with an unavailable unused compiler, and requires fresh context capture when no receipt is supplied. `identity-fixture.ts` supplies explicitly assumed identities only to pure evaluator fixtures. `runner-adapters.test.ts` checks concrete report correlation, counts/floors, stale files, containment, and actual command cancellation. `runner-real.test.ts` is the opt-in pinned-framework consumer smoke; ordinary tests skip its network installation. `rust-backend.test.ts` offers a `BONSAI_RUST_PROBE=1` semantic/backend experiment against a disposable Cargo consumer; ordinary tests require no Rust toolchain. Existing native CLI regressions retain the production Rust-incomplete boundary. The probe is not production Rust acceptance.
 
+`domain-steps.test.ts` checks literal metadata extraction and compilation with
+the production parser: preserved context and captures, individual obligations,
+canonical surface, outline isolation, ambiguity, and unsupported syntax.
+`domain-integration.test.ts` compares native facts with the independent reference,
+checks provenance and selected ancestry, and verifies real application results
+and wrong consequences in both execution profiles. Explanation and malformed
+metadata controls must leave registry and handler execution markers absent.
+
+`jig-routes.test.ts` covers the bounded literal route forms, native/reference
+ancestry, selected child methods, inert exports, unsupported or unmeasured
+selection, and read-only explanation. Its type-only fixtures do not qualify
+installed Jig. `jig-evidence.test.ts` independently checks FLOW-Package/0 bytes,
+complete maintained package scope, inspected approval shape and selection,
+stale source, unstable approval, bounded output, deadlines, and descendant cleanup.
+
+`jig-real.test.ts` is the explicit `bun run test:jig` consumer smoke, skipped
+unless `BONSAI_JIG_SMOKE=1`. It installs exact Jig `0.1.0-alpha.42` and Flow
+`0.1.0-alpha.15` with generated then frozen locks, uses the actual named CLI,
+and requires a qualified host. An opted-in setup or execution failure must fail,
+not skip. Preserve the passing application control, selected child-method
+ancestry, no-execution explanation, stale-review rejection before wrapper
+initialization, and wrong-result rejection after explicit re-review. Control and
+fault use the same declared policy. Ordinary tests do not install these packages;
+the dedicated read-only CI job owns host provisioning and residue checks.
+
 `cli-base-paths.test.ts` exercises real Git roots and aliases through config, check, and explain, including worktrees and actual-subdirectory rejection. Preserve the caller's root spelling and invocation-relative policy paths. The macOS native platform job runs this file with installation regressions so canonical-path bugs stay covered beyond Linux.
 
 `observation-diagnostics.test.ts` preserves actual returned failure context without changing application error semantics. Cover a real nested CLI failure, grouped human details, bounded safe previews and visible truncation, expected error-valued responses, and thrown actions. Isolated evidence regressions validate the optional diagnostic field and continue accepting legacy records without it.
@@ -57,7 +82,7 @@ structural explanation facts never claim test execution. Deep single-target expl
 Check route-name foreground and dim state after narrow wrapping, plus independently
 bounded human details and complete machine facts.
 
-`package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled. Exercise the installed `bunx` command through missing configuration, initialization without a README, honest unfinished-setup diagnostics, a real connected contract, and repeat-init preservation, as well as missing-dependency recovery. Compare GNU/musl behavior while validating each report's own execution identity; different selected binary bytes must change the compiler content digest. Only this explicit release check uses the package registry.
+`package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled. Exercise the installed `bunx` command through missing configuration, initialization without a README, honest unfinished-setup diagnostics, a real connected contract, and repeat-init preservation, as well as missing-dependency recovery. Compare GNU/musl behavior while validating each report's own execution identity; different selected binary bytes must change the compiler content digest. Package-registry access is confined to the explicit package, supporting-runner, and Jig smoke checks.
 
 `cli-inventory.test.ts` covers actionable missing-maintained-input diagnostics, preserved scope and candidate files, repair by supplying the real input, and copied inspection commands with quoted roots and effective base/explicit policy. Distinguish missing historical inputs from candidate files and keep declared-input errors independent of report preflight. Verify wrapped alert colors and no-color parity through a real PTY.
 

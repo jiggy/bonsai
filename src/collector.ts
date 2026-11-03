@@ -1,6 +1,8 @@
 import { validControlDepth } from './control-depth.ts'
 import { createRequire } from 'node:module'
 import type { Snapshot, Source, Timing, TimingStage } from './model.ts'
+import { validDomainStepDefinitions } from './domain-steps.ts'
+import { validJigRouteFacts } from './jig-evidence.ts'
 import type { Timer } from './timing.ts'
 import { requestNativeSession, SessionInterrupted, spawnNativeWorker } from './native-session.ts'
 import { nativeBinary, nativeRepair, NativeInstallError } from './native-install.ts'
@@ -63,6 +65,9 @@ function validSource(value: unknown): value is Source {
     'relationships',
     'actions',
     'registry',
+    'stepRegistry',
+    'stepDefinitions',
+    'jigRoutes',
     'bindingImports',
     'controlDepth',
     'problems',
@@ -107,6 +112,9 @@ function validSource(value: unknown): value is Source {
     record(value.actions) &&
     Object.values(value.actions).every((target) => typeof target === 'string') &&
     (value.registry === undefined || typeof value.registry === 'string') &&
+    (value.stepRegistry === undefined || typeof value.stepRegistry === 'string') &&
+    (value.stepDefinitions === undefined || validDomainStepDefinitions(value.stepDefinitions)) &&
+    (value.jigRoutes === undefined || validJigRouteFacts(value.jigRoutes)) &&
     (value.bindingImports === undefined ||
       (Array.isArray(value.bindingImports) &&
         value.bindingImports.every(
@@ -170,8 +178,28 @@ function consistentSource(source: Source, files: string[], bindings: string): bo
   }
   const registry = source.registry && components.get(source.registry)
   if (!registry || registry.kind !== 'binding' || registry.name !== 'actions') return false
+  if (source.stepRegistry !== undefined || source.stepDefinitions !== undefined) {
+    const steps = source.stepRegistry && components.get(source.stepRegistry)
+    if (
+      !steps || steps.kind !== 'binding' || steps.name !== 'steps' || steps.file !== bindings ||
+      !source.stepDefinitions?.length ||
+      !source.stepDefinitions.every((definition) => definition.sourceRef.file === bindings)
+    ) return false
+  }
   if (!Object.values(source.actions).every((id) => components.get(id)?.kind === 'production'))
     return false
+  for (const route of source.jigRoutes ?? []) {
+    const caller = components.get(route.from)
+    if (
+      !caller || caller.kind === 'test' || caller.file !== route.file ||
+      !measured.has(`${route.packagePath}/FLOW.ts`) ||
+      !source.relationships.some((edge) =>
+        edge.from === route.from && edge.kind === 'entry-point' &&
+        edge.sourceRef.file === route.file &&
+        components.get(edge.to)?.file === `${route.packagePath}/FLOW.ts`,
+      )
+    ) return false
+  }
   if (
     !source.relationships.every(
       (edge) =>

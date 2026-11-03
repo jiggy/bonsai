@@ -3,6 +3,8 @@ import type { Snapshot } from './model.ts'
 import { validExecutionIdentity, type ExecutionIdentity } from './identity.ts'
 import { validEvidence, validateVerification } from './policy.ts'
 import { validRunnerEvidence, validateRunnerRequirements } from './runners.ts'
+import { validDomainStepDefinitions } from './domain-steps.ts'
+import { validJigRouteFacts } from './jig-evidence.ts'
 
 export const SNAPSHOT_SCHEMA = 'bonsai-snapshot-v1'
 export type SerializedSnapshot = Snapshot & {
@@ -21,6 +23,7 @@ const array = (value: unknown, valid: (entry: unknown) => boolean): boolean =>
   Array.isArray(value) && [...value].every(valid)
 const strings = (value: unknown) => array(value, (entry) => typeof entry === 'string')
 const reference = (value: unknown) => object(value) && text(value.file) && integer(value.line, 1)
+const definitionRefs = (value: unknown) => value === undefined || array(value, reference)
 
 function check(value: unknown): boolean {
   return (
@@ -29,7 +32,8 @@ function check(value: unknown): boolean {
     text(value.id) &&
     text(value.action) &&
     text(value.selector) &&
-    Object.hasOwn(value, 'expected')
+    Object.hasOwn(value, 'expected') &&
+    definitionRefs(value.definitionRefs)
   )
 }
 
@@ -50,7 +54,7 @@ function contracts(value: unknown): boolean {
           (step) =>
             object(step) &&
             (step.kind === 'action'
-              ? text(step.action) && Object.hasOwn(step, 'input')
+              ? text(step.action) && Object.hasOwn(step, 'input') && definitionRefs(step.definitionRefs)
               : step.kind === 'observation' && check(step.check)),
         ),
     )
@@ -98,6 +102,9 @@ function source(value: unknown): boolean {
     object(value.actions) &&
     Object.values(value.actions).every(text) &&
     (value.registry === undefined || text(value.registry)) &&
+    (value.stepRegistry === undefined || text(value.stepRegistry)) &&
+    (value.stepDefinitions === undefined || validDomainStepDefinitions(value.stepDefinitions)) &&
+    (value.jigRoutes === undefined || validJigRouteFacts(value.jigRoutes)) &&
     (value.bindingImports === undefined ||
       array(
         value.bindingImports,
@@ -143,6 +150,7 @@ export function validSnapshot(value: unknown): value is SerializedSnapshot {
     !object(value.ancestry) ||
     !Object.values(value.ancestry).every(strings) ||
     !strings(value.unrooted) ||
+    (value.jigRouteRequirements !== undefined && !validJigRouteFacts(value.jigRouteRequirements)) ||
     (value.identity !== undefined && !validExecutionIdentity(value.identity)) ||
     (value.evidence !== undefined && !validEvidence(value.evidence)) ||
     (value.timing !== undefined && !timing(value.timing)) ||

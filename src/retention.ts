@@ -1,5 +1,42 @@
 import type { Contracts, Source, Snapshot } from './model.ts'
 
+/** Required external selections follow runtime production paths, independently of saved ancestry. */
+export function runtimeJigRoutes(contracts: Contracts, source: Source): NonNullable<Source['jigRoutes']> {
+  if (!source.jigRoutes?.length) return []
+  const components = new Map(source.components.map((component) => [component.id, component]))
+  const outgoing = new Map<string, Source['relationships']>()
+  for (const edge of source.relationships) {
+    const targets = outgoing.get(edge.from) ?? []
+    targets.push(edge)
+    outgoing.set(edge.from, targets)
+  }
+  const handlers = new Set(contracts.checks.map((check) => source.actions[check.action]).filter(Boolean))
+  const queue = [...handlers].map((id) => ({ id: id!, production: true }))
+  if (source.registry && contracts.checks.length) queue.push({ id: source.registry, production: false })
+  const visited = new Set<string>()
+  const reached = new Set<string>()
+  while (queue.length) {
+    const current = queue.pop()!
+    const component = components.get(current.id)
+    if (!component || (!current.production && component.kind === 'production')) continue
+    const state = current.id + '\0' + current.production
+    if (visited.has(state)) continue
+    visited.add(state)
+    if (current.production) reached.add(current.id)
+    for (const edge of outgoing.get(current.id) ?? []) {
+      if (edge.runtime === false) continue
+      const initialization = edge.kind === 'module-initialization'
+      if (current.id === source.registry && !initialization) continue
+      queue.push({
+        id: edge.to,
+        production: components.get(edge.to)?.kind !== 'test' &&
+          (current.production || (current.id === source.registry && initialization)),
+      })
+    }
+  }
+  return source.jigRoutes.filter((route) => reached.has(route.from))
+}
+
 /** Production ancestry is established before tests are admitted. Tests cannot root production. */
 export function buildSnapshot(fingerprint: string, contracts: Contracts, source: Source): Snapshot {
   const ancestry: Record<string, string[]> = Object.create(null)
@@ -59,6 +96,8 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
     const handler = source.actions[check.action]
     if (handler) attach(handler, check.id, true)
     if (source.registry) attach(source.registry, check.id, false)
+    if (source.stepRegistry && check.definitionRefs?.length)
+      attach(source.stepRegistry, check.id, false)
   }
   // Discover subjects through test helpers, independently of ancestry granted
   // to supporting tests. Shared assertions cannot justify unrelated callers.
@@ -83,6 +122,9 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
     source,
     ancestry,
     unrooted: source.components.filter((c) => !ancestry[c.id]?.length).map((c) => c.id),
+    ...(source.jigRoutes && {
+      jigRouteRequirements: runtimeJigRoutes(contracts, source),
+    }),
   }
 }
 
@@ -176,7 +218,8 @@ export function explain(snapshot: Snapshot, query: string) {
     if (
       component.kind !== 'production' &&
       checks.length &&
-      component.id !== snapshot.source.registry
+      component.id !== snapshot.source.registry &&
+      component.id !== snapshot.source.stepRegistry
     ) {
       for (const test of snapshot.source.components.filter(
         (candidate) => candidate.kind === 'test',
@@ -216,7 +259,9 @@ export function explain(snapshot: Snapshot, query: string) {
     for (const check of checks) {
       const direct = productionPath(check.action, component.id)
       if (direct) contractPaths.push({ check: check.id, components: direct })
-      else if (component.id === snapshot.source.registry)
+      else if (
+        component.id === snapshot.source.registry || component.id === snapshot.source.stepRegistry
+      )
         contractPaths.push({ check: check.id, components: [component.id], registry: true })
       else {
         const subjects = new Set(verificationSubjects.map((entry) => entry.subject))

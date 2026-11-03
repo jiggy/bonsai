@@ -169,7 +169,11 @@ export function checkDiagnostics(
       title: message,
       detail: [],
       fix:
-        message === 'Required control-depth-v1 measurement is missing or incomplete'
+        /domain step|unsupported or unbound step|step definitions must/.test(message)
+          ? `Define literal steps in ${bindings}, mapping Given context, named actions, and individual observations. See ${docsUrl.replace('/cli.md', '/integrations.md')}`
+          : message.startsWith('Unsupported Jig route:')
+            ? `Use a supported literal Jig binding route with explicit project cwd and a complete maintained package. See ${docsUrl.replace('/cli.md', '/integrations.md')}`
+          : message === 'Required control-depth-v1 measurement is missing or incomplete'
           ? 'Run complete source analysis with a checker supporting the configured control-depth-v1 requirement'
           : message.startsWith('Evidence collection interrupted:')
             ? message.includes('feedback deadline expired')

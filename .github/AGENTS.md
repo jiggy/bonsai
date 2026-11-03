@@ -30,6 +30,20 @@ Formatting covers Biome-managed files. Read-only validation installs the pinned 
 
 `runner-adapters` separately runs `test:runners` with Bun and Node 24 in a read-only job. Its disposable consumer installs pinned framework versions and verifies actual Vitest/Cucumber/Stryker reports, coverage, and skipped-work rejection. Preserve formatted-commit validation and include this job in the reported formatting-commit conclusion. The ordinary suite remains network-free.
 
+`jig-adapter` qualifies the installed named-route integration on an ephemeral
+`ubuntu-24.04` x64 runner with Bun 1.4.3, frozen dependencies, disabled install
+scripts, a read-only token, and no persisted checkout credentials. Check out the
+official Jig host provisioner at
+`57c71520f9adf784c6ce85f904878013b7176806` in `.bonsai/jig-host`;
+privilege is confined to that pinned host setup. Set `JIG_CI_BUN` to the canonical
+absolute CI Bun executable. Run `test/jig-real.test.ts` through its
+`run-acquisition-host` command so installed Jig acquires its own required
+rootless scope and application execution stays unprivileged. The cleanup
+assertion runs after success or failure whenever provisioning was attempted.
+An unavailable host, failed installation, or incomplete opted-in smoke is a job
+failure. Preserve formatted-commit validation and include this job in the
+formatting-commit conclusion; this qualification does not relax product policy.
+
 `report-browser` generates actual CLI reports and checks them in Chromium using `test/report-browser.test.ts`. Install Playwright 1.64.1 and its matching Chromium only in runner-temporary tooling directories; keep them outside the product dependency graph and package. The read-only job validates the formatting commit, blocks page HTTP(S) requests, exercises keyboard and explorer flows at desktop/mobile widths, and uploads screenshots, HTML, raw check JSON, and browser results for 14 days, including failures. Include its result in the formatting-commit conclusion. Browser assertions do not substitute for reviewing the screenshots; no pixel baseline or complete accessibility claim is implied.
 
 The browser job enables `BONSAI_BROWSER_PREVIEWS=1` only for its fictional consuming fixture. It logs at most two viewport JPEG previews at quality 45 (desktop/mobile overview), with at most 200 kB of encoded log output total. Preserve full PNG artifacts; the bounded previews allow visual review through job logs when artifact downloads are unavailable. Never enable previews for private consuming-project data.
@@ -42,7 +56,7 @@ CI emits a compact actual root verdict, observation completion, ancestry count, 
 
 `python-contract` is a read-only focused feedback job using pinned CPython 3.12, the genuine Python-team contract, and native Python technical regressions. The normal verify job also sets up that interpreter for the complete suite. This CI setup does not install interpreters during product checks or require Python for TypeScript consumers.
 
-`integration-contracts` gives read-only focused feedback on the publisher vocabulary and selected named-route requirements through real CLI invocations on Linux x64 with Bun 1.4.3. This does not replace complete root verification or installed Jig qualification.
+`integration-contracts` gives read-only focused feedback on the publisher vocabulary and selected named-route requirements through real CLI invocations on Linux x64 with Bun 1.4.3. It validates the formatting commit and contributes to its reported conclusion. This does not replace complete root verification or installed Jig qualification.
 
 `rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.86.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
 

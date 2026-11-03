@@ -34,6 +34,10 @@ Keep project orchestration independent of eager compiler and Gherkin imports. St
 
 `contracts.ts` uses Gherkin's public parser/compiler API with one local incrementing ID callback per feature file, shared by its AstBuilder and pickle compiler. Preserve IDs and source locations across outline rows and split files. Avoid loading the separate Cucumber Messages schema barrel solely for its trivial ID generator; Gherkin supplies its own compatible transitive Messages dependency.
 
+`domain-steps.ts` inspects literal exported TypeScript step metadata without candidate execution. Keep its compiler import type-only, capture templates bounded, context scenario-local, canonical action identities intact, and every observation independently required. Unsupported or ambiguous definitions block rather than guess. `steps` receives ancestry only from observations using its definitions; it must not root all registered handlers.
+
+`jig-routes.ts` recognizes the literal local Jig binding subset by imported symbol identity and explicit project cwd. Connect only selected package startup and reviewed configuration declarations; unrelated packages remain unrooted. `jig-evidence.ts` computes the official FLOW-Package/0 digest over complete maintained package bytes and reads installed Jig approval before application import and after all verification. Require matching selected package/settings/digest and stable approval/revision under the existing deadline. Never run review, use editable lock metadata as approval evidence, or run Jig during explain. Runtime eligibility determines required route receipts; type-only ancestry and test support cannot activate routes. These receipts establish freshness and selection, not hostile-executable authenticity or runtime coverage.
+
 ## Local Contracts
 
 Preserve the published check/explain JSON keys and 0 pass, 1 reject, 2 incomplete gate codes. Help and version never load projects or run handlers. Keep diagnostics on stderr and machine data on stdout. Candidate code must not run during explain or config inspection. Formatting remains CI automation, not an agent invocation requirement.

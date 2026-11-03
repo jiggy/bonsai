@@ -18,6 +18,7 @@ import {
 } from './identity.ts'
 import { runSupportingVerification, validateRunnerRequirements } from './runners.ts'
 import { parseSnapshot } from './snapshot-schema.ts'
+import { verifyJigRoutes } from './jig-evidence.ts'
 
 export { CollectorError } from './collector.ts'
 
@@ -111,13 +112,6 @@ export async function snapshot(
     }
     timer.start('fingerprint')
     const hash = fingerprint(root, files, config)
-    timer.start('contracts')
-    const { compileContracts } = await import('./contracts.ts')
-    const contracts = compileContracts(
-      files
-        .filter((file) => file.endsWith('.feature'))
-        .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
-    )
     timer.start('identity')
     const python = config.bindings.endsWith('.py')
     let identity: ExecutionIdentity | undefined
@@ -154,6 +148,14 @@ export async function snapshot(
       !sameExecutionIdentity(identity, python ? applicationIdentity(identity) : executionIdentity())
     )
       source.problems.push('Checker or toolchain changed during source analysis')
+    timer.start('contracts')
+    const { compileContracts } = await import('./contracts.ts')
+    const contracts = compileContracts(
+      files
+        .filter((file) => file.endsWith('.feature'))
+        .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
+      source.stepDefinitions,
+    )
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
     result.identity = identity
@@ -164,6 +166,13 @@ export async function snapshot(
     if (execute && !contracts.problems.length && !source.problems.length) {
       timer.start('verification')
       try {
+        const routes = result.jigRouteRequirements ?? []
+        const approvedRoutes = routes.length
+          ? await verifyJigRoutes(root, files, routes, {
+              signal,
+              timeoutMs: config.policy.maxFeedbackMs - (performance.now() - started),
+            })
+          : undefined
         result.evidence = await runEvidence(
           root,
           config,
@@ -186,6 +195,17 @@ export async function snapshot(
           )
           for (const evidence of result.runnerEvidence) evidence.identity = result.identity
         }
+        if (approvedRoutes)
+          result.evidence.jigRoutes = await verifyJigRoutes(
+            root,
+            files,
+            routes,
+            {
+              signal,
+              timeoutMs: config.policy.maxFeedbackMs - (performance.now() - started),
+            },
+            approvedRoutes,
+          )
         timer.finish()
       } catch (error) {
         timer.finish('interrupted')

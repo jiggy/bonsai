@@ -131,6 +131,8 @@ The root owns the reusable `action.yml` manifest, package metadata, runtime depe
 
 `bun run test:runners` is an explicit network-dependent release check for pinned supporting-runner compatibility. Ordinary tests stay network-free; no runner install belongs in product checks.
 
+`bun run test:jig` is an explicit network-dependent compatibility check on a qualified Jig host. It installs pinned published Jig/Flow packages in disposable consumers and exercises reviewed route execution, stale approvals, and independent failed observations. Ordinary tests skip this host-dependent smoke; product checks never provision a host or approve Jig changes.
+
 `prepublishOnly` runs type checking and the installed-package onboarding smoke before publishing from this checkout. The smoke uses a fresh consumer and cache with production dependencies and disabled install scripts. Validate releases from a fresh installation. Prebuilt tarball publication and `--ignore-scripts` bypass lifecycle checks and need explicit validation.
 
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
