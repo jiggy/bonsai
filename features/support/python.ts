@@ -15,7 +15,7 @@ export function checkPythonProject() {
     { bindings: 'bindings.py' },
   )
   try {
-    return invoke(['check', '--root', fixture.root])
+    return invoke(['check', '--root', fixture.root, '--no-report'])
   } finally {
     fixture.dispose()
   }

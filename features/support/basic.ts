@@ -282,7 +282,13 @@ export function verifyIsolatedScenarios(input: { serial?: boolean }) {
         '',
       ].join('\n'),
     )
-    const report = invoke(['check', '--root', root, ...(input.serial ? ['--serial'] : [])])
+    const report = invoke([
+      'check',
+      '--root',
+      root,
+      '--no-report',
+      ...(input.serial ? ['--serial'] : []),
+    ])
     return {
       ...report,
       invocationCount: existsSync(marker)

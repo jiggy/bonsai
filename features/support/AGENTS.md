@@ -27,7 +27,7 @@ The evidence-tamper arrangement invokes a handler that returns the wrong result 
 
 Use named imports, fixed module-relative CLI entry points, and explicit subprocess option properties so the current adapter can trace the specification-to-implementation connection.
 
-Admission, accounting, and control-depth helpers disable optional HTML generation because their contracts observe JSON and application execution. `report.ts` retains default, requested, and disabled report-artifact coverage.
+Admission, accounting, control-depth, counter-state, verification, ancestry, supporting-suite, Python, and saved-scope checks disable optional HTML generation because their contracts observe JSON or application execution. `report.ts` retains default, requested, and disabled artifacts; terminal UX and reusable-Action arrangements keep their existing output behavior.
 
 Keep technical-only fixtures and assertions in `test/`; acceptance support must not import test modules. Shared arrangements may be reused by technical tests. Prefer a raw public report over cosmetic projections, and use independent logs, byte comparisons, or process observations when the product consequence needs them. Never return an opaque scenario verdict or compute the expected policy answer.
 

@@ -96,12 +96,84 @@ jobs:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
           RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
+      # TEMPORARY scheduler profile: remove this step and its two artifact paths after diagnosis.
+      - name: Profile the root scenario queue without changing its policy (temporary)
+        if: always()
+        continue-on-error: true
+        env:
+          RAYON_NUM_THREADS: '1'
+        run: |
+          cat > "$RUNNER_TEMP/bonsai-scheduler-preload.mjs" <<'JS'
+          import { createRequire, syncBuiltinESMExports } from 'node:module'
+          import { resolve } from 'node:path'
+          const childProcess = createRequire(import.meta.url)('node:child_process')
+          const original = childProcess.spawn
+          const worker = resolve('src/worker.ts')
+          const began = performance.now()
+          let launches = 0
+          const emit = value => process.stderr.write(JSON.stringify({
+            diagnostic: 'root-scheduler', elapsedMs: performance.now() - began, ...value,
+          }) + '\n')
+          childProcess.spawn = function (...args) {
+            const started = performance.now()
+            const child = Reflect.apply(original, this, args)
+            if (args[0] === process.execPath && Array.isArray(args[1]) && args[1][0] === worker) {
+              const order = launches++
+              emit({ event: 'start', order, pid: child.pid })
+              child.once('exit', (code, signal) => emit({
+                event: 'exit', order, pid: child.pid, code, signal,
+                durationMs: performance.now() - started,
+              }))
+              child.once('close', (code, signal) => emit({
+                event: 'close', order, pid: child.pid, code, signal,
+                durationMs: performance.now() - started,
+              }))
+            }
+            return child
+          }
+          syncBuiltinESMExports()
+          JS
+          PROFILE_EXIT=0
+          bun --preload "$RUNNER_TEMP/bonsai-scheduler-preload.mjs" src/cli.ts check --root "$PWD" --json \
+            > "$RUNNER_TEMP/bonsai-scheduler-report.json" \
+            2> "$RUNNER_TEMP/bonsai-scheduler-trace.jsonl" || PROFILE_EXIT=$?
+          cat > "$RUNNER_TEMP/bonsai-scheduler-summary.mjs" <<'JS'
+          import { readFileSync } from 'node:fs'
+          const report = JSON.parse(readFileSync(process.argv[2], 'utf8'))
+          const events = readFileSync(process.argv[3], 'utf8').split('\n').flatMap(line => {
+            try {
+              const value = JSON.parse(line)
+              return value.diagnostic === 'root-scheduler' ? [value] : []
+            } catch { return [] }
+          })
+          const snapshot = report.snapshot
+          const queue = snapshot.contracts.cases.map((scenario, index) => ({
+            index, id: scenario.id, name: scenario.name,
+            actions: scenario.steps.filter(step => step.kind === 'action').length,
+          })).sort((left, right) => right.actions - left.actions || left.index - right.index)
+          console.log(JSON.stringify({
+            diagnosticOnly: true, exitCode: Number(process.argv[4]),
+            decision: report.decision, verification: snapshot.verification,
+            timing: snapshot.timing, launches: events.filter(event => event.event === 'start').length,
+          }))
+          for (const [order, scenario] of queue.entries()) {
+            const records = events.filter(event => event.order === order)
+            console.log(JSON.stringify({ diagnostic: 'scenario-lifecycle', order, ...scenario, events: records }))
+          }
+          if (!events.length) throw new Error('Scheduler preload recorded no application workers')
+          JS
+          bun "$RUNNER_TEMP/bonsai-scheduler-summary.mjs" \
+            "$RUNNER_TEMP/bonsai-scheduler-report.json" \
+            "$RUNNER_TEMP/bonsai-scheduler-trace.jsonl" "$PROFILE_EXIT"
       - name: Save the actual self-check report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bonsai-action-regression
-          path: ${{ runner.temp }}/bonsai-action-regression.json
+          path: |
+            ${{ runner.temp }}/bonsai-action-regression.json
+            ${{ runner.temp }}/bonsai-scheduler-report.json
+            ${{ runner.temp }}/bonsai-scheduler-trace.jsonl
           if-no-files-found: ignore
           retention-days: 14
 

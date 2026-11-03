@@ -30,6 +30,8 @@ Queued-application drift regression in `evidence-parallel.test.ts` changes a mai
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs. `verification-policy.test.ts` checks schema and malformed serialized evidence rejection; `fingerprint.test.ts` checks excluded root lockfile presence, content, and removal as evidence inputs.
 
+`retention-state.test.ts` preserves distinct runtime/production traversal states, ordered individual observation membership, supporting-helper cycles, registry initialization, and fresh results after graph edits. Retention refactors may reduce repeated work without changing these facts or adding product allowance.
+
 `identity.test.ts` and `snapshot-schema.test.ts` cover content identity, relocation, runtime options, and nested serialized facts. A fixed independently computed digest spans small and streamed files to preserve the byte format during I/O changes. `runner-cli.test.ts` exercises completed analysis receipts through both actual verification profiles with an unavailable unused compiler, and requires fresh context capture when no receipt is supplied. `identity-fixture.ts` supplies explicitly assumed identities only to pure evaluator fixtures. `runner-adapters.test.ts` checks concrete report correlation, counts/floors, stale files, containment, and actual command cancellation. `runner-real.test.ts` is the opt-in pinned-framework consumer smoke; ordinary tests skip its network installation. `rust-backend.test.ts` offers a `BONSAI_RUST_PROBE=1` semantic/backend experiment against a disposable Cargo consumer; ordinary tests require no Rust toolchain. Existing native CLI regressions retain the production Rust-incomplete boundary. The probe is not production Rust acceptance.
 
 `domain-steps.test.ts` checks literal metadata extraction and compilation with
@@ -53,7 +55,10 @@ unless `BONSAI_JIG_SMOKE=1`. It installs exact Jig `0.1.0-alpha.42` and Flow
 and requires a qualified host. An opted-in setup or execution failure must fail,
 not skip. Preserve the passing application control, selected child-method
 ancestry, no-execution explanation, stale-review rejection before wrapper
-initialization, and wrong-result rejection after explicit re-review. Control and
+initialization, and wrong-result rejection after explicit re-review. The publisher
+Given must reach the real Flow as input; its Then independently requires the
+sample status and practice materials for that explicit reader problem. A faulty
+sample must fail while the material/context observation still passes. Control and
 fault use the same declared policy. Ordinary tests do not install these packages;
 the dedicated read-only CI job owns host provisioning and residue checks.
 

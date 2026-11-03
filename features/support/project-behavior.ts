@@ -46,7 +46,7 @@ export function projectBehavior(input: { case: string }) {
       write(root, 'src/later.generated.ts', 'export const generated = true\n')
       write(root, 'src/later.ts', 'export const authored = true\n')
       write(root, '.gitignore', 'src/later.ts\n')
-      const checked = invoke(['check', '--root', root])
+      const checked = invoke(['check', '--root', root, '--no-report'])
       const inventory: string[] = checked.snapshot.source.files.map(
         (file: { file: string }) => file.file,
       )

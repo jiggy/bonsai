@@ -17,7 +17,7 @@ import { cliEnvironment, runCli } from './cli.ts'
 
 // This opt-in smoke needs a qualified Jig host and registry access. Ordinary tests
 // never install packages; an opted-in host or review failure must fail this test.
-test('pinned Jig executes the selected current method and refuses stale reviewed code', {
+test('publisher domain requirements verify current Jig execution and refuse stale approved code', {
   skip: process.env.BONSAI_JIG_SMOKE !== '1',
   timeout: 300000,
 }, () => {
@@ -62,7 +62,7 @@ import { createMaterials } from './materials.ts'
 export async function execute(run: RunContext) {
   const input = run.input as { problem: string }
   const materials = createMaterials(input.problem)
-  return { outcome: 'done', output: { status: 'ready', problem: materials.problem } }
+  return { outcome: 'done', output: { sample: { status: 'ready' }, materials } }
 }
 `
   try {
@@ -116,8 +116,21 @@ export default defineBinding({ package: 'flows/pilot' })
           outcome: { const: 'done' },
           output: {
             type: 'object',
-            properties: { status: { type: 'string' }, problem: { type: 'string' } },
-            required: ['status', 'problem'],
+            properties: {
+              sample: {
+                type: 'object',
+                properties: { status: { type: 'string' } },
+                required: ['status'],
+                additionalProperties: false,
+              },
+              materials: {
+                type: 'object',
+                properties: { problem: { type: 'string' } },
+                required: ['problem'],
+                additionalProperties: false,
+              },
+            },
+            required: ['sample', 'materials'],
             additionalProperties: false,
           },
         },
@@ -178,14 +191,23 @@ export function pilot(input: unknown) {
       'bindings.ts',
       `import { pilot } from './handler.ts'
 export const actions = { pilot: pilot }
+export const steps = [
+  { given: 'a publisher has chosen {problem:string}', input: { problem: { parameter: 'problem' } } },
+  { when: 'they commission a pilot', action: 'pilot' },
+  { then: 'they receive a sample and its practice materials for {problem:string}', observations: [
+    { selector: 'sample.status', equals: 'ready' },
+    { selector: 'materials.problem', equals: { parameter: 'problem' } },
+  ] },
+]
 `,
     )
     put(
       'pilot.feature',
       `Feature: Commission a useful pilot
   Scenario: Receive the selected application's result
-    When I invoke "pilot" with {"problem":"daily practice"}
-    Then response "status" equals "ready"
+    Given a publisher has chosen "daily practice"
+    When they commission a pilot
+    Then they receive a sample and its practice materials for "daily practice"
 `,
     )
     put('bonsai.json', {
@@ -221,8 +243,8 @@ export const actions = { pilot: pilot }
       assert.equal(explained.exitCode, 0, JSON.stringify(explained))
       assert.deepEqual(explained.problems, [])
       assert.equal(explained.components[0].id, target)
-      assert.equal(explained.components[0].checks.length, 1)
-      assert.equal(explained.components[0].contractPaths.length, 1)
+      assert.equal(explained.components[0].checks.length, 2)
+      assert.equal(explained.components[0].contractPaths.length, 2)
       assert.equal(existsSync(join(root, 'application-loaded')), false)
       assert.equal(existsSync(join(root, 'handler-executed')), false)
     }
@@ -234,7 +256,10 @@ export const actions = { pilot: pilot }
     assert.equal(direct.status, 'succeeded')
     assert.equal(direct.outcome, 'done')
     assert.equal(direct.cleanup, undefined)
-    assert.deepEqual(direct.output, { status: 'ready', problem: 'daily practice' })
+    assert.deepEqual(direct.output, {
+      sample: { status: 'ready' },
+      materials: { problem: 'daily practice' },
+    })
 
     const control = bonsai(['check', '--serial', '--no-report'])
     assert.equal(control.exitCode, 0, JSON.stringify(control))
@@ -244,7 +269,7 @@ export const actions = { pilot: pilot }
     assert.equal(control.snapshot.evidence.complete, true)
     assert.deepEqual(
       control.snapshot.evidence.checks.map((check: { status: string }) => check.status),
-      ['passed'],
+      ['passed', 'passed'],
     )
     assert.equal(existsSync(join(root, 'handler-executed')), true)
 
@@ -260,7 +285,8 @@ export const actions = { pilot: pilot }
     assert.deepEqual(readFileSync(join(root, 'jig.lock')), approval)
 
     // Approve the changed source explicitly; the same requirement must now fail
-    // on its real returned value, independently of the stale-approval guard.
+    // on its real sample status while the independently required materials still
+    // retain the chosen problem, separately from the stale-approval guard.
     run(jig, ['review', '--yes'])
     const fault = bonsai(['check', '--serial', '--no-report'])
     assert.equal(fault.exitCode, 1, JSON.stringify(fault))
@@ -270,7 +296,7 @@ export const actions = { pilot: pilot }
     assert.equal(fault.snapshot.evidence.complete, true)
     assert.deepEqual(
       fault.snapshot.evidence.checks.map((check: { status: string }) => check.status),
-      ['failed'],
+      ['failed', 'passed'],
     )
     assert.equal(existsSync(join(root, 'handler-executed')), true)
     assert.deepEqual(readFileSync(join(root, 'bonsai.json')), rules)

@@ -47,8 +47,7 @@ export function runtimeJigRoutes(
 /** Production ancestry is established before tests are admitted. Tests cannot root production. */
 export function buildSnapshot(fingerprint: string, contracts: Contracts, source: Source): Snapshot {
   const ancestry: Record<string, string[]> = Object.create(null)
-  const membership: Record<string, Set<string>> = Object.create(null)
-  const traversed = new Map<string, Set<string>>()
+  const traversed = new Map<string, Map<string, number>>()
   const components = new Map(source.components.map((c) => [c.id, c]))
   const outgoing = new Map<string, Source['relationships']>()
   for (const edge of source.relationships) {
@@ -56,33 +55,23 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
     if (targets) targets.push(edge)
     else outgoing.set(edge.from, [edge])
   }
-  // State labels are immutable identifiers, not cached graph or evidence facts.
-  const states = new Map(
-    contracts.checks.map(({ id }) => [
-      id,
-      [id + '\0false\0false', id + '\0false\0true', id + '\0true\0false', id + '\0true\0true'],
-    ]),
-  )
   const attach = (id: string, contract: string, allowProduction: boolean): void => {
+    let visited = traversed.get(contract)
+    if (!visited) traversed.set(contract, (visited = new Map()))
+    if ((visited.get(id) ?? 0) & (1 << (allowProduction ? 3 : 2))) return
     const queue: { id: string; runtime: boolean; production: boolean }[] = [
       { id, runtime: true, production: allowProduction },
     ]
-    const stateKeys = states.get(contract)!
     while (queue.length) {
       const next = queue.pop()!
       const target = components.get(next.id)
       if (!target || (!next.production && target.kind === 'production')) continue
-      const state = stateKeys[(next.runtime ? 2 : 0) + (next.production ? 1 : 0)]!
-      let visited = traversed.get(next.id)
-      if (!visited) traversed.set(next.id, (visited = new Set()))
-      if (visited.has(state)) continue
-      visited.add(state)
-      const existing = (ancestry[next.id] ??= [])
-      const seen = (membership[next.id] ??= new Set<string>())
-      if (!seen.has(contract)) {
-        seen.add(contract)
-        existing.push(contract)
-      }
+      // Four independent runtime/production states share one observation membership.
+      const state = 1 << ((next.runtime ? 2 : 0) + (next.production ? 1 : 0))
+      const prior = visited.get(next.id) ?? 0
+      if (prior & state) continue
+      visited.set(next.id, prior | state)
+      if (!prior) (ancestry[next.id] ??= []).push(contract)
       for (const edge of outgoing.get(next.id) ?? []) {
         const initialization = edge.kind === 'module-initialization'
         if ((initialization || edge.kind === 'entry-point') && !next.runtime) continue
@@ -110,14 +99,19 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
   // to supporting tests. Shared assertions cannot justify unrelated callers.
   for (const component of source.components.filter((c) => c.kind === 'test')) {
     const queue = [component.id]
+    const attached = new Set<string>()
     const visited = new Set<string>()
-    while (queue.length) {
+    while (queue.length && attached.size < contracts.checks.length) {
       const subject = queue.pop()!
       if (visited.has(subject)) continue
       visited.add(subject)
       const kind = components.get(subject)?.kind
       if (kind === 'production') {
-        for (const contract of ancestry[subject] ?? []) attach(component.id, contract, false)
+        for (const contract of ancestry[subject] ?? []) {
+          if (attached.has(contract)) continue
+          attached.add(contract)
+          attach(component.id, contract, false)
+        }
       } else if (kind === 'test')
         queue.push(...(outgoing.get(subject) ?? []).map((edge) => edge.to))
     }
