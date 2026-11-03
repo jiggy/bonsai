@@ -270,12 +270,14 @@ export function collectSourceGraph(
         }
       }
       if (ts.isCallExpression(child)) {
-        const launch: {
-          file: string
-          declarations?: ts.ExportAssignment[]
-          selection?: Omit<JigRouteFact, 'adapter' | 'from' | 'file' | 'line'>
-        } | { problem: string } | undefined =
-          subprocess(child) ?? (owner.kind !== 'test' ? jigRoute(child) : undefined)
+        const launch:
+          | {
+              file: string
+              declarations?: ts.ExportAssignment[]
+              selection?: Omit<JigRouteFact, 'adapter' | 'from' | 'file' | 'line'>
+            }
+          | { problem: string }
+          | undefined = subprocess(child) ?? (owner.kind !== 'test' ? jigRoute(child) : undefined)
         if (launch && 'problem' in launch)
           source.problems.push(`${launch.problem} at ${owner.file}:${reference(child).line}`)
         else if (launch) {

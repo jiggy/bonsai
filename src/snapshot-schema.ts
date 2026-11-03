@@ -54,7 +54,9 @@ function contracts(value: unknown): boolean {
           (step) =>
             object(step) &&
             (step.kind === 'action'
-              ? text(step.action) && Object.hasOwn(step, 'input') && definitionRefs(step.definitionRefs)
+              ? text(step.action) &&
+                Object.hasOwn(step, 'input') &&
+                definitionRefs(step.definitionRefs)
               : step.kind === 'observation' && check(step.check)),
         ),
     )

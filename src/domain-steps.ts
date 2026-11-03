@@ -29,7 +29,8 @@ function pattern(text: string) {
   let expression = '^'
   let end = 0
   const literal = (value: string) => {
-    if (/[{}]/.test(value)) throw new Error('unsupported step parameter; use {name:string}, {name:int}, or {name:json}')
+    if (/[{}]/.test(value))
+      throw new Error('unsupported step parameter; use {name:string}, {name:int}, or {name:json}')
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   }
   for (const match of text.matchAll(/\{([A-Za-z_][\w]*):(string|int|json)\}/g)) {
@@ -45,16 +46,24 @@ function pattern(text: string) {
       throw new Error('a JSON parameter must end its step pattern')
     if (type === 'int' && /[0-9]/.test(text[end] ?? ''))
       throw new Error('an integer step parameter needs a nondigit separator')
-    expression += type === 'string'
-      ? '("(?:[^"\\\\\u0000-\u001f]|\\\\(?:["\\\\/bfnrt]|u[0-9a-fA-F]{4}))*")'
-      : type === 'int' ? '(-?(?:0|[1-9][0-9]*))' : '(.+)'
+    expression +=
+      type === 'string'
+        ? '("(?:[^"\\\\\u0000-\u001f]|\\\\(?:["\\\\/bfnrt]|u[0-9a-fA-F]{4}))*")'
+        : type === 'int'
+          ? '(-?(?:0|[1-9][0-9]*))'
+          : '(.+)'
     parameters.push({ name, type })
   }
   expression += literal(text.slice(end)) + '$'
   return { expression: new RegExp(expression), parameters }
 }
 
-function validateValue(value: unknown, parameters: Set<string>, used: Set<string>, depth = 0): void {
+function validateValue(
+  value: unknown,
+  parameters: Set<string>,
+  used: Set<string>,
+  depth = 0,
+): void {
   if (depth > 32) throw new Error('step values exceed the supported nesting depth')
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return
   if (typeof value === 'number' && Number.isFinite(value)) return
@@ -64,7 +73,11 @@ function validateValue(value: unknown, parameters: Set<string>, used: Set<string
   }
   if (!record(value)) throw new Error('step values must be JSON literals or parameter references')
   if (Object.hasOwn(value, 'parameter')) {
-    if (Object.keys(value).length !== 1 || typeof value.parameter !== 'string' || !parameters.has(value.parameter))
+    if (
+      Object.keys(value).length !== 1 ||
+      typeof value.parameter !== 'string' ||
+      !parameters.has(value.parameter)
+    )
       throw new Error('step parameter references must select a declared parameter')
     used.add(value.parameter)
     return
@@ -73,30 +86,50 @@ function validateValue(value: unknown, parameters: Set<string>, used: Set<string
 }
 
 function validateDefinition(value: unknown): asserts value is DomainStepDefinition {
-  if (!record(value) || !nonempty(value.pattern) || !record(value.sourceRef) ||
-    !nonempty(value.sourceRef.file) || !Number.isSafeInteger(value.sourceRef.line) ||
-    (value.sourceRef.line as number) < 1 || !keys(value.sourceRef, ['file', 'line']))
+  if (
+    !record(value) ||
+    !nonempty(value.pattern) ||
+    !record(value.sourceRef) ||
+    !nonempty(value.sourceRef.file) ||
+    !Number.isSafeInteger(value.sourceRef.line) ||
+    (value.sourceRef.line as number) < 1 ||
+    !keys(value.sourceRef, ['file', 'line'])
+  )
     throw new Error('step definition needs a pattern and source location')
   const parameters = new Set(pattern(value.pattern).parameters.map((parameter) => parameter.name))
   const used = new Set<string>()
   if (value.kind === 'given' || value.kind === 'when') {
-    const allowed = ['kind', 'pattern', 'sourceRef', 'input', ...(value.kind === 'when' ? ['action'] : [])]
+    const allowed = [
+      'kind',
+      'pattern',
+      'sourceRef',
+      'input',
+      ...(value.kind === 'when' ? ['action'] : []),
+    ]
     if (!keys(value, allowed)) throw new Error('unknown step definition setting')
     if (value.kind === 'given' && (!record(value.input) || !Object.keys(value.input).length))
       throw new Error('Given must construct a nonempty input object')
-    if (value.kind === 'when' && !nonempty(value.action)) throw new Error('When needs a literal action name')
+    if (value.kind === 'when' && !nonempty(value.action))
+      throw new Error('When needs a literal action name')
     if (value.input !== undefined) {
       if (!record(value.input) || Object.hasOwn(value.input, 'parameter'))
         throw new Error('step input must be an object of named input fields')
       validateValue(value.input, parameters, used)
     }
   } else if (value.kind === 'then') {
-    if (!keys(value, ['kind', 'pattern', 'sourceRef', 'observations']) ||
-      !Array.isArray(value.observations) || !value.observations.length)
+    if (
+      !keys(value, ['kind', 'pattern', 'sourceRef', 'observations']) ||
+      !Array.isArray(value.observations) ||
+      !value.observations.length
+    )
       throw new Error('Then needs individually required observations')
     for (const observation of value.observations) {
-      if (!record(observation) || !keys(observation, ['selector', 'equals']) ||
-        !selector(observation.selector) || !Object.hasOwn(observation, 'equals'))
+      if (
+        !record(observation) ||
+        !keys(observation, ['selector', 'equals']) ||
+        !selector(observation.selector) ||
+        !Object.hasOwn(observation, 'equals')
+      )
         throw new Error('each observation needs a literal selector and equals value')
       validateValue(observation.equals, parameters, used)
     }
@@ -117,19 +150,28 @@ export function validDomainStepDefinitions(value: unknown): value is DomainStepD
 }
 
 /** Read only literal metadata from the measured registry; never import candidate code. */
-export function collectDomainSteps(tsApi: typeof ts, source: ts.SourceFile, file: string): {
+export function collectDomainSteps(
+  tsApi: typeof ts,
+  source: ts.SourceFile,
+  file: string,
+): {
   definitions: DomainStepDefinition[]
   problems: string[]
 } {
   const definitions: DomainStepDefinition[] = []
   const problems: string[] = []
   const location = (node: ts.Node): Reference => ({
-    file, line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
+    file,
+    line: source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1,
   })
   const read = (node: ts.Expression, depth = 0): DomainValue => {
     if (depth > 32) throw new Error('step values exceed the supported nesting depth')
-    if (tsApi.isParenthesizedExpression(node) || tsApi.isAsExpression(node) ||
-      tsApi.isTypeAssertionExpression(node) || tsApi.isSatisfiesExpression(node))
+    if (
+      tsApi.isParenthesizedExpression(node) ||
+      tsApi.isAsExpression(node) ||
+      tsApi.isTypeAssertionExpression(node) ||
+      tsApi.isSatisfiesExpression(node)
+    )
       return read(node.expression, depth + 1)
     if (tsApi.isStringLiteralLike(node)) return node.text
     if (tsApi.isNumericLiteral(node)) {
@@ -139,18 +181,28 @@ export function collectDomainSteps(tsApi: typeof ts, source: ts.SourceFile, file
     if (node.kind === tsApi.SyntaxKind.NullKeyword) return null
     if (node.kind === tsApi.SyntaxKind.TrueKeyword) return true
     if (node.kind === tsApi.SyntaxKind.FalseKeyword) return false
-    if (tsApi.isPrefixUnaryExpression(node) && node.operator === tsApi.SyntaxKind.MinusToken &&
-      tsApi.isNumericLiteral(node.operand)) {
+    if (
+      tsApi.isPrefixUnaryExpression(node) &&
+      node.operator === tsApi.SyntaxKind.MinusToken &&
+      tsApi.isNumericLiteral(node.operand)
+    ) {
       const value = -Number(node.operand.text)
       if (Number.isFinite(value)) return value
     }
-    if (tsApi.isArrayLiteralExpression(node)) return node.elements.map((item) => read(item, depth + 1))
+    if (tsApi.isArrayLiteralExpression(node))
+      return node.elements.map((item) => read(item, depth + 1))
     if (tsApi.isObjectLiteralExpression(node)) {
       const entries: [string, DomainValue][] = []
       const names = new Set<string>()
       for (const property of node.properties) {
-        if (!tsApi.isPropertyAssignment(property) ||
-          !(tsApi.isIdentifier(property.name) || tsApi.isStringLiteral(property.name) || tsApi.isNumericLiteral(property.name)))
+        if (
+          !tsApi.isPropertyAssignment(property) ||
+          !(
+            tsApi.isIdentifier(property.name) ||
+            tsApi.isStringLiteral(property.name) ||
+            tsApi.isNumericLiteral(property.name)
+          )
+        )
           throw new Error('step metadata supports literal properties only')
         const name = property.name.text
         if (names.has(name)) throw new Error('duplicate step metadata property: ' + name)
@@ -159,26 +211,46 @@ export function collectDomainSteps(tsApi: typeof ts, source: ts.SourceFile, file
       }
       return Object.fromEntries(entries)
     }
-    throw new Error('step metadata must contain only JSON literals; callbacks, aliases, and spreads are unsupported')
+    throw new Error(
+      'step metadata must contain only JSON literals; callbacks, aliases, and spreads are unsupported',
+    )
   }
   let found = false
   for (const statement of source.statements) {
-    if (tsApi.isExportDeclaration(statement) && statement.exportClause &&
+    if (
+      tsApi.isExportDeclaration(statement) &&
+      statement.exportClause &&
       tsApi.isNamedExports(statement.exportClause) &&
-      statement.exportClause.elements.some((element) => element.name.text === 'steps')) {
-      problems.push(`${file}:${location(statement).line}: step definitions must directly export const steps`)
+      statement.exportClause.elements.some((element) => element.name.text === 'steps')
+    ) {
+      problems.push(
+        `${file}:${location(statement).line}: step definitions must directly export const steps`,
+      )
     }
-    if (!tsApi.isVariableStatement(statement) ||
-      !tsApi.getModifiers(statement)?.some((modifier) => modifier.kind === tsApi.SyntaxKind.ExportKeyword)) continue
+    if (
+      !tsApi.isVariableStatement(statement) ||
+      !tsApi
+        .getModifiers(statement)
+        ?.some((modifier) => modifier.kind === tsApi.SyntaxKind.ExportKeyword)
+    )
+      continue
     for (const declaration of statement.declarationList.declarations) {
       if (!tsApi.isIdentifier(declaration.name) || declaration.name.text !== 'steps') continue
       try {
-        if (found || !(statement.declarationList.flags & tsApi.NodeFlags.Const) || !declaration.initializer)
+        if (
+          found ||
+          !(statement.declarationList.flags & tsApi.NodeFlags.Const) ||
+          !declaration.initializer
+        )
           throw new Error('step definitions require one exported const steps literal array')
         found = true
         let initializer = declaration.initializer
-        while (tsApi.isParenthesizedExpression(initializer) || tsApi.isAsExpression(initializer) ||
-          tsApi.isTypeAssertionExpression(initializer) || tsApi.isSatisfiesExpression(initializer))
+        while (
+          tsApi.isParenthesizedExpression(initializer) ||
+          tsApi.isAsExpression(initializer) ||
+          tsApi.isTypeAssertionExpression(initializer) ||
+          tsApi.isSatisfiesExpression(initializer)
+        )
           initializer = initializer.expression
         if (!tsApi.isArrayLiteralExpression(initializer))
           throw new Error('step definitions require one exported const steps literal array')
@@ -186,9 +258,19 @@ export function collectDomainSteps(tsApi: typeof ts, source: ts.SourceFile, file
           const raw = read(element)
           if (!record(raw)) throw new Error('each step definition must be a literal object')
           const kinds = ['given', 'when', 'then'].filter((kind) => Object.hasOwn(raw, kind))
-          if (kinds.length !== 1) throw new Error('each step definition needs exactly one Given, When, or Then pattern')
+          if (kinds.length !== 1)
+            throw new Error('each step definition needs exactly one Given, When, or Then pattern')
           const kind = kinds[0]!
-          if (!keys(raw, [kind, ...(kind === 'given' ? ['input'] : kind === 'when' ? ['action', 'input'] : ['observations'])]))
+          if (
+            !keys(raw, [
+              kind,
+              ...(kind === 'given'
+                ? ['input']
+                : kind === 'when'
+                  ? ['action', 'input']
+                  : ['observations']),
+            ])
+          )
             throw new Error('unknown step definition setting')
           const { [kind]: text, ...settings } = raw
           const definition = { kind, pattern: text, ...settings, sourceRef: location(element) }
@@ -196,7 +278,9 @@ export function collectDomainSteps(tsApi: typeof ts, source: ts.SourceFile, file
           definitions.push(definition)
         }
       } catch (error) {
-        problems.push(`${file}:${location(declaration).line}: unsupported domain step definitions: ${String(error)}`)
+        problems.push(
+          `${file}:${location(declaration).line}: unsupported domain step definitions: ${String(error)}`,
+        )
       }
     }
   }
@@ -208,27 +292,39 @@ export function createDomainStepMatcher(definitions: DomainStepDefinition[]) {
     validateDefinition(definition)
     return { definition, ...pattern(definition.pattern) }
   })
-  return (text: string) => prepared.flatMap(({ definition, expression, parameters }) => {
-    const match = expression.exec(text)
-    if (!match) return []
-    const values = Object.fromEntries(parameters.map(({ name, type }, index) => {
-      const value: unknown = JSON.parse(match[index + 1]!)
-      if (type === 'int' && !Number.isSafeInteger(value)) throw new Error('integer step parameter is outside the exact safe range')
-      // Parsed JSON values are data, including a literal object named "parameter".
-      const finite = (item: unknown): boolean => typeof item === 'number' ? Number.isFinite(item)
-        : item === null || typeof item !== 'object' || Object.values(item).every(finite)
-      if (!finite(value)) throw new Error('step parameter must contain finite JSON numbers')
-      return [name, value]
-    }))
-    return [{ definition, parameters: values }]
-  })
+  return (text: string) =>
+    prepared.flatMap(({ definition, expression, parameters }) => {
+      const match = expression.exec(text)
+      if (!match) return []
+      const values = Object.fromEntries(
+        parameters.map(({ name, type }, index) => {
+          const value: unknown = JSON.parse(match[index + 1]!)
+          if (type === 'int' && !Number.isSafeInteger(value))
+            throw new Error('integer step parameter is outside the exact safe range')
+          // Parsed JSON values are data, including a literal object named "parameter".
+          const finite = (item: unknown): boolean =>
+            typeof item === 'number'
+              ? Number.isFinite(item)
+              : item === null || typeof item !== 'object' || Object.values(item).every(finite)
+          if (!finite(value)) throw new Error('step parameter must contain finite JSON numbers')
+          return [name, value]
+        }),
+      )
+      return [{ definition, parameters: values }]
+    })
 }
 
-export function substituteDomainValue(value: DomainValue, parameters: Record<string, unknown>): unknown {
+export function substituteDomainValue(
+  value: DomainValue,
+  parameters: Record<string, unknown>,
+): unknown {
   if (Array.isArray(value)) return value.map((item) => substituteDomainValue(item, parameters))
   if (value !== null && typeof value === 'object') {
-    if (Object.hasOwn(value, 'parameter')) return structuredClone(parameters[value.parameter as string])
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, substituteDomainValue(item, parameters)]))
+    if (Object.hasOwn(value, 'parameter'))
+      return structuredClone(parameters[value.parameter as string])
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, substituteDomainValue(item, parameters)]),
+    )
   }
   return value
 }

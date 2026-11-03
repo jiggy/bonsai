@@ -134,11 +134,10 @@ export function evaluate(
     if (
       (candidate.source.jigRoutes !== undefined || candidate.jigRouteRequirements !== undefined) &&
       !isDeepStrictEqual(requiredRoutes, candidate.jigRouteRequirements)
-    ) missing('Required Jig route selections are missing or mismatched in the candidate')
-    for (const problem of jigEvidenceProblems(
-      requiredRoutes,
-      evidence.jigRoutes ?? [],
-    )) missing(problem)
+    )
+      missing('Required Jig route selections are missing or mismatched in the candidate')
+    for (const problem of jigEvidenceProblems(requiredRoutes, evidence.jigRoutes ?? []))
+      missing(problem)
     for (const boundary of candidate.source.bindingImports ?? []) {
       if (
         evidence.bindingImport?.adapter !== boundary.adapter ||

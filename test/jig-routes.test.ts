@@ -69,11 +69,17 @@ function fixture(extra: Record<string, string> = {}) {
     writeFileSync(resolve(root, file), text)
   }
   const config: Config = {
-    maintained: [...Object.keys(content).filter((file) => !file.startsWith('node_modules/')), 'bonsai.json'],
+    maintained: [
+      ...Object.keys(content).filter((file) => !file.startsWith('node_modules/')),
+      'bonsai.json',
+    ],
     bindings: 'bonsai.bindings.ts',
     policy: {
-      bootstrap: 20000, bootstrapSurface: 20, perDoubling: 2000,
-      hardLimit: 30000, maxFeedbackMs: 15000,
+      bootstrap: 20000,
+      bootstrapSurface: 20,
+      perDoubling: 2000,
+      hardLimit: 30000,
+      maxFeedbackMs: 15000,
     },
   }
   writeFileSync(resolve(root, 'bonsai.json'), JSON.stringify(config))
@@ -84,7 +90,9 @@ const compiler = createCompilerSession()
 
 function routes(project: ReturnType<typeof fixture>) {
   const files = project.config.maintained.filter((file) => !file.startsWith('node_modules/'))
-  const program = compiler.program(files.filter((file) => /\.[cm]?ts$/.test(file)).map((file) => resolve(project.root, file)))
+  const program = compiler.program(
+    files.filter((file) => /\.[cm]?ts$/.test(file)).map((file) => resolve(project.root, file)),
+  )
   const select = createJigRouteAdapter(project.root, files, program)
   const result: NonNullable<ReturnType<typeof select>>[] = []
   const visit = (node: ts.Node): void => {
@@ -101,13 +109,18 @@ function routes(project: ReturnType<typeof fixture>) {
 function problem(project: ReturnType<typeof fixture>) {
   const result = routes(project)
   assert.equal(result.length, 1)
-  assert.ok('problem' in result[0]!, JSON.stringify(result.map((entry) => 'file' in entry ? entry.file : entry.problem)))
+  assert.ok(
+    'problem' in result[0]!,
+    JSON.stringify(result.map((entry) => ('file' in entry ? entry.file : entry.problem))),
+  )
   return result[0]!.problem
 }
 
 test('Jig route adapter resolves aliased imports and the selected literal authoring declarations', () => {
   const project = fixture({
-    'handler.ts': handler.replace('spawnSync }', 'spawnSync as launch }').replace("spawnSync('jig'", "launch('jig'"),
+    'handler.ts': handler
+      .replace('spawnSync }', 'spawnSync as launch }')
+      .replace("spawnSync('jig'", "launch('jig'"),
     'jig.ts':
       "import { defineJig as project, discover as members } from '@jigging/jig'\n" +
       "export default project({ flows: members(['flows']), bindings: members(['bindings']) })\n",
@@ -121,47 +134,74 @@ test('Jig route adapter resolves aliased imports and the selected literal author
     assert.ok('file' in result[0]!)
     assert.equal(result[0].file, 'flows/pilot/FLOW.ts')
     assert.deepEqual(result[0].selection, {
-      route: 'binding:pilot', packagePath: 'flows/pilot',
+      route: 'binding:pilot',
+      packagePath: 'flows/pilot',
       digest: jigPackageDigest(project.root, project.config.maintained, 'flows/pilot'),
       settings: { copies: 2, locale: 'en' },
     })
-    assert.deepEqual(result[0].declarations.map((node) => relative(project.root, node.getSourceFile().fileName)),
-      ['jig.ts', 'bindings/pilot.ts'])
+    assert.deepEqual(
+      result[0].declarations.map((node) => relative(project.root, node.getSourceFile().fileName)),
+      ['jig.ts', 'bindings/pilot.ts'],
+    )
     assert.ok(result[0].declarations.every(ts.isExportAssignment))
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('Jig route adapter requires an explicit analyzed project cwd and rejects launch redirects', () => {
   const variants = [
     [handler.replace("cwd: new URL('./', import.meta.url), ", ''), /set cwd/],
-    [handler.replace("new URL('./', import.meta.url)", "new URL('../', import.meta.url)"), /set cwd/],
+    [
+      handler.replace("new URL('./', import.meta.url)", "new URL('../', import.meta.url)"),
+      /set cwd/,
+    ],
     [handler.replace("cwd: new URL('./', import.meta.url)", "cwd: '.'"), /set cwd/],
-    [handler.replace("encoding: 'utf8'", "encoding: 'utf8', env: process.env"), /unsupported Jig launch option: env/],
-    [handler.replace("encoding: 'utf8'", "encoding: 'utf8', shell: true"), /unsupported Jig launch option: shell/],
+    [
+      handler.replace("encoding: 'utf8'", "encoding: 'utf8', env: process.env"),
+      /unsupported Jig launch option: env/,
+    ],
+    [
+      handler.replace("encoding: 'utf8'", "encoding: 'utf8', shell: true"),
+      /unsupported Jig launch option: shell/,
+    ],
     [handler.replace("encoding: 'utf8'", "encoding: 'utf8', ...{}"), /spreads/],
-    [handler.replace("input: unknown", "input: unknown, URL: typeof globalThis.URL"), /set cwd/],
+    [handler.replace('input: unknown', 'input: unknown, URL: typeof globalThis.URL'), /set cwd/],
   ] as const
   for (const [source, expected] of variants) {
     const project = fixture({ 'handler.ts': source })
-    try { assert.match(problem(project), expected) } finally { project.dispose() }
+    try {
+      assert.match(problem(project), expected)
+    } finally {
+      project.dispose()
+    }
   }
   const project = fixture({
-    'handler.ts': "import { fileURLToPath as path } from 'node:url'\n" +
+    'handler.ts':
+      "import { fileURLToPath as path } from 'node:url'\n" +
       handler.replace("new URL('./', import.meta.url)", "path(new URL('./', import.meta.url))"),
   })
-  try { assert.ok(routes(project).some((route) => 'file' in route)) } finally { project.dispose() }
+  try {
+    assert.ok(routes(project).some((route) => 'file' in route))
+  } finally {
+    project.dispose()
+  }
 })
 
 test('Jig route adapter rejects computed routes and arguments without treating other commands as run routes', () => {
   for (const source of [
-    handler.replace("'binding:pilot'", "String(input)"),
+    handler.replace("'binding:pilot'", 'String(input)'),
     handler.replace("'binding:pilot'", "'flow:flows/pilot'"),
     handler.replace("'--json'", "'--json', '--json'"),
     handler.replace("'--json'", "'--verification', 'strict'"),
     handler.replace("'--json'", "...['--json']"),
   ]) {
     const project = fixture({ 'handler.ts': source })
-    try { assert.match(problem(project), /Unsupported Jig route:/) } finally { project.dispose() }
+    try {
+      assert.match(problem(project), /Unsupported Jig route:/)
+    } finally {
+      project.dispose()
+    }
   }
   for (const source of [
     handler.replace("'run'", "'review'"),
@@ -170,77 +210,143 @@ test('Jig route adapter rejects computed routes and arguments without treating o
   ]) {
     const project = fixture({
       'handler.ts': source,
-      'fake.ts': 'export function spawnSync(...args: any[]) { return {status: 0, stdout: "{}", stderr: ""} }\n',
+      'fake.ts':
+        'export function spawnSync(...args: any[]) { return {status: 0, stdout: "{}", stderr: ""} }\n',
     })
-    try { assert.deepEqual(routes(project), []) } finally { project.dispose() }
+    try {
+      assert.deepEqual(routes(project), [])
+    } finally {
+      project.dispose()
+    }
   }
 })
 
 test('Jig route adapter rejects missing, unmeasured and ambiguous bindings across discovery roots', () => {
   const project = fixture()
   try {
-    project.config.maintained = project.config.maintained.filter((file) => file !== 'bindings/pilot.ts')
+    project.config.maintained = project.config.maintained.filter(
+      (file) => file !== 'bindings/pilot.ts',
+    )
     assert.match(problem(project), /outside maintained inventory/)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
   const missing = fixture({ 'handler.ts': handler.replace("'binding:pilot'", "'binding:absent'") })
-  try { assert.match(problem(missing), /missing binding:absent/) } finally { missing.dispose() }
+  try {
+    assert.match(problem(missing), /missing binding:absent/)
+  } finally {
+    missing.dispose()
+  }
   const duplicate = fixture({
-    'jig.ts': "import {defineJig,discover} from '@jigging/jig'\n" +
+    'jig.ts':
+      "import {defineJig,discover} from '@jigging/jig'\n" +
       "export default defineJig({ flows: discover('flows'), bindings: discover(['bindings', 'other-bindings']) })\n",
-    'other-bindings/pilot.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot'})\n",
+    'other-bindings/pilot.ts':
+      "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot'})\n",
   })
-  try { assert.match(problem(duplicate), /ambiguous binding:pilot/) } finally { duplicate.dispose() }
+  try {
+    assert.match(problem(duplicate), /ambiguous binding:pilot/)
+  } finally {
+    duplicate.dispose()
+  }
 })
 
 test('Jig route adapter bounds authoring syntax and selected flow membership', () => {
   const variants: Record<string, string>[] = [
-    { 'jig.ts': "import {defineJig,discover} from '@jigging/jig'\nconst roots = 'flows'; export default defineJig({flows:discover(roots),bindings:discover('bindings')})" },
-    { 'jig.ts': "import {defineJig,discover} from '@jigging/jig'\nexport default defineJig({...{},flows:discover('flows'),bindings:discover('bindings')})" },
-    { 'bindings/pilot.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',slots:{child:'binding:other'}})" },
-    { 'bindings/pilot.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',package:'flows/other'})" },
-    { 'bindings/pilot.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'../pilot'})" },
-    { 'bindings/pilot.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/nested/pilot'})" },
-    { 'bindings/pilot.ts': "function defineBinding(value: unknown) { return value }; export default defineBinding({package:'flows/pilot'})" },
-    { 'bindings/pilot.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',settings:{__proto__:{}}})" },
-    { 'bindings/pilot.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',settings:{copies:1e400}})" },
+    {
+      'jig.ts':
+        "import {defineJig,discover} from '@jigging/jig'\nconst roots = 'flows'; export default defineJig({flows:discover(roots),bindings:discover('bindings')})",
+    },
+    {
+      'jig.ts':
+        "import {defineJig,discover} from '@jigging/jig'\nexport default defineJig({...{},flows:discover('flows'),bindings:discover('bindings')})",
+    },
+    {
+      'bindings/pilot.ts':
+        "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',slots:{child:'binding:other'}})",
+    },
+    {
+      'bindings/pilot.ts':
+        "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',package:'flows/other'})",
+    },
+    {
+      'bindings/pilot.ts':
+        "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'../pilot'})",
+    },
+    {
+      'bindings/pilot.ts':
+        "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/nested/pilot'})",
+    },
+    {
+      'bindings/pilot.ts':
+        "function defineBinding(value: unknown) { return value }; export default defineBinding({package:'flows/pilot'})",
+    },
+    {
+      'bindings/pilot.ts':
+        "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',settings:{__proto__:{}}})",
+    },
+    {
+      'bindings/pilot.ts':
+        "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot',settings:{copies:1e400}})",
+    },
     { 'flows/pilot/FLOW.py': 'print("not TypeScript")' },
   ]
   for (const content of variants) {
     const project = fixture(content)
-    try { assert.match(problem(project), /Unsupported Jig route:/) } finally { project.dispose() }
+    try {
+      assert.match(problem(project), /Unsupported Jig route:/)
+    } finally {
+      project.dispose()
+    }
   }
   const project = fixture()
   try {
-    project.config.maintained = project.config.maintained.filter((file) => file !== 'flows/pilot/FLOW.ts')
+    project.config.maintained = project.config.maintained.filter(
+      (file) => file !== 'flows/pilot/FLOW.ts',
+    )
     assert.match(problem(project), /route source outside maintained inventory/)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
   const unmeasured = fixture({ 'flows/pilot/bun.lock': '{"lockfileVersion":1}\n' })
   try {
-    unmeasured.config.maintained = unmeasured.config.maintained.filter((file) => file !== 'flows/pilot/bun.lock')
+    unmeasured.config.maintained = unmeasured.config.maintained.filter(
+      (file) => file !== 'flows/pilot/bun.lock',
+    )
     assert.match(problem(unmeasured), /Jig package file outside maintained inventory/)
-  } finally { unmeasured.dispose() }
+  } finally {
+    unmeasured.dispose()
+  }
 })
 
 test('Jig route adapter does not follow symlinked declarations or cache a changed selection', () => {
   const project = fixture({
-    'bindings/other.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot'})\n",
+    'bindings/other.ts':
+      "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/pilot'})\n",
   })
   try {
     assert.ok(routes(project).some((route) => 'file' in route))
-    writeFileSync(resolve(project.root, 'bindings/pilot.ts'),
-      "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/missing'})\n")
+    writeFileSync(
+      resolve(project.root, 'bindings/pilot.ts'),
+      "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/missing'})\n",
+    )
     assert.match(problem(project), /cannot inspect route path flows\/missing/)
     rmSync(resolve(project.root, 'bindings/pilot.ts'))
     symlinkSync('other.ts', resolve(project.root, 'bindings/pilot.ts'))
     assert.match(problem(project), /symlinked route path/)
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('native named Jig ancestry selects its flow and helper without retaining unused methods or unrelated routes', async () => {
   const project = fixture({
-    'bindings/unselected.ts': "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/unselected'})\n",
-    'flows/unselected/FLOW.ts': "import {handle} from '@jigging/flow'\nimport {other} from './method.ts'\nawait handle(other)\n",
-    'flows/unselected/method.ts': "export async function other() { return {status:'unselected'} }\n",
+    'bindings/unselected.ts':
+      "import {defineBinding} from '@jigging/jig'\nexport default defineBinding({package:'flows/unselected'})\n",
+    'flows/unselected/FLOW.ts':
+      "import {handle} from '@jigging/flow'\nimport {other} from './method.ts'\nawait handle(other)\n",
+    'flows/unselected/method.ts':
+      "export async function other() { return {status:'unselected'} }\n",
   })
   try {
     const files = inventory(project.root, project.config.maintained)
@@ -259,10 +365,19 @@ test('native named Jig ancestry selects its flow and helper without retaining un
     assert.equal(snapshot.jigRouteRequirements?.[0]?.packagePath, 'flows/pilot')
     assert.ok(snapshot.unrooted.includes('flows/pilot/method.ts#unused'))
     assert.ok(snapshot.unrooted.includes('flows/unselected/method.ts#other'))
-    const selected = source.components.filter((component) => ['jig.ts', 'bindings/pilot.ts'].includes(component.file))
+    const selected = source.components.filter((component) =>
+      ['jig.ts', 'bindings/pilot.ts'].includes(component.file),
+    )
     assert.ok(selected.length >= 2)
     assert.ok(selected.every((component) => snapshot.ancestry[component.id]?.length === 1))
-    assert.ok(source.relationships.some((edge) => edge.from === 'handler.ts#pilot' && edge.kind === 'entry-point' && edge.to.startsWith('flows/pilot/FLOW.ts#')))
+    assert.ok(
+      source.relationships.some(
+        (edge) =>
+          edge.from === 'handler.ts#pilot' &&
+          edge.kind === 'entry-point' &&
+          edge.to.startsWith('flows/pilot/FLOW.ts#'),
+      ),
+    )
     assert.equal(existsSync(resolve(project.root, 'executed')), false)
   } finally {
     project.dispose()
@@ -271,50 +386,76 @@ test('native named Jig ancestry selects its flow and helper without retaining un
 
 test('native named Jig explain reports the selected method without executing authoring or the command', () => {
   const project = fixture({
-    'jig.ts': "import {defineJig,discover} from '@jigging/jig'\n" +
+    'jig.ts':
+      "import {defineJig,discover} from '@jigging/jig'\n" +
       "throw new Error('Static explanation must not load this module')\n" +
       "export default defineJig({flows:discover('flows'),bindings:discover('bindings')})\n",
   })
   try {
-    const result = runCli(['explain', 'flows/pilot/method.ts#execute', '--root', project.root, '--json'])
+    const result = runCli([
+      'explain',
+      'flows/pilot/method.ts#execute',
+      '--root',
+      project.root,
+      '--json',
+    ])
     assert.equal(result.status, 0, result.stderr || result.stdout)
     const report = JSON.parse(result.stdout)
     assert.equal(report.analysis.status, 'complete')
     assert.equal(report.components[0].checks.length, 1)
     assert.ok(report.components[0].contractPaths[0].components.includes('handler.ts#pilot'))
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('native named Jig routes in uncontracted handlers and supporting tests cannot root production', async () => {
   const project = fixture({
-    'handler.ts': handler.replace('export function pilot(', 'export function uncontracted(') +
+    'handler.ts':
+      handler.replace('export function pilot(', 'export function uncontracted(') +
       "\nexport function pilot() { return {status:'ready'} }\n",
-    'support.test.ts': "import {pilot} from './handler.ts'\n" +
-      handler.replace('export function pilot(', 'export function support(').replace(
-        "  const child = spawnSync", "  pilot()\n  const child = spawnSync"),
+    'support.test.ts':
+      "import {pilot} from './handler.ts'\n" +
+      handler
+        .replace('export function pilot(', 'export function support(')
+        .replace('  const child = spawnSync', '  pilot()\n  const child = spawnSync'),
   })
   try {
     const files = inventory(project.root, project.config.maintained)
     const { collectRustSource } = await import('../src/collector.ts')
     const { source } = await collectRustSource(project.root, files, project.config.bindings)
     assert.deepEqual(source.problems, [])
-    const snapshot = buildSnapshot('fixture', compileContracts([{file:'sample.feature',text:behavior}]), source)
+    const snapshot = buildSnapshot(
+      'fixture',
+      compileContracts([{ file: 'sample.feature', text: behavior }]),
+      source,
+    )
     assert.equal(snapshot.ancestry['support.test.ts#support']?.length, 1)
     assert.ok(snapshot.unrooted.includes('handler.ts#uncontracted'))
     assert.ok(snapshot.unrooted.includes('flows/pilot/method.ts#execute'))
     assert.ok(snapshot.unrooted.includes('flows/pilot/helper.ts#ready'))
     assert.deepEqual(snapshot.jigRouteRequirements, [])
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })
 
 test('native named Jig analysis reports an unspecified project root without inventing entry ancestry', async () => {
-  const project = fixture({ 'handler.ts': handler.replace("cwd: new URL('./', import.meta.url), ", '') })
+  const project = fixture({
+    'handler.ts': handler.replace("cwd: new URL('./', import.meta.url), ", ''),
+  })
   try {
     const files = inventory(project.root, project.config.maintained)
     const { collectRustSource } = await import('../src/collector.ts')
-    const { source, analysis } = await collectRustSource(project.root, files, project.config.bindings)
+    const { source, analysis } = await collectRustSource(
+      project.root,
+      files,
+      project.config.bindings,
+    )
     assert.equal(analysis.status, 'unsupported')
     assert.ok(source.problems.some((message) => /Unsupported Jig route: set cwd/.test(message)))
     assert.ok(source.relationships.every((edge) => edge.kind !== 'entry-point'))
-  } finally { project.dispose() }
+  } finally {
+    project.dispose()
+  }
 })

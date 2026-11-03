@@ -68,18 +68,29 @@ export function compileContracts(
             observations = 0
             actionRefs = [...contextRefs, ...refs]
             steps.push({
-              kind: 'action', action, input: mergeInput(input),
+              kind: 'action',
+              action,
+              input: mergeInput(input),
               ...(actionRefs.length && { definitionRefs: actionRefs }),
             })
           }
-          const observeValue = (selector: string, expected: unknown, refs: Reference[], suffix = '') => {
+          const observeValue = (
+            selector: string,
+            expected: unknown,
+            refs: Reference[],
+            suffix = '',
+          ) => {
             if (!action) throw new Error(`${file}:${line}: observation has no preceding action`)
             if (!/^[A-Za-z_$][\w$]*(?:\[\d+\]|\.[A-Za-z_$][\w$]*)*$/.test(selector))
               throw new Error(`${file}:${line}: unsupported response selector`)
             const definitionRefs = [...actionRefs, ...refs]
             const check: Check = {
               id: `${file}:${index}:${stepIndex}${suffix}`,
-              file, line, action, selector, expected,
+              file,
+              line,
+              action,
+              selector,
+              expected,
               ...(definitionRefs.length && { definitionRefs }),
             }
             result.checks.push(check)
@@ -97,8 +108,14 @@ export function compileContracts(
           } catch (error) {
             throw new Error(`${file}:${line}: invalid domain step parameter: ${String(error)}`)
           }
-          const role = step.type === 'Context' ? 'given' : step.type === 'Action' ? 'when'
-            : step.type === 'Outcome' ? 'then' : undefined
+          const role =
+            step.type === 'Context'
+              ? 'given'
+              : step.type === 'Action'
+                ? 'when'
+                : step.type === 'Outcome'
+                  ? 'then'
+                  : undefined
           const matching = matches.filter(({ definition }) => definition.kind === role)
           if (matching.length > 1 || (matching.length && (invoke || observe)))
             throw new Error(`${file}:${line}: ambiguous domain step: ${step.text}`)
@@ -109,19 +126,35 @@ export function compileContracts(
           } else if (matching.length) {
             const { definition, parameters } = matching[0]!
             if (definition.kind === 'given') {
-              if (action) throw new Error(`${file}:${line}: Given context must precede every action in its scenario`)
-              context = mergeInput(substituteDomainValue(definition.input, parameters)) as Record<string, unknown>
+              if (action)
+                throw new Error(
+                  `${file}:${line}: Given context must precede every action in its scenario`,
+                )
+              context = mergeInput(substituteDomainValue(definition.input, parameters)) as Record<
+                string,
+                unknown
+              >
               contextRefs.push(definition.sourceRef)
             } else if (definition.kind === 'when') {
-              invokeAction(definition.action, substituteDomainValue(definition.input ?? {}, parameters), [definition.sourceRef])
+              invokeAction(
+                definition.action,
+                substituteDomainValue(definition.input ?? {}, parameters),
+                [definition.sourceRef],
+              )
             } else {
               for (const [observationIndex, observation] of definition.observations.entries()) {
-                observeValue(observation.selector, substituteDomainValue(observation.equals, parameters),
-                  [definition.sourceRef], definition.observations.length > 1 ? `:${observationIndex}` : '')
+                observeValue(
+                  observation.selector,
+                  substituteDomainValue(observation.equals, parameters),
+                  [definition.sourceRef],
+                  definition.observations.length > 1 ? `:${observationIndex}` : '',
+                )
               }
             }
           } else if (matches.length) {
-            throw new Error(`${file}:${line}: domain step is not bound for its Given/When/Then role: ${step.text}`)
+            throw new Error(
+              `${file}:${line}: domain step is not bound for its Given/When/Then role: ${step.text}`,
+            )
           } else throw new Error(`${file}:${line}: unsupported or unbound step: ${step.text}`)
         }
         if (!action || observations === 0)

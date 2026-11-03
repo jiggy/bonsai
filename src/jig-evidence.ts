@@ -1,7 +1,14 @@
 import { spawn } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import {
-  closeSync, constants, fstatSync, lstatSync, openSync, readSync, readdirSync, realpathSync,
+  closeSync,
+  constants,
+  fstatSync,
+  lstatSync,
+  openSync,
+  readSync,
+  readdirSync,
+  realpathSync,
 } from 'node:fs'
 import { resolve } from 'node:path'
 
@@ -22,9 +29,14 @@ const object = (value: unknown): value is Record<string, unknown> =>
 const digest = (value: unknown): value is string =>
   typeof value === 'string' && /^sha256:[a-f0-9]{64}$/.test(value)
 const path = (value: unknown): value is string =>
-  typeof value === 'string' && value.length > 0 && value.length <= 1024 &&
-  !/[\\\u0000-\u001f\u007f]/.test(value) && value.split('/').length <= 64 &&
-  value.split('/').every((part) => part.length > 0 && part !== '.' && part !== '..' && part.length <= 255)
+  typeof value === 'string' &&
+  value.length > 0 &&
+  value.length <= 1024 &&
+  !/[\\\u0000-\u001f\u007f]/.test(value) &&
+  value.split('/').length <= 64 &&
+  value
+    .split('/')
+    .every((part) => part.length > 0 && part !== '.' && part !== '..' && part.length <= 255)
 const packagePath = (value: unknown): value is string =>
   path(value) && /^[a-zA-Z0-9_./-]+$/.test(value) && value.split('/')[0]!.toLowerCase() !== '.jig'
 
@@ -39,10 +51,12 @@ function json(value: unknown, depth = 0, seen = new Set<object>()): string | und
   seen.add(value)
   const values = Array.isArray(value)
     ? [...value].map((entry) => json(entry, depth + 1, seen))
-    : Object.keys(value).sort().map((key) => {
-        const encoded = key === '__proto__' ? undefined : json(value[key], depth + 1, seen)
-        return encoded === undefined ? undefined : `${JSON.stringify(key)}:${encoded}`
-      })
+    : Object.keys(value)
+        .sort()
+        .map((key) => {
+          const encoded = key === '__proto__' ? undefined : json(value[key], depth + 1, seen)
+          return encoded === undefined ? undefined : `${JSON.stringify(key)}:${encoded}`
+        })
   seen.delete(value)
   if (values.some((entry) => entry === undefined)) return undefined
   return Array.isArray(value) ? `[${values.join(',')}]` : `{${values.join(',')}}`
@@ -50,13 +64,26 @@ function json(value: unknown, depth = 0, seen = new Set<object>()): string | und
 
 const fields = ['adapter', 'from', 'file', 'line', 'route', 'packagePath', 'digest', 'settings']
 function fact(value: unknown, receipt = false): value is JigRouteFact {
-  return object(value) && value.adapter === 'jig-binding-v1' &&
-    typeof value.from === 'string' && value.from.length > 0 && path(value.file) &&
-    typeof value.line === 'number' && Number.isSafeInteger(value.line) && value.line > 0 &&
-    typeof value.route === 'string' && /^binding:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.route) &&
-    value.route.length <= 72 && packagePath(value.packagePath) && digest(value.digest) &&
-    object(value.settings) && json(value.settings) !== undefined &&
-    Object.keys(value).every((key) => fields.includes(key) || (receipt && ['revision', 'approval'].includes(key)))
+  return (
+    object(value) &&
+    value.adapter === 'jig-binding-v1' &&
+    typeof value.from === 'string' &&
+    value.from.length > 0 &&
+    path(value.file) &&
+    typeof value.line === 'number' &&
+    Number.isSafeInteger(value.line) &&
+    value.line > 0 &&
+    typeof value.route === 'string' &&
+    /^binding:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value.route) &&
+    value.route.length <= 72 &&
+    packagePath(value.packagePath) &&
+    digest(value.digest) &&
+    object(value.settings) &&
+    json(value.settings) !== undefined &&
+    Object.keys(value).every(
+      (key) => fields.includes(key) || (receipt && ['revision', 'approval'].includes(key)),
+    )
+  )
 }
 
 export const validJigRouteFacts = (value: unknown): value is JigRouteFact[] =>
@@ -67,11 +94,16 @@ function receipt(value: unknown): value is JigRouteReceipt {
 }
 
 export const validJigRouteReceipts = (value: unknown): value is JigRouteReceipt[] =>
-  Array.isArray(value) && [...value].every(receipt) &&
-  value.every((entry) => entry.revision === value[0]?.revision && entry.approval === value[0]?.approval)
+  Array.isArray(value) &&
+  [...value].every(receipt) &&
+  value.every(
+    (entry) => entry.revision === value[0]?.revision && entry.approval === value[0]?.approval,
+  )
 
 function identity(value: JigRouteFact) {
-  return json(Object.fromEntries(fields.map((field) => [field, value[field as keyof JigRouteFact]])))!
+  return json(
+    Object.fromEntries(fields.map((field) => [field, value[field as keyof JigRouteFact]])),
+  )!
 }
 
 /** Every required route needs a receipt for that exact measured selection. */
@@ -91,9 +123,13 @@ export function jigEvidenceProblems(
     const key = identity(requirement)
     const count = remaining.get(key) ?? 0
     if (count) remaining.set(key, count - 1)
-    else problems.push(`Missing current approved Jig route evidence: ${requirement.route} at ${requirement.file}:${requirement.line}`)
+    else
+      problems.push(
+        `Missing current approved Jig route evidence: ${requirement.route} at ${requirement.file}:${requirement.line}`,
+      )
   }
-  if ([...remaining.values()].some((count) => count > 0)) problems.push('Unexpected Jig approval evidence')
+  if ([...remaining.values()].some((count) => count > 0))
+    problems.push('Unexpected Jig approval evidence')
   return problems
 }
 
@@ -125,8 +161,11 @@ export function jigPackageDigest(
   type Stat = ReturnType<typeof statFor>
   const statFor = (file: string) => lstatSync(file, { bigint: true })
   const same = (left: Stat, right: Stat) =>
-    left.dev === right.dev && left.ino === right.ino && left.size === right.size &&
-    left.mtimeNs === right.mtimeNs && left.ctimeNs === right.ctimeNs
+    left.dev === right.dev &&
+    left.ino === right.ino &&
+    left.size === right.size &&
+    left.mtimeNs === right.mtimeNs &&
+    left.ctimeNs === right.ctimeNs
   const entries: { local: string; absolute: string; stat: Stat }[] = []
   const directories: { absolute: string; stat: Stat }[] = []
   const folded = new Set<string>()
@@ -142,7 +181,8 @@ export function jigPackageDigest(
       if (!path(local) || /[^\x20-\x7e]/.test(local))
         throw new Error(`Jig package source needs an ASCII slash path: ${JSON.stringify(local)}`)
       const key = local.toLowerCase()
-      if (folded.has(key)) throw new Error(`Case-colliding Jig package source: ${selected}/${local}`)
+      if (folded.has(key))
+        throw new Error(`Case-colliding Jig package source: ${selected}/${local}`)
       folded.add(key)
     }
     if (stat.isDirectory()) {
@@ -175,7 +215,11 @@ export function jigPackageDigest(
     length.writeUInt32BE(name.length)
     const size = Buffer.alloc(8)
     size.writeBigUInt64BE(entry.stat.size)
-    hash.update(Buffer.from([1])).update(length).update(name).update(size)
+    hash
+      .update(Buffer.from([1]))
+      .update(length)
+      .update(name)
+      .update(size)
     const descriptor = openSync(entry.absolute, constants.O_RDONLY | constants.O_NOFOLLOW)
     try {
       if (!same(entry.stat, fstatSync(descriptor, { bigint: true })))
@@ -186,26 +230,42 @@ export function jigPackageDigest(
         const read = readSync(descriptor, buffer)
         if (!read) break
         observed += BigInt(read)
-        if (observed > entry.stat.size) throw new Error(`Jig package changed while reading: ${selected}/${entry.local}`)
+        if (observed > entry.stat.size)
+          throw new Error(`Jig package changed while reading: ${selected}/${entry.local}`)
         hash.update(buffer.subarray(0, read))
       }
-      if (observed !== entry.stat.size || !same(entry.stat, fstatSync(descriptor, { bigint: true })) ||
-        !same(entry.stat, statFor(entry.absolute)) || realpathSync(entry.absolute) !== entry.absolute)
+      if (
+        observed !== entry.stat.size ||
+        !same(entry.stat, fstatSync(descriptor, { bigint: true })) ||
+        !same(entry.stat, statFor(entry.absolute)) ||
+        realpathSync(entry.absolute) !== entry.absolute
+      )
         throw new Error(`Jig package changed while reading: ${selected}/${entry.local}`)
-    } finally { closeSync(descriptor) }
+    } finally {
+      closeSync(descriptor)
+    }
   }
   for (const directory of directories)
-    if (!same(directory.stat, statFor(directory.absolute)) || realpathSync(directory.absolute) !== directory.absolute)
+    if (
+      !same(directory.stat, statFor(directory.absolute)) ||
+      realpathSync(directory.absolute) !== directory.absolute
+    )
       throw new Error(`Jig package directory changed while reading: ${selected}`)
   available(execution)
   return `sha256:${hash.digest('hex')}`
 }
 
-async function inspect(root: string, route: string, execution: Required<Pick<Deadline, 'deadline'>> & Deadline): Promise<unknown> {
+async function inspect(
+  root: string,
+  route: string,
+  execution: Required<Pick<Deadline, 'deadline'>> & Deadline,
+): Promise<unknown> {
   available(execution)
   return new Promise((done, reject) => {
     const child = spawn('jig', ['inspect', route, '--json'], {
-      cwd: root, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32',
+      cwd: root,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: process.platform !== 'win32',
     })
     const closed = new Promise<void>((resolveClosed) => child.once('close', () => resolveClosed()))
     const stdout: Buffer[] = []
@@ -214,7 +274,11 @@ async function inspect(root: string, route: string, execution: Required<Pick<Dea
     let settled = false
     const stop = () => {
       if (child.pid && process.platform !== 'win32') {
-        try { process.kill(-child.pid, 'SIGKILL') } catch { /* Already stopped. */ }
+        try {
+          process.kill(-child.pid, 'SIGKILL')
+        } catch {
+          /* Already stopped. */
+        }
       }
       child.kill('SIGKILL')
     }
@@ -224,31 +288,48 @@ async function inspect(root: string, route: string, execution: Required<Pick<Dea
       clearTimeout(timer)
       execution.signal?.removeEventListener('abort', abort)
       stop()
-      if (error) { child.stdout?.destroy(); child.stderr?.destroy() }
+      if (error) {
+        child.stdout?.destroy()
+        child.stderr?.destroy()
+      }
       void closed.then(() => {
         process.removeListener('exit', stop)
         if (error) return reject(error)
-        if (code !== 0) return reject(new Error(`Jig inspection failed for ${route} (${code}): ${JSON.stringify(stderr.toString('utf8'))}`))
-        try { done(JSON.parse(Buffer.concat(stdout).toString('utf8'))) }
-        catch { reject(new Error(`Invalid Jig inspection JSON for ${route}`)) }
+        if (code !== 0)
+          return reject(
+            new Error(
+              `Jig inspection failed for ${route} (${code}): ${JSON.stringify(stderr.toString('utf8'))}`,
+            ),
+          )
+        try {
+          done(JSON.parse(Buffer.concat(stdout).toString('utf8')))
+        } catch {
+          reject(new Error(`Invalid Jig inspection JSON for ${route}`))
+        }
       })
     }
-    const timer = setTimeout(() => finish(new Error('Jig route verification feedback deadline expired')),
-      Math.max(0, execution.deadline - performance.now()))
+    const timer = setTimeout(
+      () => finish(new Error('Jig route verification feedback deadline expired')),
+      Math.max(0, execution.deadline - performance.now()),
+    )
     const abort = () => finish(new Error('Jig route verification cancelled'))
     process.once('exit', stop)
     execution.signal?.addEventListener('abort', abort, { once: true })
     child.stdout!.on('data', (chunk: Buffer) => {
       bytes += chunk.length
-      if (bytes > 16 * 1024 * 1024) finish(new Error('Jig inspection exceeds the 16 MiB output limit'))
+      if (bytes > 16 * 1024 * 1024)
+        finish(new Error('Jig inspection exceeds the 16 MiB output limit'))
       else stdout.push(chunk)
     })
     child.stderr!.on('data', (chunk: Buffer) => {
       bytes += chunk.length
       stderr = Buffer.from(Buffer.concat([stderr, chunk]).subarray(-4096))
-      if (bytes > 16 * 1024 * 1024) finish(new Error('Jig inspection exceeds the 16 MiB output limit'))
+      if (bytes > 16 * 1024 * 1024)
+        finish(new Error('Jig inspection exceeds the 16 MiB output limit'))
     })
-    child.once('error', (error) => finish(new Error(`Cannot inspect Jig route ${route}: ${error.message}`)))
+    child.once('error', (error) =>
+      finish(new Error(`Cannot inspect Jig route ${route}: ${error.message}`)),
+    )
     child.once('exit', stop)
     child.once('close', (code) => finish(undefined, code))
     if (execution.signal?.aborted) abort()
@@ -277,18 +358,37 @@ export async function verifyJigRoutes(
   const empty = (value: unknown) => object(value) && Object.keys(value).length === 0
   for (const fact of facts) {
     available(execution)
-    if (!inspections.has(fact.route)) inspections.set(fact.route, await inspect(root, fact.route, execution))
+    if (!inspections.has(fact.route))
+      inspections.set(fact.route, await inspect(root, fact.route, execution))
     const selected = inspections.get(fact.route)
-    if (!object(selected) || selected.state !== 'environment-matches' ||
-      !object(selected.availability) || selected.availability.state !== 'ready' ||
-      !digest(selected.revision) || !digest(selected.approval))
-      throw new Error(`Jig route ${fact.route} needs a ready, verified approval; inspect the project and run jig review`)
-    if (selected.target !== fact.route || selected.package !== fact.packagePath || selected.digest !== fact.digest ||
-      json(selected.settings) !== json(fact.settings) || !empty(selected.slots) || !empty(selected.attachments) ||
-      !Array.isArray(selected.artifactResults) || selected.artifactResults.length !== 0 ||
-      !Array.isArray(selected.boundReadAttachments) || selected.boundReadAttachments.length !== 0 ||
-      selected.entrypoint !== undefined || selected.agentOverride !== undefined)
-      throw new Error(`Jig approval does not match current source or binding settings for ${fact.route}; inspect changes and run jig review`)
+    if (
+      !object(selected) ||
+      selected.state !== 'environment-matches' ||
+      !object(selected.availability) ||
+      selected.availability.state !== 'ready' ||
+      !digest(selected.revision) ||
+      !digest(selected.approval)
+    )
+      throw new Error(
+        `Jig route ${fact.route} needs a ready, verified approval; inspect the project and run jig review`,
+      )
+    if (
+      selected.target !== fact.route ||
+      selected.package !== fact.packagePath ||
+      selected.digest !== fact.digest ||
+      json(selected.settings) !== json(fact.settings) ||
+      !empty(selected.slots) ||
+      !empty(selected.attachments) ||
+      !Array.isArray(selected.artifactResults) ||
+      selected.artifactResults.length !== 0 ||
+      !Array.isArray(selected.boundReadAttachments) ||
+      selected.boundReadAttachments.length !== 0 ||
+      selected.entrypoint !== undefined ||
+      selected.agentOverride !== undefined
+    )
+      throw new Error(
+        `Jig approval does not match current source or binding settings for ${fact.route}; inspect changes and run jig review`,
+      )
     let current = measured.get(fact.packagePath)
     if (current === undefined) {
       current = jigPackageDigest(root, files, fact.packagePath, execution)
@@ -296,10 +396,19 @@ export async function verifyJigRoutes(
     }
     if (current !== fact.digest)
       throw new Error(`Jig package changed after analysis: ${fact.packagePath}`)
-    receipts.push({ ...structuredClone(fact), revision: selected.revision, approval: selected.approval })
+    receipts.push({
+      ...structuredClone(fact),
+      revision: selected.revision,
+      approval: selected.approval,
+    })
   }
-  if (!validJigRouteReceipts(receipts)) throw new Error('Jig approval changed during route verification')
-  if (prior !== undefined && json(prior.map((entry) => json(entry)).sort()) !== json(receipts.map((entry) => json(entry)).sort()))
+  if (!validJigRouteReceipts(receipts))
+    throw new Error('Jig approval changed during route verification')
+  if (
+    prior !== undefined &&
+    json(prior.map((entry) => json(entry)).sort()) !==
+      json(receipts.map((entry) => json(entry)).sort())
+  )
     throw new Error('Jig approval changed during application verification')
   if (facts.length) available(execution)
   return receipts

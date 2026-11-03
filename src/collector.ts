@@ -181,24 +181,33 @@ function consistentSource(source: Source, files: string[], bindings: string): bo
   if (source.stepRegistry !== undefined || source.stepDefinitions !== undefined) {
     const steps = source.stepRegistry && components.get(source.stepRegistry)
     if (
-      !steps || steps.kind !== 'binding' || steps.name !== 'steps' || steps.file !== bindings ||
+      !steps ||
+      steps.kind !== 'binding' ||
+      steps.name !== 'steps' ||
+      steps.file !== bindings ||
       !source.stepDefinitions?.length ||
       !source.stepDefinitions.every((definition) => definition.sourceRef.file === bindings)
-    ) return false
+    )
+      return false
   }
   if (!Object.values(source.actions).every((id) => components.get(id)?.kind === 'production'))
     return false
   for (const route of source.jigRoutes ?? []) {
     const caller = components.get(route.from)
     if (
-      !caller || caller.kind === 'test' || caller.file !== route.file ||
+      !caller ||
+      caller.kind === 'test' ||
+      caller.file !== route.file ||
       !measured.has(`${route.packagePath}/FLOW.ts`) ||
-      !source.relationships.some((edge) =>
-        edge.from === route.from && edge.kind === 'entry-point' &&
-        edge.sourceRef.file === route.file &&
-        components.get(edge.to)?.file === `${route.packagePath}/FLOW.ts`,
+      !source.relationships.some(
+        (edge) =>
+          edge.from === route.from &&
+          edge.kind === 'entry-point' &&
+          edge.sourceRef.file === route.file &&
+          components.get(edge.to)?.file === `${route.packagePath}/FLOW.ts`,
       )
-    ) return false
+    )
+      return false
   }
   if (
     !source.relationships.every(
