@@ -1,10 +1,12 @@
 # Purpose
 
-Guide pull request review, automate formatting, verify proposed changes, and publish the landing page.
+Guide pull request review, synchronize skill references, automate formatting, verify proposed changes, and publish the landing page.
 
 ## Ownership
 
 `pull_request_template.md`, `workflows/ci.yml`, `workflows/action.yml`, `workflows/pages.yml`, and the development-only `workflows/rust-backend.yml`.
+
+`workflows/ci.yml` invokes the reference synchronizer owned by `test/` and publishes its generated patch with formatting changes.
 
 The root `action.yml` delegates checker execution and GitHub summaries to `action/run.ts`.
 
@@ -17,6 +19,11 @@ The reusable action installs its own frozen checker dependencies with scripts di
 The PR template requires change classification before acceptance examples, distinguishing new or changed product rules, missing meaningful examples, and technical regressions. Refactors can preserve existing promises without adding BDD scenarios. Require explicit destinations for moved assertions, meaningful failure evidence, and separate contract-surface, ceiling, retained-size, and gate-verdict reporting. These are review prompts, not automated semantic eligibility checks.
 
 Formatting and candidate validation have read-only tokens with no persisted credentials. Only isolated jobs apply patches, push branch updates, report check results, or deploy Pages. PR validation checks the merge result. The normal test step includes Bonsai’s executable feature contracts; a passing suite does not claim the root retained-code gate passes.
+
+The read-only formatting job formats canonical sources, then runs `sync-skills` and exports both changes, including new and deleted references.
+The isolated writer applies only patch data; verification checks reference freshness after incorporating that commit.
+Fork contributors run `bun run sync-skills` locally; fork validation remains read-only and rejects stale references.
+Biome leaves generated references to the synchronizer.
 
 The website workflow runs `website:build` and `website:check` with read-only contents and Pages permissions. PRs never configure Pages, upload deployment artifacts, or deploy. Main-branch pushes and manual main-branch runs read existing Pages metadata and upload the checked `_site` output. Pages must already use GitHub Actions as its publishing source; the workflow does not enable or change repository settings.
 

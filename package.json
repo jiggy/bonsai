@@ -17,6 +17,8 @@
     "demo": "bun src/cli.ts check --root examples/checkout",
     "format": "biome format --write .",
     "format:check": "biome format .",
+    "sync-skills": "bun test/skill-references.ts",
+    "check:skills": "bun test/skill-references.ts --check",
     "test:features": "bun test --timeout 60000 test/self-host.test.ts",
     "test:specs": "bun test/specs.ts",
     "test:spec-sensitivity": "bun test --isolate --timeout 60000 test/spec-sensitivity.test.ts",

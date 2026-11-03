@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "repository": "https://github.com/jiggy/bonsai",
+  "files": [
+    {
+      "source": "README.md",
+      "destination": "README.md",
+      "sourceSha256": "43ed22371e0f7a5e3eb6257101e9e8986f15a6e0036618cfdd7a8d3f0ee4e698",
+      "outputSha256": "8adf3ce94f8eb7474a1734b05d671afced789d362e75d88293cccd767aed2200"
+    },
+    {
+      "source": "docs/agent-workflow.md",
+      "destination": "workflow.md",
+      "sourceSha256": "efe8806c13771eb36850069242535803435fc5e927b0c1b98ecf05dc72e657a1",
+      "outputSha256": "20ec06c750eb8255706dade0a28ac47411cef20d084be8af5a4435052073663b"
+    },
+    {
+      "source": "docs/adoption.md",
+      "destination": "adoption.md",
+      "sourceSha256": "6646632beb3f2b8f3ffc2b19217199381808e96bc9126ad59b50a00313475a89",
+      "outputSha256": "50c103982161545580ed5a7f0704565a61282f358ff1d0e6ffd4a988b9b210cc"
+    },
+    {
+      "source": "docs/bdd.md",
+      "destination": "bdd.md",
+      "sourceSha256": "9feb60787854b109213f715b6632a3e42fd9132540d4e5ad3d4efa987a011742",
+      "outputSha256": "a97f15838188d2f524700060f8f7b192e91cfadf0471c21b434f0089ee268103"
+    },
+    {
+      "source": "docs/cli.md",
+      "destination": "cli.md",
+      "sourceSha256": "d211bb0e9ae2b06a687d9d6c82752daba963e3a62cd3b72c4cd2cb06ee3b4f2f",
+      "outputSha256": "d211bb0e9ae2b06a687d9d6c82752daba963e3a62cd3b72c4cd2cb06ee3b4f2f"
+    },
+    {
+      "source": "docs/verification.md",
+      "destination": "verification.md",
+      "sourceSha256": "5c8b6810875470b32f2ae2d8cbcb4cdb011c3118f21afddb8923791279036a5e",
+      "outputSha256": "5c8b6810875470b32f2ae2d8cbcb4cdb011c3118f21afddb8923791279036a5e"
+    },
+    {
+      "source": "docs/github-action.md",
+      "destination": "github-action.md",
+      "sourceSha256": "257ebc2fecd575c0e87c2be7f0465ff119a22dbae19a50ef9a4a5a2811329179",
+      "outputSha256": "1f51b26a16aa9e2663ea21cdd62f3ac39a9676d86a1213a93d90dd3029e44d1c"
+    },
+    {
+      "source": "docs/native-prototype.md",
+      "destination": "native-prototype.md",
+      "sourceSha256": "8974d76857ebc7af9831020cbc27807b6f46a050b7dfa6c6f7c9cb3e4482c443",
+      "outputSha256": "6a7b4001b649481310da2f4f1fdcf497d20af3ee5c04ac9004f775553ea37d0a"
+    },
+    {
+      "source": "LICENSE.md",
+      "destination": "LICENSE.md",
+      "sourceSha256": "bb5ba03d41d9dffa18aa9c1de989a321e9c9f939828449dd8a7a0fb2771a571b",
+      "outputSha256": "bb5ba03d41d9dffa18aa9c1de989a321e9c9f939828449dd8a7a0fb2771a571b"
+    },
+    {
+      "source": "LICENSES.md",
+      "destination": "LICENSES.md",
+      "sourceSha256": "d10eb9d5bf3c4a78dad33a52f87c78b6fec7db1d0ea5f0a6fb2316fe101eaa6a",
+      "outputSha256": "8fc9c3d316b7d80ab12463bbd56fd3411fed5b13b1a8b962155dd15417c8cfbc"
+    },
+    {
+      "source": "PRICING.md",
+      "destination": "PRICING.md",
+      "sourceSha256": "7c7d5b6919312b43cbe9a266138400c470997ae95cab6d0100aa522daef50199",
+      "outputSha256": "7c7d5b6919312b43cbe9a266138400c470997ae95cab6d0100aa522daef50199"
+    },
+    {
+      "source": "LICENSE-ACTION",
+      "destination": "LICENSE-ACTION",
+      "sourceSha256": "ba338bf00b49849779037ae5b5382cfd578e6999cbdc709f77ec19d90690b3ef",
+      "outputSha256": "ba338bf00b49849779037ae5b5382cfd578e6999cbdc709f77ec19d90690b3ef"
+    }
+  ]
+}

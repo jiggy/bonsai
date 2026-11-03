@@ -139,6 +139,7 @@ Default section order:
 - Keep automated formatting in CI rather than adding formatting instructions to agent context.
 - During stabilization, report the repository's retained-size overage but defer its remediation. Preserve the gate's measurements and policy while fixing other failures.
 - Keep public setup documentation concise: install from npm, then use `bonsai` commands. Keep temporary release-channel workarounds out of the onboarding flow.
+- Install the consuming skill with `npx skills add jiggy/bonsai`. Keep its reusable guidance canonical in documentation and synchronize packaged references.
 
 ## Child DOX Index
 
@@ -150,10 +151,10 @@ The root owns the reusable `action.yml` manifest, package metadata, runtime depe
 
 - [src/AGENTS.md](src/AGENTS.md): CLI, analysis, policy evaluation, and evidence workers
 - [features/AGENTS.md](features/AGENTS.md): executable contracts for Bonsai’s own observable behavior
-- [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests, native comparisons, and benchmark tooling
-- [docs/AGENTS.md](docs/AGENTS.md): design, roadmap, and CLI reference
+- [test/AGENTS.md](test/AGENTS.md): behavioral and CLI tests, skill reference synchronization, native comparisons, and benchmark tooling
+- [docs/AGENTS.md](docs/AGENTS.md): design, adoption, agent workflow, roadmap, and CLI reference
 - [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture
-- [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai adoption skill
+- [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai skill and generated reference editing rule
 - [.agents/skills/AGENTS.md](.agents/skills/AGENTS.md): installed CLI design and review skills
-- [.github/AGENTS.md](.github/AGENTS.md): the reusable action implementation, pull request review guidance, CI formatting, validation, permissions, and website deployment
+- [.github/AGENTS.md](.github/AGENTS.md): the reusable action, pull request review, CI formatting and reference updates, validation, permissions, and website deployment
 - [website/AGENTS.md](website/AGENTS.md): landing page, static assets, and GitHub Pages artifact
