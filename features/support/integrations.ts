@@ -48,7 +48,10 @@ export function pilot(input: { problem: string }) {
     const report = invoke(['check', '--serial', '--root', fixture.root, '--no-report'])
     const log = join(fixture.root, 'commissions.jsonl')
     const inputValues = existsSync(log)
-      ? readFileSync(log, 'utf8').trim().split('\n').map((line) => JSON.parse(line))
+      ? readFileSync(log, 'utf8')
+          .trim()
+          .split('\n')
+          .map((line) => JSON.parse(line))
       : []
     return { ...report, invocationCount: inputValues.length, inputValues }
   } finally {
