@@ -1779,6 +1779,7 @@ footer {
 .footer-links {
   margin-left: auto;
   display: flex;
+  flex-wrap: wrap;
   gap: 26px;
   font-size: 12px;
   color: #9f95b2;

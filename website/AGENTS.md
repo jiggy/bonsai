@@ -16,6 +16,7 @@ Own the Bonsai landing page and its GitHub Pages artifact.
 - Keep copyable setup commands aligned with the README's project quickstart: install the npm package globally, then use short `bonsai` commands. Stop the initial flow after `bonsai init`, then explain connecting real behavior before `bonsai check`. Keep setup copy concise and free of temporary release guidance.
 - Dark styling belongs only inside `.code-window` widgets. Preserve the light page, muted lavender palette, accessibility, and reduced-motion behavior.
 - Include asset licenses. Publish only the public artifact, not source instructions or development tools.
+- Keep the source-available Bread summary and license/pricing links visible near setup. Root `LICENSE.md`, `LICENSES.md`, and `PRICING.md` own the terms; the page grants no additional permissions.
 
 ## Work Guidance
 

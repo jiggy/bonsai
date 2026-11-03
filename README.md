@@ -10,6 +10,26 @@ This is an initial working prototype for **TypeScript and a bounded native Pytho
 
 The [landing page](https://jiggy.github.io/bonsai/) is maintained in [`website/`](website/README.md) and published to GitHub Pages by the Website Actions workflow after changes merge into `main`.
 
+## License
+
+Bonsai is **source available under [Bread License 1.0](LICENSE.md)**. Personal
+non-business use and genuine evaluation are free. Business use is free below
+US$1 million in annual consolidated revenue across the company group; at or
+above that threshold, use paid or existing coverage. Ordinary development and
+CI with Bonsai as an adopted tool follow the business rules.
+
+One company purchase gives permanent rights to covered releases and twelve
+months of new official releases. Bonsai's prices are **US$100, US$1,000, or
+US$10,000**, according to the [published revenue bands and terms](PRICING.md).
+There are no seats, execution fees, activation, or licensing telemetry.
+Bonsai and Jig are licensed separately.
+
+Redistribution includes the covered source, changes, and notices; independent
+application code keeps its own terms. Generated HTML reports and starter
+material have an explicit [additional sharing permission](LICENSE.md#additional-permission-for-generated-outputs).
+The small GitHub Action adapter is [MIT licensed](LICENSE-ACTION); the checker
+it invokes remains under Bread. See [component scope and third-party notices](LICENSES.md).
+
 ## Try it
 
 ### In your project
@@ -112,7 +132,7 @@ transport boundary does not sandbox Python's OS or filesystem privileges.
 
 ## Verify pull requests with GitHub Actions
 
-Use `jiggy/bonsai@<reviewed-commit-sha>` in a read-only PR workflow to check the
+Use `jiggy/bonsai@<reviewed-release-commit-sha>` in a read-only PR workflow to check the
 combined merge candidate against the base branch's policy and inventory. The
 action fails when retained tokens exceed the allowance, required behavior fails,
 or analysis/evidence is incomplete. Growth within the allowance can pass;
@@ -123,6 +143,12 @@ the reviewed base commit, plus a JSON report for artifacts. Enforce a protected
 required-workflow definition to block merging. A required job name alone can be
 replaced by a PR; the guide explains required workflows and enforced ownership.
 See the [complete workflow, inputs, outputs, and execution limits](docs/github-action.md).
+
+For company use under a purchase, choose the full commit of an official release
+covered by that purchase. A moving branch or development commit does not establish
+release coverage. The adoption does not change the earlier `v0` release's terms;
+publish a new official release containing the adoption before relying on its
+company-purchase coverage.
 
 ## Commands
 
@@ -449,6 +475,16 @@ under `--json`. No match for an explicitly named target exits 4.
 
 ### Contributing
 
+You retain copyright in your contributions. By intentionally submitting material
+for inclusion, you license it under the terms for the affected files in
+[LICENSES.md](LICENSES.md), including applicable generated-output permissions.
+For Bread-covered contributions, you authorize the Licensor and authorized seller
+to include them in Bonsai under the retained Bread License 1.0 and stated
+additional permissions, including company purchases and continuity grants.
+This does not assign ownership, authorize unrelated relicensing, or require
+future work. Submit only material you have authority to license; a separate
+written contribution agreement controls where applicable.
+
 Use `bun install --frozen-lockfile`, `bun run check`, `bun run test`, and
 `bun run demo`. Regenerate the command reference with
 `bun run --silent bonsai help --markdown > docs/cli.md` after command changes.
@@ -571,6 +607,13 @@ bun publish --access public --tag latest
 the production tarball in a fresh consumer. Preview package contents with
 `bun pm pack --dry-run --ignore-scripts`. Verify the released version with
 `bonsai version` from a fresh installation.
+
+Runtime sources, the skill, documentation, example, retained license, component
+notices, prices, and lockfile are included; development compiler oracles and
+tests are not. Keep the official version's exact source commit and
+first-publication time in UTC in the release record. Never replace release
+contents to give new code an older coverage date. A source-only Action release
+needs its own GitHub release record even if no npm version is published.
 
 ## Formatting and Codex cloud
 
