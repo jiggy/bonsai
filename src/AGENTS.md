@@ -38,6 +38,8 @@ Keep project orchestration independent of eager compiler and Gherkin imports. St
 
 `jig-routes.ts` recognizes the literal local Jig binding subset by imported symbol identity and explicit project cwd. Connect only selected package startup and reviewed configuration declarations; unrelated packages remain unrooted. `jig-evidence.ts` computes the official FLOW-Package/0 digest over complete maintained package bytes and reads installed Jig approval before application import and after all verification. Require matching selected package/settings/digest and stable approval/revision under the existing deadline. Never run review, use editable lock metadata as approval evidence, or run Jig during explain. Runtime eligibility determines required route receipts; type-only ancestry and test support cannot activate routes. These receipts establish freshness and selection, not hostile-executable authenticity or runtime coverage.
 
+Native span indexing may skip subtrees containing no requested UTF-16 start position. Keep inclusive boundaries, disable pruning for unknown ranges, and retry the full walk if any required span is missing. Preserve the exact native query set, mapping diagnostics, and fresh per-analysis source comparison.
+
 ## Local Contracts
 
 Preserve the published check/explain JSON keys and 0 pass, 1 reject, 2 incomplete gate codes. Help and version never load projects or run handlers. Keep diagnostics on stderr and machine data on stdout. Candidate code must not run during explain or config inspection. Formatting remains CI automation, not an agent invocation requirement.

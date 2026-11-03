@@ -1,5 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import ts from 'typescript'
+import { SyntaxKind, type Node as NativeNode, type SourceFile as NativeSourceFile } from 'tsrs/unstable/ast'
 import { spawnSync } from 'node:child_process'
 import {
   cpSync,
@@ -12,7 +14,9 @@ import {
 } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+import { indexNativeSpans } from '../src/tsrs-adapter.ts'
+import { inventory } from '../src/inventory.ts'
 import { canonicalSource } from './native/client.ts'
 import { materializeFixture } from './native/fixtures.ts'
 import { buildSnapshot } from '../src/retention.ts'
@@ -28,6 +32,78 @@ Scenario: Handle
  When I invoke "handle" with {}
  Then response "status" equals "ok"
 `
+
+test('selective native span indexing preserves the full walk on maintained lexical trees', () => {
+  const root = fileURLToPath(new URL('../', import.meta.url))
+  const config = JSON.parse(readFileSync(join(root, 'bonsai.json'), 'utf8')) as Config
+  let fullCount = 0
+  let selectedCount = 0
+  for (const file of inventory(root, config.maintained, config.exclude).filter((file) => /\.[cm]?ts$/.test(file))) {
+    const ast = ts.createSourceFile(file, readFileSync(join(root, file), 'utf8'), ts.ScriptTarget.ES2023, true)
+    const spans: { start: number; end: number; kind: string }[] = []
+    let identifiers = 0
+    const select = (node: ts.Node): void => {
+      if ((ts.isIdentifier(node) && identifiers++ % 3 === 0) || ts.isPropertyAccessExpression(node))
+        spans.push({ start: node.getStart(ast), end: node.end, kind: ts.SyntaxKind[node.kind] })
+      ts.forEachChild(node, select)
+    }
+    select(ast)
+    const key = (start: number, end: number, kind: string) => `${start}:${end}:${kind}`
+    const required = new Set(spans.map((span) => key(span.start, span.end, span.kind)))
+    const expected = new Set<string>()
+    const full = (node: ts.Node): void => {
+      fullCount++
+      const entry = key(node.getStart(ast), node.end, ts.SyntaxKind[node.kind])
+      if (required.has(entry)) expected.add(entry)
+      ts.forEachChild(node, full)
+    }
+    full(ast)
+    // A lazy facade isolates traversal from native execution; the existing
+    // native/reference tests separately qualify real compiler coordinates.
+    const wrap = (node: ts.Node): NativeNode => {
+      selectedCount++
+      return {
+        pos: node.pos, end: node.end,
+        kind: SyntaxKind[ts.SyntaxKind[node.kind] as keyof typeof SyntaxKind],
+        getStart: () => node.getStart(ast),
+        forEachChild: (visit: (child: NativeNode) => void) => ts.forEachChild(node, (child) => visit(wrap(child))),
+      } as unknown as NativeNode
+    }
+    const actual = indexNativeSpans(wrap(ast) as NativeSourceFile, spans)
+    assert.deepEqual(new Set(actual.keys()), expected, file)
+    assert.equal(actual.size, required.size, file)
+  }
+  assert.ok(fullCount > 1000)
+  assert.ok(selectedCount < fullCount, `${selectedCount} selective nodes versus ${fullCount} full nodes`)
+})
+
+test('selective native span indexing preserves Unicode and falls back for unknown or inconsistent ranges', () => {
+  const text = '// 🌳 café\nconst λ = input; const unused = [1, 2, 3];'
+  const ast = ts.createSourceFile('unicode.ts', text, ts.ScriptTarget.Latest, true)
+  const selected = text.indexOf('λ')
+  const leaf = (start: number, end = start + 1): NativeNode => ({
+    pos: start, end, kind: SyntaxKind.Identifier, getStart: () => start, forEachChild: () => {},
+  }) as unknown as NativeNode
+  const branch = (pos: number, end: number, children: NativeNode[]): NativeNode => ({
+    pos, end, kind: SyntaxKind.Block, getStart: () => Math.max(0, pos),
+    forEachChild: (visit: (node: NativeNode) => void) => { children.forEach(visit) },
+  }) as unknown as NativeNode
+  const unicode = leaf(selected)
+  const boundary = leaf(ast.end, ast.end)
+  for (const parent of [branch(0, ast.end, [unicode]), branch(-1, -1, [unicode]), branch(0, 1, [unicode])]) {
+    const root = branch(0, ast.end, [parent, boundary]) as NativeSourceFile
+    const spans = [
+      { start: selected, end: selected + 1, kind: 'Identifier' },
+      { start: ast.end, end: ast.end, kind: 'Identifier' },
+    ]
+    const indexed = indexNativeSpans(root, spans)
+    assert.equal(indexed.get(`${selected}:${selected + 1}:Identifier`), unicode)
+    assert.equal(indexed.get(`${ast.end}:${ast.end}:Identifier`), boundary)
+  }
+  const missing = indexNativeSpans(branch(0, ast.end, []) as NativeSourceFile,
+    [{ start: selected, end: selected + 1, kind: 'Identifier' }])
+  assert.equal(missing.size, 0, 'Absent native mappings remain absent for the existing caller diagnostic')
+})
 
 function fixture(sources: Record<string, string>, maintained?: string[]) {
   const project = materializeFixture({

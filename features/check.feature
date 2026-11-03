@@ -90,18 +90,18 @@ Feature: Admit implementations that fulfill their declared behavior within the c
     And response "decision.status" equals "pass"
     And response "invocationCount" equals 4
 
-  Scenario Outline: Reviewed nesting limits apply even when behavior fits the code allowance
+  Scenario: Reviewed nesting limits apply even when behavior fits the code allowance
     The team permits at most four nested decisions. The application evaluates five
     approval conditions and fulfills its accepted and denied requests under budget.
     A guard-clause rewrite preserves those requests with shallower control flow.
-    When I invoke "check" with {"fixture": "control-depth", "layout": "<layout>"}
-    Then response "exitCode" equals <exit>
-    And response "decision.status" equals "<decision>"
+    The maintainer checks the nested implementation and the rewrite independently.
+    When I invoke "check" with {"fixture": "control-depth", "layout": "nested"}
+    Then response "exitCode" equals 1
+    And response "decision.status" equals "reject"
+    When I invoke "check" with {"fixture": "control-depth", "layout": "flat"}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
 
-    Examples:
-      | layout | exit | decision |
-      | nested | 1    | reject   |
-      | flat   | 0    | pass     |
   Scenario: A Python team checks its application without TypeScript bindings
     The maintained application and its action dictionary are Python files.
     Bonsai must exercise the named handler and apply the same behavioral gate.

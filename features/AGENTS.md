@@ -28,6 +28,8 @@ Cover successful and blocking user outcomes. Backend identity, exact parser stri
 
 Default verification keeps scenarios independent and completes every required observation; `--serial` preserves shared state across ordered scenarios. Actual completion and shutdown belong in product examples. CPU sizing, held-worker progress, shard identities, queue bounds, and protocol permutations retain direct scheduling regressions, including on a one-CPU machine.
 
+Comparative scenarios keep every command input and expected result explicit. Each support call arranges and disposes a fresh consuming project; comparisons do not reuse source, reports, application state, or execution evidence. Dedicated fresh-state and interruption examples retain their execution profiles.
+
 ## Verification
 
 `bun run test:features` verifies that the committed contracts execute and their assertions pass.

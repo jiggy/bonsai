@@ -118,6 +118,8 @@ The native root regression measures the full committed inventory and verifies ev
 
 Native runtime guards trap JS compiler factories while permitting lexical parsing/scanning. Require all diagnostic categories. Known native default-library directive gaps must produce a specific incomplete result for owned and imported declarations, never a missing-diagnostic pass. Preserve full fact parity for supported valid syntax; malformed lexical ASTs may be provisional only with blocking diagnostics and no evidence.
 
+`tsrs-collector.test.ts` compares selective native span indexing with a full walk over the maintained lexical trees, including Unicode, zero-width boundaries, and unknown or inconsistent-range fallbacks. These traversal tests complement real native/reference parity; a lexical facade does not qualify native execution.
+
 Lazy project startup regressions compare configuration values, object prototypes, validation, and exact syntax diagnostics with the reference parser. A runtime module-load guard must reject TypeScript in standard-config native CLI parents while allowing and observing its semantic-worker load. Prove the guard with a direct compiler-module load and JSONC fallback controls; metadata-only configuration inspection remains compiler-free for standard JSON.
 
 Native session regressions prove lexical-worker reuse without sharing action results or application modules. Compare warm source facts against fresh reference analyses through edits to owned source, external declarations, import targets, and maintained roots. Exercise actual repeated stateful actions, separate owner scopes, caller-relative binary overrides, and changed runtime options; context changes must retain the fresh-worker behavior.

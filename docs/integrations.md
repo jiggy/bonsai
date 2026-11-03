@@ -290,7 +290,7 @@ passing observation are separate facts.
 The installed-package smoke in `test/jig-real.test.ts` passed with
 `@jigging/jig` **0.1.0-alpha.42**, `@jigging/flow`
 **0.1.0-alpha.15**, and **Bun 1.4.3** on a qualified **Ubuntu 24.04 x64** host
-on 2026-11-03. The [recorded CI job](https://github.com/jiggy/bonsai/actions/runs/41621380926/job/125868629272)
+on 2026-11-03. The [recorded CI job](https://github.com/jiggy/bonsai/actions/runs/41626088946/job/125883866738)
 also passed the official host preflight and residue checks. This qualification
 covers those exact package versions and host setup; other releases and hosts
 need their own validation.
@@ -299,9 +299,12 @@ need their own validation.
 registry access and a qualified host. Ordinary tests stay network-free. Static
 fixtures use type declarations only and do not qualify a Jig runtime.
 
-The real-package checks cover named CLI execution, a passing Bonsai observation,
-ancestry into a selected child method, static explanation without application
-execution, refusal of stale approved source, and rejection of an approved method
-returning the wrong result. These selected controls and faults do not establish
-general framework support, complete runtime coverage, hostile-code isolation,
-or independently authenticated admission.
+The real-package checks carry publisher-facing Given/When/Then requirements
+through named CLI execution. They verify the chosen problem in returned practice
+materials and a separate sample status, trace both obligations into the selected
+method and its child, and explain that ancestry without application execution.
+They also refuse stale approved source before loading the wrapper. After the
+changed method is explicitly reviewed, its wrong sample status fails its own
+observation while the materials observation still passes. These selected
+controls and faults do not establish general framework support, complete runtime
+coverage, hostile-code isolation, or independently authenticated admission.

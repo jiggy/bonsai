@@ -25,6 +25,51 @@ type SymbolView = Pick<ts.Symbol, 'flags' | 'declarations' | 'valueDeclaration' 
 type TypeView = Pick<ts.Type, 'getSymbol'>
 
 const nodeKey = (start: number, end: number, kind: string) => `${start}:${end}:${kind}`
+
+/** Index exact requested spans without materializing unrelated native subtrees. */
+export function indexNativeSpans(
+  remote: NativeSourceFile,
+  spans: readonly { start: number; end: number; kind: string }[],
+): RemoteSpan {
+  const required = new Set(spans.map(({ start, end, kind }) => nodeKey(start, end, kind)))
+  const kinds = new Set(spans.map(({ kind }) => kind))
+  const starts = spans.map(({ start }) => start).sort((left, right) => left - right)
+  const bounded = spans.every(({ start, end }) =>
+    Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start,
+  )
+  const found: RemoteSpan = new Map()
+  if (!required.size) return found
+  const visit = (node: NativeNode, prune: boolean): void => {
+    const { pos, end } = node
+    const known = prune && Number.isSafeInteger(pos) && Number.isSafeInteger(end) && pos >= 0 && end >= pos
+    if (known) {
+      let low = 0
+      let high = starts.length
+      while (low < high) {
+        const middle = (low + high) >>> 1
+        if (starts[middle]! < pos) low = middle + 1
+        else high = middle
+      }
+      // Inclusive end preserves zero-width and touching-boundary nodes.
+      if (low === starts.length || starts[low]! > end) return
+    }
+    const kind = SyntaxKind[node.kind]
+    if (kinds.has(kind)) {
+      const key = nodeKey(node.getStart(remote), end, kind)
+      if (required.has(key)) found.set(key, node)
+    }
+    node.forEachChild((child) => visit(child, known))
+  }
+  visit(remote, bounded)
+  // Unusual native ranges must not lose a requested mapping. Retain the exact
+  // full-walk behavior before the caller diagnoses any still-missing span.
+  if (found.size !== required.size) {
+    found.clear()
+    visit(remote, false)
+  }
+  return found
+}
+
 const symbolKey = (symbol: NativeSymbol) => {
   const reference = symbol.reference
   return JSON.stringify([
@@ -403,22 +448,9 @@ export async function createTsrsProgram(
         ts.forEachChild(node, visit)
       }
       visit(ast)
-      const required = new Set(
-        [...candidates, ...expressions].map((node) =>
-          nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind]),
-        ),
-      )
-      const kinds = new Set([...candidates, ...expressions].map((node) => ts.SyntaxKind[node.kind]))
-      const remoteNodes: RemoteSpan = new Map()
-      const visitRemote = (node: NativeNode): void => {
-        const kind = SyntaxKind[node.kind]
-        if (kinds.has(kind)) {
-          const key = nodeKey(node.getStart(remote), node.end, kind)
-          if (required.has(key)) remoteNodes.set(key, node)
-        }
-        node.forEachChild(visitRemote)
-      }
-      visitRemote(remote)
+      const remoteNodes = indexNativeSpans(remote, [...candidates, ...expressions].map((node) => ({
+        start: node.getStart(ast), end: node.end, kind: ts.SyntaxKind[node.kind],
+      })))
       const queries = candidates.map((local) => {
         const native = remoteNodes.get(
           nodeKey(local.getStart(ast), local.end, ts.SyntaxKind[local.kind]),

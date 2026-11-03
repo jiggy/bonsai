@@ -3,36 +3,52 @@ Feature: Earn one global allowance from observable product surface
   These examples start with 1000 tokens for up to two action-observation pairs,
   add 500 tokens per surface doubling, and stop at a hard limit of 1800 tokens.
 
-  Scenario Outline: Allowance grows per surface doubling and stops at the hard limit
-    When I invoke "check" with {"fixture": "accounting", "case": "ceiling", "surface": <surface>}
+  Scenario: Allowance grows per surface doubling and stops at the hard limit
+    The maintainer compares applications with two, three, four, and eight required fields.
+    Each application is checked independently under the same reviewed policy.
+    When I invoke "check" with {"fixture": "accounting", "case": "ceiling", "surface": 2}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
-    And response "decision.surface" equals <surface>
-    And response "decision.ceiling" equals <ceiling>
+    And response "decision.surface" equals 2
+    And response "decision.ceiling" equals 1000
+    And response "invocationCount" equals 1
+    When I invoke "check" with {"fixture": "accounting", "case": "ceiling", "surface": 3}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+    And response "decision.surface" equals 3
+    And response "decision.ceiling" equals 1292
+    And response "invocationCount" equals 1
+    When I invoke "check" with {"fixture": "accounting", "case": "ceiling", "surface": 4}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+    And response "decision.surface" equals 4
+    And response "decision.ceiling" equals 1500
+    And response "invocationCount" equals 1
+    When I invoke "check" with {"fixture": "accounting", "case": "ceiling", "surface": 8}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+    And response "decision.surface" equals 8
+    And response "decision.ceiling" equals 1800
     And response "invocationCount" equals 1
 
-    Examples:
-      | surface | ceiling |
-      | 2       | 1000    |
-      | 3       | 1292    |
-      | 4       | 1500    |
-      | 8       | 1800    |
-
-  Scenario Outline: Duplicate and split contracts keep every invocation without earning more allowance
+  Scenario: Duplicate and split contracts keep every invocation without earning more allowance
     The positive input 1 and negative input 0 are each required twice.
-    Their requirements are either duplicated across files or split by outcome.
-    When I invoke "check" with {"fixture": "accounting", "case": "duplicate-contracts", "layout": "<layout>"}
+    The maintainer compares independent projects whose requirements are duplicated
+    across files in one project and split by outcome in the other.
+    When I invoke "check" with {"fixture": "accounting", "case": "duplicate-contracts", "layout": "duplicate"}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
     And response "decision.surface" equals 1
     And response "decision.ceiling" equals 1000
     And response "invocationCount" equals 4
     And response "inputValues" equals [0, 0, 1, 1]
-
-    Examples:
-      | layout    |
-      | duplicate |
-      | split     |
+    When I invoke "check" with {"fixture": "accounting", "case": "duplicate-contracts", "layout": "split"}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+    And response "decision.surface" equals 1
+    And response "decision.ceiling" equals 1000
+    And response "invocationCount" equals 4
+    And response "inputValues" equals [0, 0, 1, 1]
 
   Scenario: Collection positions share allowance while distinct actions remain distinct
     The sample action requires prices at items[0] and items[1]; the other action

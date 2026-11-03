@@ -96,19 +96,90 @@ jobs:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
           RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
-      # TEMPORARY scheduler profile: remove this step and its two artifact paths after diagnosis.
+      # TEMPORARY scheduler profile: remove this step and its three artifact paths after diagnosis.
       - name: Profile the root scenario queue without changing its policy (temporary)
         if: always()
         continue-on-error: true
         env:
           RAYON_NUM_THREADS: '1'
         run: |
+          cat > "$RUNNER_TEMP/bonsai-nested-cli-preload.mjs" <<'JS'
+          import { appendFileSync } from 'node:fs'
+          import { createRequire, syncBuiltinESMExports } from 'node:module'
+          import { resolve } from 'node:path'
+          import { fileURLToPath } from 'node:url'
+          const require = createRequire(import.meta.url)
+          const childProcess = require('node:child_process')
+          const threads = require('node:worker_threads')
+          const entry = resolve('src/cli.ts')
+          const worker = resolve('src/worker.ts')
+          const preload = fileURLToPath(import.meta.url)
+          const trace = fileURLToPath(new URL('./bonsai-nested-cli-trace.jsonl', import.meta.url))
+          // The broker's application thread needs its own explicit Bun preload.
+          if (threads.isMainThread) {
+            threads.Worker = new Proxy(threads.Worker, {
+              construct(target, args, newTarget) {
+                const path = args[0] instanceof URL ? fileURLToPath(args[0]) : args[0]
+                if (path === worker) {
+                  const options = args[1] ?? {}
+                  const previous = options.preload === undefined ? [] : [options.preload].flat()
+                  args = [args[0], { ...options, preload: [...previous, preload] }, ...args.slice(2)]
+                }
+                return Reflect.construct(target, args, newTarget)
+              },
+            })
+          }
+          const phases = new Set([
+            'setup', 'base-archive', 'configuration', 'base', 'candidate', 'evaluation',
+            'report', 'output', 'inventory', 'fingerprint', 'identity', 'source', 'native',
+            'measurement', 'program', 'diagnostics', 'graph', 'python-ast',
+            'analysis-integrity', 'contracts', 'retention', 'verification', 'integrity',
+          ])
+          const statuses = new Set(['completed', 'running', 'interrupted', 'skipped'])
+          const number = value => typeof value === 'number' && Number.isFinite(value) ? value : null
+          const stages = (values, depth = 0) => Array.isArray(values) && depth < 4
+            ? values.filter(value => phases.has(value?.name)).map(value => ({
+              name: value.name, elapsedMs: number(value.elapsedMs),
+              status: statuses.has(value.status) ? value.status : null,
+              ...(Array.isArray(value.stages) ? { stages: stages(value.stages, depth + 1) } : {}),
+            })) : []
+          const timing = value => value && typeof value === 'object' ? {
+            elapsedMs: number(value.elapsedMs), stages: stages(value.stages),
+            ...(value.feedback ? { feedback: {
+              elapsedMs: number(value.feedback.elapsedMs), limitMs: number(value.feedback.limitMs),
+            } } : {}),
+          } : null
+          const commands = new Set(['check', 'explain', 'config', 'init', 'help', 'completion', '--help', '--version'])
+          const original = childProcess.spawnSync
+          let calls = 0
+          childProcess.spawnSync = function (...args) {
+            if (args[0] !== process.execPath || !Array.isArray(args[1]) || args[1][0] !== entry)
+              return Reflect.apply(original, this, args)
+            const started = performance.now()
+            const result = Reflect.apply(original, this, args)
+            const elapsedMs = performance.now() - started
+            try {
+              let report
+              try { report = JSON.parse(String(result.stdout)) } catch {}
+              appendFileSync(trace, JSON.stringify({
+                diagnostic: 'nested-cli', workerPid: process.pid, call: calls++,
+                command: commands.has(args[1][1]) ? args[1][1] : 'other', elapsedMs,
+                timing: timing(report?.timing), candidateTiming: timing(report?.snapshot?.timing),
+              }) + '\n')
+            } catch { /* Diagnostic output cannot change the nested command's result. */ }
+            return result
+          }
+          syncBuiltinESMExports()
+          JS
+          : > "$RUNNER_TEMP/bonsai-nested-cli-trace.jsonl"
           cat > "$RUNNER_TEMP/bonsai-scheduler-preload.mjs" <<'JS'
           import { createRequire, syncBuiltinESMExports } from 'node:module'
           import { resolve } from 'node:path'
+          import { fileURLToPath } from 'node:url'
           const childProcess = createRequire(import.meta.url)('node:child_process')
           const original = childProcess.spawn
           const worker = resolve('src/worker.ts')
+          const preload = fileURLToPath(new URL('./bonsai-nested-cli-preload.mjs', import.meta.url))
           const began = performance.now()
           let launches = 0
           const emit = value => process.stderr.write(JSON.stringify({
@@ -116,8 +187,10 @@ jobs:
           }) + '\n')
           childProcess.spawn = function (...args) {
             const started = performance.now()
+            const selected = args[0] === process.execPath && Array.isArray(args[1]) && args[1][0] === worker
+            if (selected) args = [args[0], ['--preload', preload, ...args[1]], ...args.slice(2)]
             const child = Reflect.apply(original, this, args)
-            if (args[0] === process.execPath && Array.isArray(args[1]) && args[1][0] === worker) {
+            if (selected) {
               const order = launches++
               emit({ event: 'start', order, pid: child.pid })
               child.once('exit', (code, signal) => emit({
@@ -146,6 +219,12 @@ jobs:
               return value.diagnostic === 'root-scheduler' ? [value] : []
             } catch { return [] }
           })
+          const nested = readFileSync(process.argv[5], 'utf8').split('\n').flatMap(line => {
+            try {
+              const value = JSON.parse(line)
+              return value.diagnostic === 'nested-cli' ? [value] : []
+            } catch { return [] }
+          })
           const snapshot = report.snapshot
           const queue = snapshot.contracts.cases.map((scenario, index) => ({
             index, id: scenario.id, name: scenario.name,
@@ -155,16 +234,23 @@ jobs:
             diagnosticOnly: true, exitCode: Number(process.argv[4]),
             decision: report.decision, verification: snapshot.verification,
             timing: snapshot.timing, launches: events.filter(event => event.event === 'start').length,
+            nestedCommands: nested.length, nestedCommandMs: nested.reduce((total, call) => total + call.elapsedMs, 0),
           }))
           for (const [order, scenario] of queue.entries()) {
             const records = events.filter(event => event.order === order)
-            console.log(JSON.stringify({ diagnostic: 'scenario-lifecycle', order, ...scenario, events: records }))
+            const pid = records.find(event => event.event === 'start')?.pid
+            console.log(JSON.stringify({
+              diagnostic: 'scenario-lifecycle', order, ...scenario, events: records,
+              nestedCli: nested.filter(call => call.workerPid === pid),
+            }))
           }
           if (!events.length) throw new Error('Scheduler preload recorded no application workers')
+          if (!nested.length) throw new Error('Worker preload recorded no nested CLI calls')
           JS
           bun "$RUNNER_TEMP/bonsai-scheduler-summary.mjs" \
             "$RUNNER_TEMP/bonsai-scheduler-report.json" \
-            "$RUNNER_TEMP/bonsai-scheduler-trace.jsonl" "$PROFILE_EXIT"
+            "$RUNNER_TEMP/bonsai-scheduler-trace.jsonl" "$PROFILE_EXIT" \
+            "$RUNNER_TEMP/bonsai-nested-cli-trace.jsonl"
       - name: Save the actual self-check report
         if: always()
         uses: actions/upload-artifact@v4
@@ -174,6 +260,7 @@ jobs:
             ${{ runner.temp }}/bonsai-action-regression.json
             ${{ runner.temp }}/bonsai-scheduler-report.json
             ${{ runner.temp }}/bonsai-scheduler-trace.jsonl
+            ${{ runner.temp }}/bonsai-nested-cli-trace.jsonl
           if-no-files-found: ignore
           retention-days: 14
 
