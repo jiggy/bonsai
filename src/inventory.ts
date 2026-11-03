@@ -6,7 +6,7 @@ import { excludedBy } from './exclusions.ts'
 
 export class InventoryError extends Error {
   constructor(path: string) {
-    super(`Maintained path not found: ${path}`)
+    super(`Maintained path does not exist: ${path}`)
     this.name = 'InventoryError'
   }
 }

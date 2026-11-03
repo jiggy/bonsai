@@ -608,10 +608,18 @@ async function main(): Promise<void> {
       return await collectSnapshot(...parameters)
     } catch (error) {
       if (error instanceof InventoryError) {
+        const policySource =
+          policyValue === '-'
+            ? 'the policy supplied on stdin'
+            : policyValue
+              ? 'the selected policy'
+              : 'bonsai.json'
         const repair =
           parameters[0] === temporary
             ? `Missing from base '${baseValue}'. Select a --base revision that contains this input`
-            : 'Restore the missing file or directory required by the selected policy'
+            : baseValue && !policyValue
+              ? 'Restore the path required by the selected base'
+              : `Restore the path or update the maintained setting in ${policySource}`
         throw new CliError(
           `${error.message}\n${repair}`,
           'INVENTORY',

@@ -18,6 +18,27 @@ import { cliEnvironment, runCli as run } from './cli.ts'
 const example = resolve('examples/checkout')
 const environment = cliEnvironment()
 
+test('check explains missing maintained paths without silently shrinking inventory', () => {
+  const project = fixture()
+  try {
+    cpSync(example, project.root, { recursive: true })
+    const file = join(project.root, 'bonsai.json')
+    const config = JSON.parse(readFileSync(file, 'utf8'))
+    config.maintained.push('skills')
+    writeFileSync(file, JSON.stringify(config))
+    for (const flags of [[], ['--json']]) {
+      const result = run(['check', '--root', project.root, ...flags])
+      assert.equal(result.status, 2, result.stderr)
+      assert.equal(result.stdout, '')
+      assert.match(result.stderr, /Maintained path does not exist: skills/)
+      assert.match(result.stderr, /Restore the path or update the\s+maintained setting/)
+      assert.doesNotMatch(result.stderr, /ENOENT|statx/)
+    }
+  } finally {
+    project.dispose()
+  }
+})
+
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "bonsai ignore's root #"))
   return {

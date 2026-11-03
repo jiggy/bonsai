@@ -12,6 +12,8 @@ Preserve these invariants:
 
 Use Bun by default for dependency installation and package scripts. Install with `bun install --frozen-lockfile`; keep `bun.lock` current and do not generate npm lockfiles. Bun also runs the CLI, tests, and verification workers.
 
+`shell.nix` pins the development package set; its Bun version must satisfy `package.json` engines.
+
 ## Change delivery
 
 Work on a topic branch and open a pull request against `main` for repository changes. Do not push directly to `main`. Leave merging to the user unless explicitly requested.
