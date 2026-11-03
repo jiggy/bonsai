@@ -1,13 +1,25 @@
 ---
 name: bonsai
-description: "Bonsai: use when adopting a complexity budget in a project, implementing changes in a Bonsai-gated codebase, or resolving a rejected or incomplete Bonsai check."
+description: "Build top-down from user outcomes within a Bonsai complexity budget. Use for Bonsai adoption, implementation, refactoring, or resolving a rejected or incomplete check."
 ---
 
 # Work within Bonsai
 
-Keep required product behavior within the project's retained-code allowance. Use measured changes to earn headroom.
+Deliver required product behavior within the project's retained-code allowance. Start from the user's complete outcome and use measured changes to earn headroom.
 
-## 1. Establish the gate
+## 1. Choose the complete delivery slice
+
+Discover whose problem is being solved, the situation that triggers it, and the result they need to inspect or use. Describe the journey from their request to that result before choosing components, selectors or infrastructure. A short outline or existing feature prose is sufficient; do not create another planning system.
+
+Choose the smallest useful end-to-end slice of that journey. Agree on examples of successful delivery and important unsuccessful outcomes whose meaning survives a replacement implementation. Identify the real application boundary, outside-world arrangements and observable deliverables. A collection of individually passing helpers is not a completed slice.
+
+Work from that acceptance example down through only the missing behavior. Keep domain work real; fixtures may arrange unavailable outside systems, not return the finished deliverable or expected verdict. Introduce lower-level contracts and technical tests as the slice exposes a concrete need. Defer generic platforms, speculative abstractions and broad migrations that do not help deliver the current outcome.
+
+Inspect the assembled result before expanding. When a stage fails, repair the smallest responsible boundary while preserving compatible completed work, then exercise the journey again. Do not let locally green checks replace the still-failing user outcome. Expand to another slice after the current one delivers, or explicitly revise its scope with the stakeholder.
+
+**Done:** the next useful delivery, its acceptance observations and its unresolved gap are clear; component work follows from that gap. For a behavior-preserving cleanup, identify the existing journey being protected instead of inventing a new promise.
+
+## 2. Establish the gate
 
 Locate the project's agent instructions, `bonsai.json`, executable bindings, and existing Bonsai command or CI invocation. Identify the effective policy, maintained inventory, checker version, and base revision used for acceptance.
 
@@ -17,7 +29,7 @@ Use the installed checker's `--help` and README for its supported commands and a
 
 **Done:** you can name the exact command, inventory, and policy governing this change. Record any gap between the requested project scope and what the adapter can analyze.
 
-## 2. Measure the starting point
+## 3. Measure the starting point
 
 Run the project's gate with JSON output. If no wrapper exists, run Bonsai from the consuming project's root:
 
@@ -31,9 +43,9 @@ Record retained size, ceiling, required reduction, contract surface, violations,
 
 **Done:** the starting result and every reported blocker are accounted for. If execution is unavailable, record the concrete missing prerequisite and continue work that does not depend on its result.
 
-## 3. Specify, implement, and prune
+## 4. Specify, implement, and prune
 
-Discover the stakeholder rule before choosing selectors: whose problem does it solve, in what situation, and with what observable consequence? Agree on the fewest examples that distinguish the rule and its important boundaries. Their meaning should survive a replacement implementation. Safety and rejection cases qualify when users depend on them. Gherkin, public JSON, actual application execution, and red/green alone do not establish BDD.
+Refine the selected journey into the fewest stakeholder rules and examples needed for this slice. Safety and rejection cases qualify when users depend on them. Gherkin, public JSON, actual application execution, and red/green alone do not establish BDD.
 
 Put those rules and expected outcomes in executable contracts connected to actual application handlers. Explain context in feature prose; fixture identifiers alone cannot carry the requirement. Keep canonical public actions and domain observations. Do not replace technical fields with friendly aliases or an opaque `scenarioPassed` oracle. See [the adoption example](references/adoption.md#4-connect-one-real-behavior) for the supported invocation/response grammar; arbitrary `Given` steps do not execute.
 
@@ -55,7 +67,7 @@ Keep the governing inventory and policy intact while implementing ordinary featu
 
 **Done:** the stakeholder rule and examples meet that review bar, meaningful red/green or control/probe evidence is recorded, moved regression assertions retain verified destinations, and added retained components have contract connections. Report surface/allowance changes separately from actual code savings; moving assertions can lower allowance without reducing retained code.
 
-## 4. Resolve the verdict
+## 5. Resolve the verdict
 
 Rerun the same gate against the changed candidate. Use its result to choose the next action:
 
@@ -77,7 +89,7 @@ Substitute an actual reported component or file. `explain` performs static analy
 
 If the remaining blocker requires a new adapter, a product decision, or a policy decision outside the task's authority, report the exact gap and the decision needed. Keep rejection and incompleteness visible until resolved.
 
-## 5. Report the result
+## 6. Report the result
 
 Report the final verdict, retained size versus ceiling, measured change from the baseline, required checks passed, and other project checks run. State unresolved violations and unsupported scope explicitly. Exit **0** means pass, **1** reject, and **2** incomplete or invalid input; only a fresh pass supports claiming the gate passed.
 

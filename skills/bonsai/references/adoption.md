@@ -1,6 +1,6 @@
 # Set up a project
 
-Read this branch when the consuming project has no established Bonsai gate. Return to the main skill after a verified baseline and rejection probe.
+Read this branch when the consuming project has no established Bonsai gate. Select a useful end-to-end delivery slice using the main skill before adapting the checker. Return after a verified baseline and rejection probe.
 
 ## 1. Check applicability
 
@@ -56,7 +56,7 @@ Use the checker's `examples/checkout/features/checkout.feature` and `examples/ch
 
 The literal `actions` registry serves both static resolution and runtime execution. Keep action identifiers and response selectors explicit. Put cases and expected outcomes in `.feature` files; Bonsai expands each example and owns the response assertions. Read the installed README before introducing other Gherkin forms.
 
-First discover the stakeholder’s rule, relevant context, and observable consequence. Choose minimal examples that distinguish it and its important boundaries. For a checkout owner, a rule might be: only positive whole quantities can place an order. These examples cover acceptance, the zero boundary, and fractional input:
+Start with the complete useful journey: for example, a buyer places an available order and receives the correct items and payable total in a usable order record. Connect acceptance to the real handler and inspect that result before building ancillary validation infrastructure. Then add examples for boundaries that matter to the buyer. The following syntax example covers only the quantity rule; it supplements, rather than replaces, the successful order journey:
 
 ```gherkin
 Feature: Place orders only for valid quantities
@@ -105,7 +105,7 @@ Add a project command that preserves the checker's exit status and an agent-inst
 
 Use the installed skill's actual location and the real command. Copy this entire skill directory, including `references/`, into the agent system's skill location when installing it; the reference link must remain valid.
 
-State the governing BDD rule in the project's agent instructions: discover stakeholder rules and implementation-independent examples before implementation; reviewed product promises determine the allowance. Test mechanics and supporting test counts do not qualify promises. Require meaningful failure evidence, preservation of technical regressions in the appropriate tests, full verification after refactoring, and separate reporting of allowance changes and code savings. Keep existing product promises unless the task authorizes their change. A failing budget calls for code reduction, not invented promises.
+State the governing BDD rule in the project's agent instructions: choose a complete user journey and its smallest useful delivery slice before decomposing it; drive implementation from its acceptance examples and inspect the assembled result before expanding. Reviewed product promises determine the allowance. Test mechanics and supporting test counts do not qualify promises. Require meaningful failure evidence, preservation of technical regressions in the appropriate tests, full verification after refactoring, and separate reporting of allowance changes and code savings. Keep existing product promises unless the task authorizes their change. A failing budget calls for code reduction, not invented promises.
 
 For initial adoption, run without `--base` until the base revision contains the project-root configuration and contracts. Subsequently, `--base <revision>` requires `--root` to be the Git repository root and uses the base's policy and inventory by default. Ensure that revision is available in local and CI checkouts. Treat additions to the maintained inventory as explicit scope changes; a candidate edit alone does not change the base inventory.
 
