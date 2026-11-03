@@ -24,7 +24,7 @@ export function checkIntegrations(input: PublisherInput) {
       '',
     ].join('\n'),
     'bindings.ts': `import { pilot } from './publisher.ts'
-export const actions = { pilot }
+export const actions = { pilot: pilot }
 export const steps = [
   { given: 'a publisher has chosen {problem:string}', input: { problem: { parameter: 'problem' } } },
   { when: 'they commission a pilot', action: 'pilot' },
@@ -67,7 +67,7 @@ export function explainIntegrations(input: { target: string }) {
     Then response "status" equals "ready"
 `,
     'bindings.ts': `import { pilot } from './handler.ts'
-export const actions = { pilot }
+export const actions = { pilot: pilot }
 `,
     'handler.ts': `import { spawnSync } from 'node:child_process'
 import { writeFileSync } from 'node:fs'
