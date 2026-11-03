@@ -18,10 +18,13 @@ import { checkControlDepth } from './control-depth.ts'
 import { checkPythonProject } from './python.ts'
 import { githubAction } from './github-action.ts'
 import { checkHtmlReport } from './report.ts'
+import { checkIntegrations, explainIntegrations } from './integrations.ts'
 
 /** Fixture inputs arrange contexts; the action identity remains the public command. */
 export function checkProject(input: Record<string, unknown>) {
   switch (input.fixture) {
+    case 'integrations':
+      return checkIntegrations(input as Parameters<typeof checkIntegrations>[0])
     case 'python':
       return checkPythonProject()
     case 'accounting':
@@ -56,6 +59,8 @@ export function inspectConfiguration(input: Record<string, unknown>) {
 }
 
 export function explainComponent(input: Record<string, unknown>) {
+  if (input.fixture === 'integrations')
+    return explainIntegrations(input as Parameters<typeof explainIntegrations>[0])
   return input.fixture === 'project'
     ? projectBehavior(input as Parameters<typeof projectBehavior>[0])
     : explainBasicComponent(input)

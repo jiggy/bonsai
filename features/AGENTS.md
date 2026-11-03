@@ -10,6 +10,8 @@ Root `bonsai.bindings.ts` connects stable public command identities to `support/
 
 `report.feature` covers saving checks for later HTML inspection, retaining rejected or incomplete decisions and clean machine-readable output, default report generation, and the report opt-out for read-only projects.
 
+`integrations.feature` covers publisher-authored domain requirements, independently required deliverables, preserved context and invocation obligations, and read-only ancestry through a selected named command route without justifying unrelated flows.
+
 Technical compiler, parser, protocol, schema, scheduling, and presentation regressions belong in `test/`. They preserve detailed proof without adding product allowance.
 
 ## Local Contracts
