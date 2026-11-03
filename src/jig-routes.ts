@@ -19,60 +19,72 @@ type JigRoute =
 
 /** Resolve the literal local-binding subset of Jig authoring without loading it. */
 export function createJigRouteAdapter(root: string, files: string[], program: ts.Program) {
-  const checker = program.getTypeChecker()
-  const imports = new Map<ts.Symbol, { module: string; name: string }>()
-  const locals = new Set<ts.Symbol>()
   const maintained = new Set(files)
   const canonicalRoot = realpathSync(root)
-  for (const file of files) {
-    const ast = program.getSourceFile(resolve(root, file))
-    if (!ast) continue
-    for (const statement of ast.statements) {
-      if (
-        !ts.isImportDeclaration(statement) ||
-        !ts.isStringLiteral(statement.moduleSpecifier) ||
-        statement.importClause?.isTypeOnly
-      )
-        continue
-      const bindings = statement.importClause?.namedBindings
-      if (bindings && ts.isNamedImports(bindings))
-        for (const binding of bindings.elements) {
-          if (binding.isTypeOnly) continue
-          const symbol = checker.getSymbolAtLocation(binding.name)
-          if (symbol)
-            imports.set(symbol, {
-              module: statement.moduleSpecifier.text,
-              name: (binding.propertyName ?? binding.name).text,
-            })
-        }
-    }
-    const visit = (node: ts.Node): void => {
-      if (
-        ts.isVariableDeclaration(node) ||
-        ts.isParameter(node) ||
-        ts.isFunctionDeclaration(node) ||
-        ts.isFunctionExpression(node) ||
-        ts.isClassDeclaration(node) ||
-        ts.isClassExpression(node) ||
-        ts.isEnumDeclaration(node) ||
-        ts.isModuleDeclaration(node) ||
-        ts.isBindingElement(node) ||
-        ts.isImportSpecifier(node) ||
-        ts.isImportClause(node) ||
-        ts.isNamespaceImport(node) ||
-        ts.isImportEqualsDeclaration(node)
-      ) {
-        if (node.name && ts.isIdentifier(node.name)) {
-          const symbol = checker.getSymbolAtLocation(node.name)
-          if (symbol) locals.add(symbol)
-        }
+  let context:
+    | {
+        checker: ts.TypeChecker
+        imports: Map<ts.Symbol, { module: string; name: string }>
+        locals: Set<ts.Symbol>
       }
-      ts.forEachChild(node, visit)
+    | undefined
+  const semanticContext = () => {
+    if (context) return context
+    const checker = program.getTypeChecker()
+    const imports = new Map<ts.Symbol, { module: string; name: string }>()
+    const locals = new Set<ts.Symbol>()
+    for (const file of files) {
+      const ast = program.getSourceFile(resolve(root, file))
+      if (!ast) continue
+      for (const statement of ast.statements) {
+        if (
+          !ts.isImportDeclaration(statement) ||
+          !ts.isStringLiteral(statement.moduleSpecifier) ||
+          statement.importClause?.isTypeOnly
+        )
+          continue
+        const bindings = statement.importClause?.namedBindings
+        if (bindings && ts.isNamedImports(bindings))
+          for (const binding of bindings.elements) {
+            if (binding.isTypeOnly) continue
+            const symbol = checker.getSymbolAtLocation(binding.name)
+            if (symbol)
+              imports.set(symbol, {
+                module: statement.moduleSpecifier.text,
+                name: (binding.propertyName ?? binding.name).text,
+              })
+          }
+      }
+      const visit = (node: ts.Node): void => {
+        if (
+          ts.isVariableDeclaration(node) ||
+          ts.isParameter(node) ||
+          ts.isFunctionDeclaration(node) ||
+          ts.isFunctionExpression(node) ||
+          ts.isClassDeclaration(node) ||
+          ts.isClassExpression(node) ||
+          ts.isEnumDeclaration(node) ||
+          ts.isModuleDeclaration(node) ||
+          ts.isBindingElement(node) ||
+          ts.isImportSpecifier(node) ||
+          ts.isImportClause(node) ||
+          ts.isNamespaceImport(node) ||
+          ts.isImportEqualsDeclaration(node)
+        ) {
+          if (node.name && ts.isIdentifier(node.name)) {
+            const symbol = checker.getSymbolAtLocation(node.name)
+            if (symbol) locals.add(symbol)
+          }
+        }
+        ts.forEachChild(node, visit)
+      }
+      visit(ast)
     }
-    visit(ast)
+    return (context = { checker, imports, locals })
   }
   const imported = (expression: ts.Expression, module: string, names: string[]) => {
     if (!ts.isIdentifier(expression)) return false
+    const { checker, imports } = semanticContext()
     const symbol = checker.getSymbolAtLocation(expression)
     const binding = symbol && imports.get(symbol)
     return binding?.module === module && names.includes(binding.name)
@@ -228,6 +240,7 @@ export function createJigRouteAdapter(root: string, files: string[], program: ts
       value.arguments?.length !== 2
     )
       return false
+    const { checker, locals } = semanticContext()
     const symbol = checker.getSymbolAtLocation(value.expression)
     if (!symbol || symbol.flags & ts.SymbolFlags.Alias || locals.has(symbol)) return false
     const [path, base] = value.arguments
@@ -252,15 +265,6 @@ export function createJigRouteAdapter(root: string, files: string[], program: ts
     }
   }
   return (call: ts.CallExpression): JigRoute | undefined => {
-    if (
-      !imported(call.expression, 'node:child_process', [
-        'spawn',
-        'spawnSync',
-        'execFile',
-        'execFileSync',
-      ])
-    )
-      return undefined
     const executable = call.arguments[0]
     if (!executable || !ts.isStringLiteralLike(executable) || executable.text !== 'jig')
       return undefined
@@ -271,6 +275,15 @@ export function createJigRouteAdapter(root: string, files: string[], program: ts
       args.elements[0] &&
       ts.isStringLiteralLike(args.elements[0]) &&
       args.elements[0].text !== 'run'
+    )
+      return undefined
+    if (
+      !imported(call.expression, 'node:child_process', [
+        'spawn',
+        'spawnSync',
+        'execFile',
+        'execFileSync',
+      ])
     )
       return undefined
     try {

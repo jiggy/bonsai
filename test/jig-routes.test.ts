@@ -116,6 +116,38 @@ function problem(project: ReturnType<typeof fixture>) {
   return result[0]!.problem
 }
 
+test('Jig route adapter avoids semantic queries for unrelated calls and other Jig commands', () => {
+  const program = {
+    getTypeChecker() {
+      assert.fail('Unrelated calls must not initialize semantic context')
+    },
+    getSourceFile() {
+      assert.fail('Unrelated calls must not scan maintained source')
+    },
+  } as unknown as ts.Program
+  const select = createJigRouteAdapter(process.cwd(), ['unused.ts'], program)
+  const ast = ts.createSourceFile(
+    'unrelated.ts',
+    `launch('node', ['script.ts'])
+     launch(command, ['run', 'binding:pilot'])
+     launch('jig', ['inspect', 'binding:pilot', '--json'])
+     launch('jig', ['review', '--yes'])
+     JSON.stringify({ value: true })`,
+    ts.ScriptTarget.Latest,
+    true,
+  )
+  let calls = 0
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      calls++
+      assert.equal(select(node), undefined)
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(ast)
+  assert.equal(calls, 5)
+})
+
 test('Jig route adapter resolves aliased imports and the selected literal authoring declarations', () => {
   const project = fixture({
     'handler.ts': handler

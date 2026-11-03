@@ -31,7 +31,7 @@ Scenario: Deny an unpaid request
   )
   try {
     // The rule concerns structure; serial mode avoids unrelated nested-worker startup.
-    return invoke(['check', '--root', fixture.root, '--serial'])
+    return invoke(['check', '--root', fixture.root, '--serial', '--no-report'])
   } finally {
     fixture.dispose()
   }

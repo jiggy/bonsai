@@ -287,13 +287,17 @@ passing observation are separate facts.
 
 ### Runtime qualification scope
 
-The explicit real-package test in `test/jig-real.test.ts` pins
-`@jigging/jig` **0.1.0-alpha.42** and `@jigging/flow`
-**0.1.0-alpha.15**. These pins define the runtime qualification target for this
-slice, not a promise of compatibility with every Jig release or host. Its
-opt-in run requires registry access and a qualified host; ordinary tests stay
-network-free. Static fixtures use type declarations only and do not qualify a
-Jig runtime.
+The installed-package smoke in `test/jig-real.test.ts` passed with
+`@jigging/jig` **0.1.0-alpha.42**, `@jigging/flow`
+**0.1.0-alpha.15**, and **Bun 1.4.3** on a qualified **Ubuntu 24.04 x64** host
+on 2026-11-03. The [recorded CI job](https://github.com/jiggy/bonsai/actions/runs/41621380926/job/125868629272)
+also passed the official host preflight and residue checks. This qualification
+covers those exact package versions and host setup; other releases and hosts
+need their own validation.
+
+`bun run test:jig` explicitly enables this real-package smoke and requires
+registry access and a qualified host. Ordinary tests stay network-free. Static
+fixtures use type declarations only and do not qualify a Jig runtime.
 
 The real-package checks cover named CLI execution, a passing Bonsai observation,
 ancestry into a selected child method, static explanation without application
