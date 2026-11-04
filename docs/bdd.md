@@ -142,7 +142,7 @@ Feature: Place orders only for valid quantities
 This uses the supported invocation/response DSL. Context is explanatory prose,
 not an executable `Given` step; arbitrary domain steps need adapter support.
 The three examples retain one `place-order`/`status` pair and every concrete
-obligation. See [adoption](../skills/bonsai/references/adoption.md) for setup.
+obligation. See [adoption](https://github.com/jiggy/skills/blob/main/skills/bonsai/references/adoption.md) for setup.
 
 ## Implement and verify the agreed rule
 

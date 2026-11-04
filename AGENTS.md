@@ -14,6 +14,14 @@ Use Bun by default for dependency installation and package scripts. Install with
 
 `shell.nix` pins the development package set; its Bun version must satisfy `package.json` engines.
 
+The distributed Bonsai skill is owned by [jiggy/skills](https://github.com/jiggy/skills).
+Edit its guidance and build there; this repository owns the executable, source
+documentation, examples, and licensing inputs. Do not regenerate or vendor the
+distributed skill here. Installed third-party development skills in `.agents/skills/`
+remain local dependencies. The central repository's source references are rebuilt
+after notifications from `.github/workflows/notify-skills.yml` or its scheduled
+reconciliation.
+
 ## Change delivery
 
 Work on a topic branch and open a pull request against `main` for repository changes. Do not push directly to `main`. Leave merging to the user unless explicitly requested.
@@ -153,7 +161,6 @@ The root owns the reusable `action.yml` manifest, package metadata, runtime depe
 - [test/AGENTS.md](test/AGENTS.md): behavioral and CLI integration tests, native comparisons, and benchmark tooling
 - [docs/AGENTS.md](docs/AGENTS.md): design, roadmap, and CLI reference
 - [examples/AGENTS.md](examples/AGENTS.md): executable checkout fixture
-- [skills/AGENTS.md](skills/AGENTS.md): distributed Bonsai adoption skill
 - [.agents/skills/AGENTS.md](.agents/skills/AGENTS.md): installed CLI design and review skills
-- [.github/AGENTS.md](.github/AGENTS.md): the reusable action implementation, pull request review guidance, CI formatting, validation, permissions, and website deployment
+- [.github/AGENTS.md](.github/AGENTS.md): the reusable action implementation, pull request review guidance, CI formatting, validation, permissions, skill notifications, and website deployment
 - [website/AGENTS.md](website/AGENTS.md): landing page, static assets, and GitHub Pages artifact

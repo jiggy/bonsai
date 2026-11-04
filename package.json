@@ -45,7 +45,6 @@
   },
   "files": [
     "src/",
-    "skills/",
     "docs/",
     "examples/",
     "LICENSE.md",

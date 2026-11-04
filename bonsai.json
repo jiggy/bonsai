@@ -15,7 +15,6 @@
     "native",
     "package.json",
     "shell.nix",
-    "skills",
     "src",
     "test",
     "tsconfig.json"
