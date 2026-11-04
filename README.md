@@ -52,7 +52,7 @@ bonsai check
 ```
 
 `check` stays incomplete until the starters describe real, verified behavior.
-The [adoption guide](skills/bonsai/references/adoption.md) walks through your first
+The [adoption guide](https://github.com/jiggy/skills/blob/main/skills/bonsai/references/adoption.md) walks through your first
 contract and baseline. See [native installation](docs/native-prototype.md) for
 supported platforms.
 
@@ -608,7 +608,7 @@ the production tarball in a fresh consumer. Preview package contents with
 `bun pm pack --dry-run --ignore-scripts`. Verify the released version with
 `bonsai version` from a fresh installation.
 
-Runtime sources, the skill, documentation, example, retained license, component
+Runtime sources, documentation, example, retained license, component
 notices, prices, and lockfile are included; development compiler oracles and
 tests are not. Keep the official version's exact source commit and
 first-publication time in UTC in the release record. Never replace release
@@ -662,9 +662,11 @@ Add an exported, unused function to `examples/checkout/src/checkout.ts`, then re
 
 ## Agent skill
 
-Use the [Bonsai skill](skills/bonsai/SKILL.md) to adopt the gate in a project, implement changes within its allowance, or resolve a failing check. Copy the entire `skills/bonsai/` directory into your agent's skill location, such as `.agents/skills/bonsai/`; keep its `references/` directory alongside `SKILL.md`.
+Use the [Bonsai skill](https://github.com/jiggy/skills/blob/main/skills/bonsai/SKILL.md) to adopt the gate in a project, implement changes within its allowance, or resolve a failing check. It is maintained and distributed in [jiggy/skills](https://github.com/jiggy/skills). Copy the entire `skills/bonsai/` directory from that repository into your agent's skill location, such as `.agents/skills/bonsai/`; keep all references and license files alongside `SKILL.md`.
 
 The skill is model-invoked: its description makes it discoverable for those tasks. First-time setup is disclosed in a separate reference, while the main file carries the measure, implement, prune, and verify loop.
+
+Bonsai owns the executable and its documentation; `jiggy/skills` owns the skill's authored guidance, build, and distribution. Main-branch documentation changes notify that repository to rebuild its source references. See [the workflow guidance](.github/AGENTS.md) for optional immediate notifications; the central repository also reconciles source changes hourly.
 
 ## Describe behavior once
 

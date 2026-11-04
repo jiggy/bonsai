@@ -14,6 +14,7 @@ Own the Bonsai landing page and its GitHub Pages artifact.
 - Keep Open Graph and Twitter image URLs aligned with the 1200×630 `assets/social-card.png`. The root README uses the coordinated 1500×500 `assets/readme-banner.png`.
 - The walkthrough illustrates the CLI; it does not run Bonsai in the browser. Preserve product claims against the repository documentation.
 - Keep copyable setup commands aligned with the README's project quickstart: install the npm package globally, then use short `bonsai` commands. Stop the initial flow after `bonsai init`, then explain connecting real behavior before `bonsai check`. Keep setup copy concise and free of temporary release guidance.
+- Agent-assisted setup installs the complete `skills/bonsai/` directory from `jiggy/skills`, including all references and license files. Keep its link and copyable prompt aligned with that canonical distribution.
 - Dark styling belongs only inside `.code-window` widgets. Preserve the light page, muted lavender palette, accessibility, and reduced-motion behavior.
 - Include asset licenses. Publish only the public artifact, not source instructions or development tools.
 - Keep license and pricing links in the footer. Root `LICENSE.md`, `LICENSES.md`, and `PRICING.md` own the terms; the page grants no additional permissions.

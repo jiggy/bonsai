@@ -1,10 +1,10 @@
 # Purpose
 
-Guide pull request review, automate formatting, verify proposed changes, and publish the landing page.
+Guide pull request review, automate formatting, verify proposed changes, notify central skill builds, and publish the landing page.
 
 ## Ownership
 
-`pull_request_template.md`, `workflows/ci.yml`, `workflows/action.yml`, `workflows/pages.yml`, and the development-only `workflows/rust-backend.yml`.
+`pull_request_template.md`, `workflows/ci.yml`, `workflows/action.yml`, `workflows/pages.yml`, `workflows/notify-skills.yml`, and the development-only `workflows/rust-backend.yml`.
 
 The root `action.yml` delegates checker execution and GitHub summaries to `action/run.ts`.
 
@@ -43,6 +43,19 @@ CI emits a compact actual root verdict, observation completion, ancestry count, 
 `python-contract` is a read-only focused feedback job using pinned CPython 3.12, the genuine Python-team contract, and native Python technical regressions. The normal verify job also sets up that interpreter for the complete suite. This CI setup does not install interpreters during product checks or require Python for TypeScript consumers.
 
 `rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.86.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
+
+`notify-skills.yml` calls the commit-pinned notification workflow in `jiggy/skills`
+after relevant source inputs change on `main`, or on a manual main-branch run. It
+runs only in `jiggy/bonsai`, with no checkout, source commands, or `GITHUB_TOKEN`
+permissions. The central repository owns builds and generated skill files.
+
+For immediate cross-repository notifications, configure the optional repository
+secret `SKILLS_DISPATCH_TOKEN`: a fine-grained token scoped to `jiggy/skills` with
+Contents write permission. Pass only that secret as `dispatch-token` to the
+reusable workflow. The default `GITHUB_TOKEN` cannot dispatch to another
+repository. Without the optional secret, the workflow warns and the central
+repository's hourly reconciliation picks up source changes. Keep the reusable
+workflow pinned to a reviewed full commit SHA when updating it.
 
 ## Work Guidance
 

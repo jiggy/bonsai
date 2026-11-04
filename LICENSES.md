@@ -9,7 +9,8 @@ authorized seller, effective source, and official releases.
 
 | Material | Applicable terms |
 | --- | --- |
-| Original Bonsai source, documentation, configuration, examples, first-party `skills/bonsai/`, website, and artwork | [Bread License 1.0](LICENSE.md), subject to the stated exceptions and generated-output permission |
+| Original Bonsai source, documentation, configuration, examples, website, and artwork | [Bread License 1.0](LICENSE.md), subject to the stated exceptions and generated-output permission |
+| First-party Bonsai skill, maintained and distributed in [jiggy/skills](https://github.com/jiggy/skills/tree/main/skills/bonsai) | The same Bonsai terms and notices; relocation does not relicense existing material |
 | GitHub Action adapter: exactly `action.yml` and `.github/action/run.ts` | [MIT](LICENSE-ACTION); this exception takes effect with the Bonsai adoption |
 | Bonsai presentation material embedded in generated HTML reports, and starter material emitted by `bonsai init` | The [additional generated-output permission](LICENSE.md#additional-permission-for-generated-outputs), alongside applicable third-party terms |
 | OpenRunde fonts in `src/report/assets/fonts/`, including encoded copies | SIL Open Font License 1.1; retained in [the report font notice](src/report/assets/fonts/OpenRunde-LICENSE.txt) and embedded in generated reports |
@@ -38,7 +39,9 @@ direct purchases to the channel in the adoption notice. Recipients receive
 their own applicable permissions, not the distributor's company license.
 
 The npm package supplies preferred-form TypeScript and report assets in
-`src/`, the first-party skill, documentation, examples, and these notices.
+`src/`, documentation, examples, and these notices. The first-party skill is
+distributed separately by [jiggy/skills](https://github.com/jiggy/skills), with
+Bonsai's applicable license, notices, and source provenance.
 The matching GitHub release supplies a downloadable source archive tied to its
 recorded full commit. Supply a source copy recipients can keep, including
 modifications and instructions; do not rely only on a temporary upstream link.
