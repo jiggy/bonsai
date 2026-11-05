@@ -123,7 +123,8 @@ export function live() {
     }
     const options = ['--root', alias ?? fixture.root, '--base', 'HEAD']
     if (kind === 'explicit-policy') options.push('--policy', join(fixture.root, 'bonsai.json'))
-    const command = operation === 'check' ? ['check', '--serial', '--no-report'] : ['config', 'show']
+    const command =
+      operation === 'check' ? ['check', '--serial', '--no-report'] : ['config', 'show']
     const report = invoke([...command, ...options])
     return {
       ...report,
