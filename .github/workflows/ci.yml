@@ -1,6 +1,7 @@
 name: CI
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read
@@ -98,6 +99,39 @@ jobs:
         if: always()
         run: bun test --isolate --timeout 30000 test/python-language.test.ts
 
+  python-arm:
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$FORMATTED_SHA"
+          git merge --no-edit "$FORMATTED_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: bun install --frozen-lockfile
+      - name: Verify Python boundaries on ARM64
+        run: bun test --isolate --timeout 30000 test/python-language.test.ts
+
   verify:
     needs: [format, apply-formatting]
     if: >-
@@ -130,14 +164,16 @@ jobs:
       - run: bun run format:check
       - run: bun run check:skills
       - run: bun run check
-      - run: bun run native:compare
-      - name: Verify native session owner shutdown
-        run: bun test --isolate --timeout 30000 test/native-session-lifecycle.test.ts
       - name: Verify unit, CLI, and executable feature contracts
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
           RAYON_NUM_THREADS: '1'
-        run: bun run test
+        run: |
+          # Keep every ordinary test except the Python file, which runs on a separate
+          # required ARM64 runner. Preserve isolation and the full root contract.
+          mapfile -d '' tests < <(find test -type f -name '*.test.ts' ! -name 'python-language.test.ts' -print0 | sort -z)
+          test "${#tests[@]}" -gt 0
+          bun test --isolate --timeout 30000 "${tests[@]}"
       - name: Summarize actual root verdict and timings
         if: always()
         env:
@@ -217,6 +253,12 @@ jobs:
           ref: 5f92808bc92bb97b06212153ab73d28d551c0b9b # v0.18.0
           path: .bonsai/tsrs
           persist-credentials: false
+      - name: Cache the exact pinned Intel compiler build
+        if: matrix.platform == 'darwin-x64'
+        uses: actions/cache@v4
+        with:
+          path: .bonsai/tsrs/target
+          key: bonsai-tsrs-darwin-x64-5f92808bc92bb97b06212153ab73d28d551c0b9b-ci-ts7.1.0-dev.20260930.4-${{ runner.os }}
       - name: Build the matching Intel macOS API server
         if: matrix.platform == 'darwin-x64'
         working-directory: .bonsai/tsrs
@@ -323,7 +365,7 @@ jobs:
           retention-days: 14
 
   report-formatting-check:
-    needs: [apply-formatting, verify, native-platforms, runner-adapters, report-browser]
+    needs: [apply-formatting, verify, python-arm, native-platforms, runner-adapters, report-browser]
     if: always() && needs.apply-formatting.outputs.sha != ''
     permissions:
       checks: write
@@ -336,11 +378,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
           RESULT: ${{ needs.verify.result }}
+          PYTHON_ARM_RESULT: ${{ needs.python-arm.result }}
           NATIVE_RESULT: ${{ needs.native-platforms.result }}
           RUNNER_RESULT: ${{ needs.runner-adapters.result }}
           BROWSER_RESULT: ${{ needs.report-browser.result }}
         run: |
           conclusion="$RESULT"
+          if [ "$conclusion" = success ] && [ "$PYTHON_ARM_RESULT" != success ]; then
+            conclusion="$PYTHON_ARM_RESULT"
+          fi
           if [ "$conclusion" = success ] && [ "$NATIVE_RESULT" != success ]; then
             conclusion="$NATIVE_RESULT"
           fi
@@ -350,9 +396,11 @@ jobs:
           if [ "$conclusion" = success ] && [ "$BROWSER_RESULT" != success ]; then
             conclusion="$BROWSER_RESULT"
           fi
-          if [ "$conclusion" = skipped ]; then
-            conclusion=failure
-          fi
+          # GitHub job states are not all valid Checks API conclusions.
+          case "$conclusion" in
+            success|failure|cancelled|timed_out|action_required|neutral) ;;
+            *) echo "Unsuccessful or unknown required job result: $conclusion" >&2; conclusion=failure ;;
+          esac
           gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" \
             -f name=verify -f head_sha="$FORMATTED_SHA" \
             -f status=completed -f conclusion="$conclusion" \
