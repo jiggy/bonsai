@@ -51,11 +51,6 @@ Read [the BDD workflow](docs/bdd.md) before changing product behavior or its con
 
 The normal suite executes `features/*.feature` against the real CLI. Use the focused specification command for the red/green loop and `bun run test:features` for the complete self-verification. Keep passing feature evidence distinct from the root retained-code verdict; never change its scope, coefficients, or deadline merely to obtain a pass.
 
-`bun run test` runs isolated unit/CLI tests first, then the complete self-host
-regressions in a fresh Bun process. Both phases are required. This releases the
-test runner's retained compiler heaps before timing the actual gate; preserve its
-full inventory, every obligation, and saved feedback policy.
-
 Verification runs concurrent isolated scenarios by default, sized from available CPU capacity and bounded by scenario count. Use `check --serial` for ordered scenarios sharing application state. Execution mode and worker count do not belong in project settings.
 
 Run `bun run check`, `bun run test`, and `bun run demo`. Add behavioral tests for changes to acceptance or graph propagation. Do not claim broader framework or verification support than the collector actually supplies. Keep README limitations current.
