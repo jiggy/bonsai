@@ -53,7 +53,7 @@ type NativeWorker = ReturnType<typeof spawnNativeWorker>
 export class SessionError extends Error {}
 export class SessionInterrupted extends Error {}
 
-function inherited(): Descriptor | undefined {
+function inherited(checkContent = true): Descriptor | undefined {
   try {
     const value = JSON.parse(process.env.BONSAI_NATIVE_SESSION ?? 'null') as Descriptor | null
     if (
@@ -61,7 +61,9 @@ function inherited(): Descriptor | undefined {
       value.checker === checker &&
       value.binary === binary() &&
       value.environment === environmentKey() &&
-      value.content === sessionContentKey() &&
+      typeof value.content === 'string' &&
+      /^[a-f0-9]{64}$/.test(value.content) &&
+      (!checkContent || value.content === sessionContentKey()) &&
       typeof value.path === 'string' &&
       isAbsolute(value.path) &&
       typeof value.token === 'string' &&
@@ -214,7 +216,9 @@ export async function requestNativeSession(
 export async function openNativeSession(
   options: { inherit?: boolean } = {},
 ): Promise<{ value: string; close(): Promise<void> }> {
-  const borrowed = options.inherit === false ? undefined : inherited()
+  // Forwarding a scope does not consume cached compiler facts. The actual
+  // request still compares fresh content before it can contact the owner.
+  const borrowed = options.inherit === false ? undefined : inherited(false)
   if (borrowed) return { value: JSON.stringify(borrowed), close: async () => {} }
   const environment = { ...process.env }
 
