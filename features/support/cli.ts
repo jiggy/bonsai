@@ -55,7 +55,13 @@ export function runCli(args: string[], overrides: NodeJS.ProcessEnv = {}, input?
 }
 
 export function invoke(args: string[], overrides: NodeJS.ProcessEnv = {}, input?: string) {
-  const result = runCli([...args, '--json'], overrides, input)
+  // These arrangements observe command JSON. Saved-report behavior has its own
+  // real-CLI examples, which call runCli with their authored report options.
+  const report =
+    args[0] === 'check' && !args.includes('--report') && !args.includes('--no-report')
+      ? ['--no-report']
+      : []
+  const result = runCli([...args, ...report, '--json'], overrides, input)
   return { exitCode: result.status, ...JSON.parse(result.stdout || result.stderr) }
 }
 
