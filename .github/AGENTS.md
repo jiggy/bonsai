@@ -55,11 +55,6 @@ Root regression jobs also summarize optional `BONSAI_SPEC_TRACE` nested-command 
 
 ## Work Guidance
 
-The normal test command requires isolated unit/CLI tests and the complete
-self-host regressions in separate sequential Bun processes. Keep both phases
-in validation; the fresh self-host runner avoids retained unit-test heaps during
-the saved-policy timing measurement.
-
 CI and the reusable action pin Bun 1.4.4, which fixes Linux cgroup resource-limit
 handling and ARM64 startup issues. Keep the reference runner, saved feedback
 policy, inventory and obligations fixed when validating runtime upgrades.

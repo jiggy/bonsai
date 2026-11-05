@@ -12,7 +12,7 @@
   },
   "scripts": {
     "check": "tsc --noEmit",
-    "test": "bun test --isolate --timeout 30000 --path-ignore-patterns test/self-host.test.ts && bun run test:features",
+    "test": "bun test --isolate --timeout 30000",
     "bonsai": "bun src/cli.ts",
     "demo": "bun src/cli.ts check --root examples/checkout",
     "format": "biome format --write .",
