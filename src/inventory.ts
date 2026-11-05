@@ -21,8 +21,7 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
   const ownedRoot = absoluteRoot + sep
   const walk = (path: string): void => {
     const absolute = resolve(absoluteRoot, path)
-    if (!absolute.startsWith(ownedRoot))
-      throw new Error(`Maintained path escapes root: ${path}`)
+    if (!absolute.startsWith(ownedRoot)) throw new Error(`Maintained path escapes root: ${path}`)
     const local = relative(root, absolute).split(sep).join('/')
     if (excluded(local)) return
     let stat
