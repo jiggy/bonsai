@@ -67,7 +67,9 @@ export function run(input: { id: number }) {
           return `Scenario: Input ${id}\n When I invoke "run" with {"id":${id}}\n Then response "id" equals ${id}\n`
         }).join('\n'),
     },
-    { maxFeedbackMs: kind === 'timeout' ? 2500 : 15000 },
+    // This consuming fixture tests expiry, not a particular duration. Keep its
+    // deadline short; the live barrier below still requires every lane to start.
+    { maxFeedbackMs: kind === 'timeout' ? 1500 : 15000 },
   )
   return { ...fixture, count, capacity }
 }

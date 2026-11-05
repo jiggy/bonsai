@@ -107,7 +107,12 @@ export async function runActionPlan(
     signal?.removeEventListener('abort', abort)
     if (failure && isolated) {
       signalWorker('SIGTERM')
-      await new Promise<void>((done) => setTimeout(done, 250))
+      const forced = setTimeout(stopWorker, 250)
+      try {
+        await closed
+      } finally {
+        clearTimeout(forced)
+      }
     }
     stopWorker()
     await closed

@@ -60,9 +60,21 @@ export function invoke(args: string[], overrides: NodeJS.ProcessEnv = {}, input?
 }
 
 export function startCli(args: string[], overrides: NodeJS.ProcessEnv = {}) {
-  return spawn(process.execPath, [entry, ...args], {
+  const started = Date.now()
+  const trace = process.env.BONSAI_SPEC_TRACE
+  if (trace) appendFileSync(trace, JSON.stringify({ pid: process.pid, started, args }) + '\n')
+  const child = spawn(process.execPath, [entry, ...args], {
     cwd: repository,
     stdio: ['pipe', 'pipe', 'pipe'],
     env: environment(overrides),
   })
+  if (trace)
+    child.once('close', (exitCode) =>
+      appendFileSync(
+        trace,
+        JSON.stringify({ pid: process.pid, started, args, elapsedMs: Date.now() - started, exitCode }) +
+          '\n',
+      ),
+    )
+  return child
 }
