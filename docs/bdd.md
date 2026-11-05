@@ -145,7 +145,7 @@ It maps Given context into action input and keeps each declared consequence as
 an independent observation; arbitrary Cucumber callbacks remain unsupported.
 The three examples above retain one `place-order`/`status` pair and every concrete
 obligation. Existing contracts need no migration. See
-[adoption](../skills/bonsai/references/adoption.md) for setup.
+[adoption](adoption.md) for setup.
 
 ## Implement and verify the agreed rule
 

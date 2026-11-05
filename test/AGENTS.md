@@ -28,6 +28,11 @@ Queued-application drift regression in `evidence-parallel.test.ts` changes a mai
 
 `github-action.test.ts` exercises the real action entry point against independent Git consumers. Preserve strict base policy/inventory, over-budget growth and pruning, failed/incomplete verification, serial invocation, missing history, actual metrics, and rejection of missing/malformed/contradictory reports. Hosted composite smoke checks live in `.github/workflows/action.yml`; setup failures do not establish the intended gate behavior.
 
+`skill-references.ts` synchronizes selected canonical documentation into the installable skill, using the inventory collector for source and output enumeration.
+Its fixed source map and generated provenance records identify the maintained sources; generated pages carry no maintenance notices.
+`skill-references.test.ts` verifies portable references, unchanged examples, drift repair, bounded output ownership, and the real CI patch export.
+These tooling regressions grant no product allowance and keep reference generation in the read-only job.
+
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs. `verification-policy.test.ts` checks schema and malformed serialized evidence rejection; `fingerprint.test.ts` checks excluded root lockfile presence, content, and removal as evidence inputs.
 
 `retention-state.test.ts` preserves distinct runtime/production traversal states, ordered individual observation membership, supporting-helper cycles, registry initialization, and fresh results after graph edits. Retention refactors may reduce repeated work without changing these facts or adding product allowance.

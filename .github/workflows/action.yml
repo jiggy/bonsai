@@ -1,6 +1,7 @@
 name: Bonsai action
 on:
   push:
+    branches: [main]
   pull_request:
 permissions:
   contents: read

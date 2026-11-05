@@ -1,0 +1,99 @@
+# Work within a Bonsai budget
+
+Deliver required product behavior within the project's retained-code allowance. Start from the user's complete outcome and use measured changes to earn headroom.
+
+## 1. Choose the complete delivery slice
+
+Discover whose problem is being solved, the situation that triggers it, and the result they need to inspect or use. Describe the journey from their request to that result before choosing components, selectors or infrastructure. A short outline or existing feature prose is sufficient; do not create another planning system.
+
+Choose the smallest useful end-to-end slice of that journey. Agree on examples of successful delivery and important unsuccessful outcomes whose meaning survives a replacement implementation. Identify the real application boundary, outside-world arrangements and observable deliverables. A collection of individually passing helpers is not a completed slice.
+
+Work from that acceptance example down through only the missing behavior. Keep domain work real; fixtures may arrange unavailable outside systems, not return the finished deliverable or expected verdict. Introduce lower-level contracts and technical tests as the slice exposes a concrete need. Defer generic platforms, speculative abstractions and broad migrations that do not help deliver the current outcome.
+
+Inspect the assembled result before expanding. When a stage fails, repair the smallest responsible boundary while preserving compatible completed work, then exercise the journey again. Do not let locally green checks replace the still-failing user outcome. Expand to another slice after the current one delivers, or explicitly revise its scope with the stakeholder.
+
+**Done:** the next useful delivery, its acceptance observations and its unresolved gap are clear; component work follows from that gap. For a behavior-preserving cleanup, identify the existing journey being protected instead of inventing a new promise.
+
+## 2. Establish the gate
+
+Locate the project's agent instructions, `bonsai.json`, executable bindings, and existing Bonsai command or CI invocation. Identify the effective policy, maintained inventory, checker version, and base revision used for acceptance.
+
+For first-time adoption, read [Set up a project](adoption.md). Finish that branch with a passing baseline and a demonstrated rejection before returning here.
+
+Check the installed version with `bonsai version` and `bonsai --help`. Use the [supported scope](README.md#limits-and-next-steps) and [Python adapter](README.md#native-python-projects) to select a supported boundary. TypeScript uses named handlers; `.py` bindings select the bounded native Python adapter. The Rust TypeScript backend does not imply support for authored Rust. `check` executes application code; use the project's approved execution environment.
+
+**Done:** you can name the exact command, inventory, and policy governing this change. Record any gap between the requested project scope and what the adapter can analyze.
+
+## 3. Measure the starting point
+
+Run the project's gate with JSON output. If no wrapper exists, run Bonsai from the consuming project's root:
+
+```sh
+bonsai check --json
+```
+
+Preserve any `--root`, `--base`, or `--policy` arguments required by the project's acceptance command. Read the exit status and the report: normal results contain `decision` and `snapshot`; setup errors report `status: incomplete` with a string `error` and actionable metadata on stderr.
+
+Record retained size, ceiling, required reduction, contract surface, violations, and individual required-check outcomes, including every configured supporting runner and quality floor. A pre-existing failure remains a blocker to claiming acceptance.
+
+**Done:** the starting result and every reported blocker are accounted for. If execution is unavailable, record the concrete missing prerequisite and continue work that does not depend on its result.
+
+## 4. Specify, implement, and prune
+
+Refine the selected journey into the fewest stakeholder rules and examples needed for this slice. Safety and rejection cases qualify when users depend on them. Gherkin, public JSON, actual application execution, and red/green alone do not establish BDD.
+
+Put those rules and expected outcomes in executable contracts connected to actual application handlers. Explain context in feature prose; fixture identifiers alone cannot carry the requirement. Keep canonical public actions and domain observations. Do not replace technical fields with friendly aliases or an opaque `scenarioPassed` oracle. See [the adoption example](adoption.md#4-connect-one-real-behavior) for the supported invocation/response grammar; arbitrary `Given` steps do not execute.
+
+For new or changed behavior, write or reuse the acceptance example before implementation. Run it and identify a failure caused by the missing or incorrect product behavior; a broken fixture, missing binding, or unavailable checker does not establish that red step. Implement the smallest passing change, then refactor under the same observations. Use the project's focused acceptance runner when available, followed by the complete Bonsai gate.
+
+When specifying behavior that already works, establish a green control and use an isolated, reversible product fault or rejection probe to show that the intended observation detects the violation. Restore and rerun the control. Report this as retrospective coverage rather than claiming a spec-first failure. Fault sensitivity establishes detection of that fault, not BDD quality. Fixtures arrange, execute, and observe domain facts; they must not calculate expected verdicts or manufacture passed checks.
+
+Keep implementation identities, incidental report layout, compiler diagnostics, protocol details, and performance proofs in technical tests. A public compatibility promise can warrant a product feature, but field visibility alone cannot. Preserve product promises and technical regression assertions during migration: record the tests receiving moved assertions and run them. Do not simply delete checks or retain technical features for headroom. Removing a product promise requires an authorized scope change.
+
+Bonsai counts every maintained `.feature` file, including one placed under `test/`. Keep technical cases in test-source data or disposable generated projects rather than moving them to another maintained `.feature` path. The technical tests and support themselves remain charged.
+
+For a refactor or technical regression with no product behavior change, say so and use the relevant tests. Do not invent a new product feature for that work.
+
+Keep names as short as the application domain permits without ambiguity about a component's role. Use domain verbs and objects when both are needed. Reuse canonical public action names across examples; a new label does not establish a new product capability.
+
+Choose a consistent level of abstraction for the application. Within that level, split responsibilities as far as each resulting piece remains a meaningful capability and the split benefits a caller, maintainer, or future replacement. Apply the same test to the smaller pieces. A function or file boundary alone does not justify another component, public action, or wrapper.
+
+Keep independent concerns independently replaceable. Give components explicit inputs, results, and dependencies; keep orchestration separate from the domain decisions it coordinates. Put a responsibility where it can be understood and changed with the fewest unrelated assumptions. Judge a split by the total burden on its users, including glue, configuration, tests, and documentation.
+
+**Example:** In an order application, `price-order` can communicate more than `price`. Pricing and fulfillment may deserve separate components when each is useful and changes independently. A private formatting helper may remain inside either component. These are domain judgments, not required component names or a prescribed decomposition.
+
+Retain code through contract ancestry. Before adding an abstraction, inspect the existing dependency path for a smaller extension. For an unnecessary layer, rewire its callers, preserve meaningful assertions, and remove the obsolete code and exclusive support together.
+
+Reviewed product observations supply one global allowance. The checker currently counts literal action names paired with normalized selectors; it cannot identify semantic equivalence or distinguish product promises from technical proof artifacts. Audit every added pair against its stakeholder rule. Test counts, fixture names, and aliases do not qualify as new capabilities; there is no second allowance ledger. Every product observation remains required. Technical tests grant no product scope and cannot justify otherwise unrooted production code. Ancestry is structural, not proof of behavioral completeness.
+
+Keep the governing inventory and policy intact while implementing ordinary features or compaction. Treat a requested rule change as an explicit policy change, with its effect reported separately. Never manufacture external promises or remove required assertions to obtain a pass.
+
+**Done:** the stakeholder rule and examples meet that review bar, meaningful red/green or control/probe evidence is recorded, moved regression assertions retain verified destinations, and added retained components have contract connections. Report surface/allowance changes separately from actual code savings; moving assertions can lower allowance without reducing retained code.
+
+## 5. Resolve the verdict
+
+Rerun the same gate against the changed candidate. Use its result to choose the next action:
+
+| Result | Action | Completion criterion |
+| --- | --- | --- |
+| `reject`: size | Reclaim at least `requiredReduction` through actual deletion, inlining, consolidation, or a smaller implementation. Whole-file retained totals determine savings. | A fresh measurement fits the ceiling. |
+| `reject`: ancestry | Run `explain` for each reported component. Delete unsupported scope, repair its real executable connection, or restore a contract required by the authorized behavior. | Every retained component has contract ancestry. |
+| `reject`: assertion, supporting verification, quality floor, or feedback time | Repair the behavior or required verification while preserving every obligation and reviewed floor. | All required checks pass within the configured deadline. |
+| `incomplete` | Resolve the reported missing binding, unsupported syntax, analysis error, interrupted execution, changed files, or missing evidence. | A complete report evaluates the current candidate. |
+| `pass` | Run the project's other required checks. | The gate and those checks pass for the final candidate. |
+
+For a component investigation, use the project's wrapper or:
+
+```sh
+bonsai explain 'src/orders.ts#placeOrder'
+```
+
+Substitute an actual reported component or file. `explain` performs static analysis; it does not verify behavior. Its ancestry and relationship references guide inspection, while a fresh `check` establishes acceptance. Recheck after every subsequent change to the candidate.
+
+If the remaining blocker requires a new adapter, a product decision, or a policy decision outside the task's authority, report the exact gap and the decision needed. Keep rejection and incompleteness visible until resolved.
+
+## 6. Report the result
+
+Report the final verdict, retained size versus ceiling, measured change from the baseline, required checks passed, and other project checks run. State unresolved violations and unsupported scope explicitly. Exit **0** means pass, **1** reject, and **2** incomplete or invalid input; only a fresh pass supports claiming the gate passed.
+
+Unit-test ancestry remains a static association. Preserve the project's required suites. For releases with supporting runners, read [supporting verification](verification.md) and configure its concrete Vitest JSON, Cucumber Messages, or Stryker JSON adapter; coverage and mutation floors remain explicit policy requirements. Missing, stale, skipped, failed, or insufficient required results block acceptance and earn no allowance. Regenerate old evidence when its schema or execution context changes. Checker/toolchain content identities bind local facts; they do not authenticate hostile execution. Trusted merge enforcement still requires a separate protected deployment.
