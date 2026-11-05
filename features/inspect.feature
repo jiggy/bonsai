@@ -11,9 +11,11 @@ Feature: Understand the gate without running the application
     And response "applicationLoaded" equals false
     And response "handlerExecuted" equals false
 
-  Scenario: A maintainer can inspect the contracted order handler without placing an order
+  Scenario: Read-only explanations distinguish a contracted handler from a missing component
     The placeOrder handler has saved requirements for quantity 1 to be accepted and quantity 0 rejected.
     Loading its application module and placing an order each record a separate side effect.
+    The maintainer inspects that handler and a missing.ts file outside an independent copy
+    of the order application. Automation must distinguish the missing target from a successful explanation.
     When I invoke "explain" with {"target": "orders.ts#placeOrder"}
     Then response "exitCode" equals 0
     And response "components.length" equals 1
@@ -22,8 +24,6 @@ Feature: Understand the gate without running the application
     And response "applicationLoaded" equals false
     And response "handlerExecuted" equals false
 
-  Scenario: Automation can distinguish a missing component from a successful explanation
-    The requested missing.ts file does not belong to the order application.
     When I invoke "explain" with {"target": "missing.ts"}
     Then response "exitCode" equals 4
     And response "applicationLoaded" equals false

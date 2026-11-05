@@ -18,7 +18,7 @@ The reusable action installs its own frozen checker dependencies with scripts di
 
 The PR template requires change classification before acceptance examples, distinguishing new or changed product rules, missing meaningful examples, and technical regressions. Refactors can preserve existing promises without adding BDD scenarios. Require explicit destinations for moved assertions, meaningful failure evidence, and separate contract-surface, ceiling, retained-size, and gate-verdict reporting. These are review prompts, not automated semantic eligibility checks.
 
-Formatting and candidate validation have read-only tokens with no persisted credentials. Only isolated jobs apply patches, push branch updates, report check results, or deploy Pages. PR validation checks the merge result. The normal test step includes Bonsai’s executable feature contracts; a passing suite does not claim the root retained-code gate passes.
+Formatting and candidate validation have read-only tokens with no persisted credentials. Only isolated jobs apply patches, push branch updates, report check results, or deploy Pages. PR validation checks the merge result. Required verification includes Bonsai's executable feature contracts; a passing suite does not claim the root retained-code gate passes.
 
 The read-only formatting job formats canonical sources, then runs `sync-skills` and exports both changes, including new and deleted references.
 The isolated writer applies only patch data; verification checks reference freshness after incorporating that commit.
@@ -29,7 +29,9 @@ The website workflow runs `website:build` and `website:check` with read-only con
 
 The isolated deploy job has only `pages: write` and `id-token: write`, targets the `github-pages` environment, and deploys the uploaded artifact without a checkout or candidate commands. Other branches may be checked manually but cannot deploy.
 
-Formatting covers Biome-managed files. Read-only validation installs the pinned native TypeScript checker through Bun and runs differential source comparisons, types, a focused native-session lifecycle check, the full test suite, and the demo. The lifecycle check preserves compiler reaping when owner death occurs with stdin EOF withheld. There is no authored Cargo crate. Keep native analysis commands out of write-capable jobs.
+Formatting covers Biome-managed files. Read-only validation installs the pinned native TypeScript checker through Bun and checks types, reference freshness, the complete test suite, the installed package, and the demo. Native differential comparison and session lifecycle coverage run in the ordinary test group without duplicate standalone invocations. Lifecycle coverage preserves compiler reaping when owner death occurs with stdin EOF withheld. There is no authored Cargo crate. Keep native analysis commands out of write-capable jobs.
+
+`verify` runs `test/self-host.test.ts` in its own fresh Bun test process after the ordinary regression process exits. Both checkout and archive tests remain mandatory, with unchanged source scope, observation obligations, runner, and feedback deadline. The ordinary file selection excludes only that exact path and `test/python-language.test.ts`, which runs in the required `python-arm` job; nested names and new test files stay selected. A failed ordinary regression still permits the root diagnostic step unless cancelled, but cannot make the job pass. Do not retry root checks, accept an incomplete result, or increase their deadline to obtain green CI.
 
 `native-platforms` runs installation regressions on `macos-15-intel` (darwin-x64) and `macos-15` (darwin-arm64), asserting Bun's actual platform and architecture. Intel builds the immutable upstream tsrs revision matching the pinned SDK with its optimized `ci` profile without LTO; Apple Silicon uses its published package. Both require a real explicit-override check with passing evidence, and Intel also exercises the actual unsupported packaged target. There is no authored Cargo crate. These jobs validate the same merge result and formatting commit as Linux. Formatting check reporting includes native-platform failures. Use the ordinary suite's isolated Bun runner and 30-second test timeout for these targeted regressions, including the multi-command check/explain case.
 
@@ -37,17 +39,33 @@ Formatting covers Biome-managed files. Read-only validation installs the pinned 
 
 `runner-adapters` separately runs `test:runners` with Bun and Node 24 in a read-only job. Its disposable consumer installs pinned framework versions and verifies actual Vitest/Cucumber/Stryker reports, coverage, and skipped-work rejection. Preserve formatted-commit validation and include this job in the reported formatting-commit conclusion. The ordinary suite remains network-free.
 
+`jig-adapter` qualifies the installed named-route integration on an ephemeral
+`ubuntu-24.04` x64 runner with Bun 1.4.3, frozen dependencies, disabled install
+scripts, a read-only token, and no persisted checkout credentials. Check out the
+official Jig host provisioner at
+`57c71520f9adf784c6ce85f904878013b7176806` in `.bonsai/jig-host`;
+privilege is confined to that pinned host setup. Set `JIG_CI_BUN` to the canonical
+absolute CI Bun executable. Run `test/jig-real.test.ts` through its
+`run-acquisition-host` command so installed Jig acquires its own required
+rootless scope and application execution stays unprivileged. The cleanup
+assertion runs after success or failure whenever provisioning was attempted.
+An unavailable host, failed installation, or incomplete opted-in smoke is a job
+failure. Preserve formatted-commit validation and include this job in the
+formatting-commit conclusion; this qualification does not relax product policy.
+
 `report-browser` generates actual CLI reports and checks them in Chromium using `test/report-browser.test.ts`. Install Playwright 1.64.1 and its matching Chromium only in runner-temporary tooling directories; keep them outside the product dependency graph and package. The read-only job validates the formatting commit, blocks page HTTP(S) requests, exercises keyboard and explorer flows at desktop/mobile widths, and uploads screenshots, HTML, raw check JSON, and browser results for 14 days, including failures. Include its result in the formatting-commit conclusion. Browser assertions do not substitute for reviewing the screenshots; no pixel baseline or complete accessibility claim is implied.
 
 The browser job enables `BONSAI_BROWSER_PREVIEWS=1` only for its fictional consuming fixture. It logs at most two viewport JPEG previews at quality 45 (desktop/mobile overview), with at most 200 kB of encoded log output total. Preserve full PNG artifacts; the bounded previews allow visual review through job logs when artifact downloads are unavailable. Never enable previews for private consuming-project data.
 
 The native platform job also runs `test/cli-base-paths.test.ts` on both macOS architectures. Preserve coverage of physical and symlinked Git roots, worktrees, read-only inspection, invocation-relative policy paths, and rejection of actual subdirectories. Its real native checks use the same selected compiler override as installation regressions.
 
-The normal test step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temporary directory. The native root regression saves its actual decision, snapshot, and command timings before assertions. Always upload that report as `bonsai-self-check` when available, retaining failures as well as successes for 14 days. This records existing verification, without another full check or changed deadline.
+The full-root feedback step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temporary directory. The native root regression saves its actual decision, snapshot, and command timings before assertions. Always upload that report as `bonsai-self-check` when available, retaining failures as well as successes for 14 days. This records existing verification, without another full check or changed deadline.
 
 CI emits a compact actual root verdict, observation completion, ancestry count, and timing summary from the already-saved self-check report before archiving it. This is measured diagnostic output, not another verification run or a changed feedback deadline.
 
-`python-contract` is a read-only focused feedback job using pinned CPython 3.12, the genuine Python-team contract, and native Python technical regressions. The normal verify job also sets up that interpreter for the complete suite. This CI setup does not install interpreters during product checks or require Python for TypeScript consumers.
+`python-contract` is a read-only focused feedback job using pinned CPython 3.12, the genuine Python-team contract, and native Python technical regressions. The required `python-arm` job retains the same technical regressions on ARM64. The normal verify job also sets up that interpreter for Python-consuming CLI and feature fixtures. This CI setup does not install interpreters during product checks or require Python for TypeScript consumers.
+
+`integration-contracts` gives read-only focused feedback on the publisher vocabulary and selected named-route requirements through real CLI invocations on Linux x64 with Bun 1.4.3. It validates the formatting commit and contributes to its reported conclusion. This does not replace complete root verification or installed Jig qualification.
 
 `rust-backend.yml` is a separate read-only feasibility check. It installs the pinned optional Rust 1.86.0 rust-analyzer/rust-src components and runs a disposable Cargo/LSP probe. It does not enable production Rust analysis or change the ordinary package's toolchain requirements. Keep candidate execution credential-free and bound the probe's requests, output, and process cleanup.
 

@@ -16,6 +16,8 @@ These guides and selected public references are canonical inputs to the installe
 
 `verification.md` owns concrete supporting-runner configuration, exercised format/runtime versions, quality-floor semantics, snapshot/evidence identities, and their authentication limits.
 
+`integrations.md` owns literal domain-step definitions and the bounded Jig binding adapter. Keep independent observations, canonical action identities, contributing definition provenance, static ancestry, and approved-package freshness distinct. Document supported syntax and qualified runtime versions without promising general Cucumber callbacks or arbitrary framework dispatch.
+
 ## Local Contracts
 
 Document actual commands, defaults, streams, and exit codes. Keep unsupported adapters and admission guarantees explicit. Distinguish the internal validated binding-loader boundary from general computed imports, and development oracle comparisons from native full-root admission checks under the saved deadline.

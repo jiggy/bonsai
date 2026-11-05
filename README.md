@@ -697,7 +697,9 @@ export const actions = { 'place-order': placeOrder }
 
 The same registry is statically resolved and executed. Bonsai owns the response assertions; a binding cannot declare an observation passed by merely entering a step. Every scenario outline row becomes a separate scenario, and every observation in that scenario remains a required check. Duplicated scenarios and files do not create extra allowance. Array indices normalize for accounting: `items[0].price` and `items[3].price` both count as `items[*].price`. Their assertions still check the exact positions.
 
-The first grammar supports only these two literal step forms, JSON inputs and expected values, ordinary dotted selectors, and numeric array indices. Backgrounds and outline expansion come from the official Gherkin parser. Unsupported steps, skip tags, DocStrings, DataTables, missing bindings, and analysis errors block acceptance.
+The built-in grammar supports these two literal step forms, JSON inputs and expected values, ordinary dotted selectors, and numeric array indices. TypeScript projects can also export literal `steps` definitions beside `actions` to map publisher-facing Given/When/Then language to input context, canonical actions, and individually required observations. Bonsai inspects that metadata without running step callbacks and retains the feature and definition locations. See [domain steps and named routes](docs/integrations.md) for the complete example and supported forms.
+
+Backgrounds and outline expansion come from the official Gherkin parser. Unsupported or ambiguous steps, skip tags, DocStrings, DataTables, missing bindings, and analysis errors block acceptance. Existing invocation/response contracts need no migration; Python projects retain the built-in grammar.
 
 ## Set the constraint
 
@@ -843,6 +845,22 @@ ambient type discovery and blocks known semantic gaps, including disabling the
 default library through a source directive. This is not universal compiler
 compatibility. See [native scope and commands](docs/native-prototype.md) and
 [performance measurements](docs/performance.md).
+
+### Reviewed Jig binding routes
+
+The bounded Jig adapter follows a literal `jig run binding:<id>` launch with an
+explicit project `cwd`, local `discover` roots, and a literal binding package to
+its maintained `FLOW.ts` entrypoint and referenced child methods. Unrelated
+packages and exports receive no ancestry from that route. `explain` remains
+static and does not run Jig or application code.
+
+Jig runs an approved snapshot. Before application import and after verification,
+`check` uses read-only `jig inspect` results to require that the approved package,
+settings, and complete package digest match the analyzed source and that approval
+stays unchanged. Missing or stale approvals block acceptance under the existing
+feedback deadline. Bonsai never approves changes itself. See the
+[integration guide](docs/integrations.md) for the supported launch/configuration
+subset, qualified runtime versions, and execution limits.
 
 ### Literal text resources
 

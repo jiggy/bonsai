@@ -1,5 +1,6 @@
 import ts from 'typescript'
 import { readFileSync } from 'node:fs'
+import { setImmediate as immediate } from 'node:timers/promises'
 import { resolve, relative } from 'node:path'
 import type { ChildProcess } from 'node:child_process'
 import {
@@ -25,6 +26,53 @@ type SymbolView = Pick<ts.Symbol, 'flags' | 'declarations' | 'valueDeclaration' 
 type TypeView = Pick<ts.Type, 'getSymbol'>
 
 const nodeKey = (start: number, end: number, kind: string) => `${start}:${end}:${kind}`
+
+/** Index exact requested spans without materializing unrelated native subtrees. */
+export function indexNativeSpans(
+  remote: NativeSourceFile,
+  spans: readonly { start: number; end: number; kind: string }[],
+): RemoteSpan {
+  const required = new Set(spans.map(({ start, end, kind }) => nodeKey(start, end, kind)))
+  const kinds = new Set(spans.map(({ kind }) => kind))
+  const starts = spans.map(({ start }) => start).sort((left, right) => left - right)
+  const bounded = spans.every(
+    ({ start, end }) =>
+      Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && end >= start,
+  )
+  const found: RemoteSpan = new Map()
+  if (!required.size) return found
+  const visit = (node: NativeNode, prune: boolean): void => {
+    const { pos, end } = node
+    const known =
+      prune && Number.isSafeInteger(pos) && Number.isSafeInteger(end) && pos >= 0 && end >= pos
+    if (known) {
+      let low = 0
+      let high = starts.length
+      while (low < high) {
+        const middle = (low + high) >>> 1
+        if (starts[middle]! < pos) low = middle + 1
+        else high = middle
+      }
+      // Inclusive end preserves zero-width and touching-boundary nodes.
+      if (low === starts.length || starts[low]! > end) return
+    }
+    const kind = SyntaxKind[node.kind]
+    if (kinds.has(kind)) {
+      const key = nodeKey(node.getStart(remote), end, kind)
+      if (required.has(key)) found.set(key, node)
+    }
+    node.forEachChild((child) => visit(child, known))
+  }
+  visit(remote, bounded)
+  // Unusual native ranges must not lose a requested mapping. Retain the exact
+  // full-walk behavior before the caller diagnoses any still-missing span.
+  if (found.size !== required.size) {
+    found.clear()
+    visit(remote, false)
+  }
+  return found
+}
+
 const symbolKey = (symbol: NativeSymbol) => {
   const reference = symbol.reference
   return JSON.stringify([
@@ -179,61 +227,7 @@ export async function createTsrsProgram(
     )
     const checker = nativeProgram.getProject().checker
 
-    timer?.start('diagnostics')
-    const categories = await Promise.all([
-      nativeProgram.getConfigFileParsingDiagnostics(),
-      nativeProgram.getProgramDiagnostics(),
-      nativeProgram.getSyntacticDiagnostics(),
-      nativeProgram.getBindDiagnostics(),
-      nativeProgram.getGlobalDiagnostics(),
-      nativeProgram.getSemanticDiagnostics(),
-    ])
-    const diagnostics = ts.sortAndDeduplicateDiagnostics(categories.flat().map(diagnosticView))
-    const problems = diagnostics.map((diagnostic) => {
-      const original = categories
-        .flat()
-        .find(
-          (entry) =>
-            entry.fileName === diagnostic.file?.fileName &&
-            entry.pos === diagnostic.start &&
-            entry.code === diagnostic.code,
-        )
-      const location =
-        diagnostic.file && original?.startPosition
-          ? `${relative(root, diagnostic.file.fileName)}:${original.startPosition.line + 1}: `
-          : ''
-      return location + ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
-    })
-
-    timer?.start('graph')
-    const allNames = await nativeProgram.getSourceFileNames()
-    const metadata = await Promise.all(
-      allNames.map((file) => nativeProgram.getSourceFileMetadata(file)),
-    )
-    const external = new Set(
-      allNames.filter((_file, index) => metadata[index]?.isFromExternalLibrary).map(canonical),
-    )
-    const libraries = new Set(
-      allNames.filter((_file, index) => metadata[index]?.isDefaultLibrary).map(canonical),
-    )
-    for (const file of allNames) {
-      if (
-        !libraries.has(canonical(file)) &&
-        ts.preProcessFile(readFileSync(file, 'utf8'), false).isLibFile
-      ) {
-        problems.push(
-          `Rust checker unsupported: ${relative(root, file)} disables default libraries with no-default-lib; tsrs does not preserve this directive's diagnostics`,
-        )
-      }
-    }
     const localFiles = new Map<string, ts.SourceFile>()
-    const localSpans = new Map<string, Span>()
-    const nativeFiles = new Map<string, NativeSourceFile>()
-    const nativeSpans = new Map<string, RemoteSpan>()
-    const requests: { local: ts.Node; native: NativeNode }[][] = []
-    const elements: ts.ElementAccessExpression[] = []
-    const importSpecifiers: ts.StringLiteralLike[] = []
-    const importTargets: ts.Expression[] = []
     // A reference can only reach an owned declaration/export or an adapter binding.
     // Keep owned names and adapter bindings; native semantics still resolve
     // aliases and shadows. Keep local const path aliases for the subprocess
@@ -264,53 +258,125 @@ export async function createTsrsProgram(
         names.add(name.text)
       ts.forEachChild(node, (child) => collectNames(child, names))
     }
-    let unsupportedLexical = false
-    for (const file of names) {
-      const ast = ts.createSourceFile(
-        file,
-        readFileSync(file, 'utf8'),
-        ts.ScriptTarget.ES2023,
-        true,
-      )
-      localFiles.set(canonical(file), ast)
-      const references = new Set(['URL', 'process'])
-      collectNames(ast, references)
-      fileNames.set(canonical(file), references)
-      for (const statement of ast.statements) {
-        const declarations = ts.isVariableStatement(statement)
-          ? [...statement.declarationList.declarations]
-          : [statement]
-        for (const declaration of declarations) {
-          const name = (declaration as ts.NamedDeclaration).name
-          if (name && ts.isIdentifier(name)) {
-            references.add(name.text)
-            if (
-              !ts.isExternalModule(ast) ||
-              (ts.canHaveModifiers(statement) &&
-                ts
-                  .getModifiers(statement)
-                  ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
-            )
-              componentNames.add(name.text)
+    const prepareLexical = async () => {
+      // The SDK flushes queued native requests with setImmediate. Let the full
+      // diagnostic batch start before using this worker for independent parsing.
+      await immediate()
+      if (signal?.aborted) throw new Error('Rust analysis interrupted')
+      const problems: string[] = []
+      for (const file of names) {
+        const ast = ts.createSourceFile(
+          file,
+          readFileSync(file, 'utf8'),
+          ts.ScriptTarget.ES2023,
+          true,
+        )
+        localFiles.set(canonical(file), ast)
+        const references = new Set(['URL', 'process'])
+        collectNames(ast, references)
+        fileNames.set(canonical(file), references)
+        for (const statement of ast.statements) {
+          const declarations = ts.isVariableStatement(statement)
+            ? [...statement.declarationList.declarations]
+            : [statement]
+          for (const declaration of declarations) {
+            const name = (declaration as ts.NamedDeclaration).name
+            if (name && ts.isIdentifier(name)) {
+              references.add(name.text)
+              if (
+                !ts.isExternalModule(ast) ||
+                (ts.canHaveModifiers(statement) &&
+                  ts
+                    .getModifiers(statement)
+                    ?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
+              )
+                componentNames.add(name.text)
+            }
+          }
+          if (ts.isExportDeclaration(statement) && statement.exportClause) {
+            const clause = statement.exportClause
+            if (ts.isNamespaceExport(clause)) componentNames.add(clause.name.text)
+            else for (const binding of clause.elements) componentNames.add(binding.name.text)
           }
         }
-        if (ts.isExportDeclaration(statement) && statement.exportClause) {
-          const clause = statement.exportClause
-          if (ts.isNamespaceExport(clause)) componentNames.add(clause.name.text)
-          else for (const binding of clause.elements) componentNames.add(binding.name.text)
+        const parseDiagnostics = (
+          ast as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
+        ).parseDiagnostics
+        if (parseDiagnostics.length) {
+          problems.push(
+            `Rust checker unsupported: ${relative(root, file)} uses syntax outside Bonsai's lexical AST adapter`,
+          )
         }
       }
-      const parseDiagnostics = (
-        ast as ts.SourceFile & { parseDiagnostics: readonly ts.Diagnostic[] }
-      ).parseDiagnostics
-      if (!diagnostics.length && parseDiagnostics.length) {
-        unsupportedLexical = true
+      return problems
+    }
+
+    timer?.start('diagnostics')
+    // Attach rejection handlers to both tasks before lexical I/O can fail.
+    // Preserve native failure precedence and await both before closing its server.
+    const [nativeDiagnostics, lexical] = await Promise.allSettled([
+      Promise.all([
+        nativeProgram.getConfigFileParsingDiagnostics(),
+        nativeProgram.getProgramDiagnostics(),
+        nativeProgram.getSyntacticDiagnostics(),
+        nativeProgram.getBindDiagnostics(),
+        nativeProgram.getGlobalDiagnostics(),
+        nativeProgram.getSemanticDiagnostics(),
+      ]),
+      prepareLexical(),
+    ])
+    if (nativeDiagnostics.status === 'rejected') throw nativeDiagnostics.reason
+    if (lexical.status === 'rejected') throw lexical.reason
+    const categories = nativeDiagnostics.value
+    const diagnostics = ts.sortAndDeduplicateDiagnostics(categories.flat().map(diagnosticView))
+    const problems = diagnostics.map((diagnostic) => {
+      const original = categories
+        .flat()
+        .find(
+          (entry) =>
+            entry.fileName === diagnostic.file?.fileName &&
+            entry.pos === diagnostic.start &&
+            entry.code === diagnostic.code,
+        )
+      const location =
+        diagnostic.file && original?.startPosition
+          ? `${relative(root, diagnostic.file.fileName)}:${original.startPosition.line + 1}: `
+          : ''
+      return location + ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
+    })
+
+    timer?.start('graph')
+    const allNames = await nativeProgram.getSourceFileNames()
+    const metadata = await Promise.all(
+      allNames.map((file) => nativeProgram.getSourceFileMetadata(file)),
+    )
+    const external = new Set(
+      allNames.filter((_file, index) => metadata[index]?.isFromExternalLibrary).map(canonical),
+    )
+    const libraries = new Set(
+      allNames.filter((_file, index) => metadata[index]?.isDefaultLibrary).map(canonical),
+    )
+    for (const file of allNames) {
+      if (libraries.has(canonical(file))) continue
+      // The reference directive must contain this literal attribute. Reading
+      // every file still checks its current bytes, but ordinary dependencies
+      // need no second full TypeScript preprocessing pass.
+      const text = readFileSync(file, 'utf8')
+      if (/no-default-lib/i.test(text) && ts.preProcessFile(text, false).isLibFile) {
         problems.push(
-          `Rust checker unsupported: ${relative(root, file)} uses syntax outside Bonsai's lexical AST adapter`,
+          `Rust checker unsupported: ${relative(root, file)} disables default libraries with no-default-lib; tsrs does not preserve this directive's diagnostics`,
         )
       }
     }
-    if (unsupportedLexical) {
+    const localSpans = new Map<string, Span>()
+    const nativeFiles = new Map<string, NativeSourceFile>()
+    const nativeSpans = new Map<string, RemoteSpan>()
+    const requests: { local: ts.Node; native: NativeNode }[][] = []
+    const elements: ts.ElementAccessExpression[] = []
+    const importSpecifiers: ts.StringLiteralLike[] = []
+    const importTargets: ts.Expression[] = []
+    if (!diagnostics.length && lexical.value.length) {
+      problems.push(...lexical.value)
       return { program: undefined, problems, close }
     }
     const remoteFiles = await Promise.all(names.map((file) => nativeProgram.getSourceFile(file)))
@@ -403,22 +469,14 @@ export async function createTsrsProgram(
         ts.forEachChild(node, visit)
       }
       visit(ast)
-      const required = new Set(
-        [...candidates, ...expressions].map((node) =>
-          nodeKey(node.getStart(ast), node.end, ts.SyntaxKind[node.kind]),
-        ),
+      const remoteNodes = indexNativeSpans(
+        remote,
+        [...candidates, ...expressions].map((node) => ({
+          start: node.getStart(ast),
+          end: node.end,
+          kind: ts.SyntaxKind[node.kind],
+        })),
       )
-      const kinds = new Set([...candidates, ...expressions].map((node) => ts.SyntaxKind[node.kind]))
-      const remoteNodes: RemoteSpan = new Map()
-      const visitRemote = (node: NativeNode): void => {
-        const kind = SyntaxKind[node.kind]
-        if (kinds.has(kind)) {
-          const key = nodeKey(node.getStart(remote), node.end, kind)
-          if (required.has(key)) remoteNodes.set(key, node)
-        }
-        node.forEachChild(visitRemote)
-      }
-      visitRemote(remote)
       const queries = candidates.map((local) => {
         const native = remoteNodes.get(
           nodeKey(local.getStart(ast), local.end, ts.SyntaxKind[local.kind]),

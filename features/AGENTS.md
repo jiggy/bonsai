@@ -10,6 +10,8 @@ Root `bonsai.bindings.ts` connects stable public command identities to `support/
 
 `report.feature` covers saving checks for later HTML inspection, retaining rejected or incomplete decisions and clean machine-readable output, default report generation, and the report opt-out for read-only projects.
 
+`integrations.feature` covers publisher-authored domain requirements, independently required deliverables, preserved context and invocation obligations, and read-only ancestry through a selected named command route without justifying unrelated flows.
+
 Technical compiler, parser, protocol, schema, scheduling, and presentation regressions belong in `test/`. They preserve detailed proof without adding product allowance.
 
 ## Local Contracts
@@ -25,6 +27,8 @@ Review every action–observation pair for product significance: the engine only
 Cover successful and blocking user outcomes. Backend identity, exact parser strings, incidental token goldens, ANSI numbers, report offsets, and exhaustive syntax permutations belong in technical regressions. Public domain facts such as the budget and a uniquely requested component remain legitimate observations. Keep actual unsupported analysis and root budget failures visible.
 
 Default verification keeps scenarios independent and completes every required observation; `--serial` preserves shared state across ordered scenarios. Actual completion and shutdown belong in product examples. CPU sizing, held-worker progress, shard identities, queue bounds, and protocol permutations retain direct scheduling regressions, including on a one-CPU machine.
+
+Comparative scenarios keep every command input and expected result explicit. Each support call arranges and disposes a fresh consuming project; comparisons do not reuse source, reports, application state, or execution evidence. Group only adjacent alternatives under one product rule or recovery journey, preserving their action order and individual observations. Dedicated fresh-state examples retain their execution profiles. Each interruption arranges its own held-work project with its original capacity and deadline.
 
 ## Verification
 

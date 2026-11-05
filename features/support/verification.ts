@@ -74,7 +74,7 @@ export function run(input: { id: number }) {
 
 async function execution(kind: Exclude<Input['case'], 'source-change' | 'evidence-tamper'>) {
   const fixture = blockedProject(kind)
-  const child = startCli(['check', '--root', fixture.root, '--json'])
+  const child = startCli(['check', '--root', fixture.root, '--json', '--no-report'])
   let stdout = ''
   let stderr = ''
   child.stdout.on('data', (chunk: Buffer) => {
@@ -191,7 +191,7 @@ export async function checkVerification(input: Input) {
         'Feature: Admit only correct behavior\nScenario: A required result\n When I invoke "submit" with {}\n Then response "status" equals "accepted"\n',
     })
     try {
-      return invoke(['check', '--root', fixture.root])
+      return invoke(['check', '--root', fixture.root, '--no-report'])
     } finally {
       fixture.dispose()
     }
@@ -212,7 +212,7 @@ export function update() {
       'Feature: Stable inputs\nScenario: Update maintained input\n When I invoke "update" with {}\n Then response "status" equals "ok"\n',
   })
   try {
-    const report = invoke(['check', '--root', fixture.root])
+    const report = invoke(['check', '--root', fixture.root, '--no-report'])
     return { ...report, maintainedText: readFileSync(join(fixture.root, 'data.json'), 'utf8') }
   } finally {
     fixture.dispose()

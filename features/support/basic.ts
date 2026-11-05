@@ -127,7 +127,14 @@ export function checkBasicProject(input: ProjectInput) {
   const { root, marker, childMarker, applicationMarker } = project(input)
   try {
     const report = invoke(
-      ['check', '--serial', '--root', root, ...(input.engine ? ['--engine', input.engine] : [])],
+      [
+        'check',
+        '--serial',
+        '--no-report',
+        '--root',
+        root,
+        ...(input.engine ? ['--engine', input.engine] : []),
+      ],
       input.missingNative ? { BONSAI_NATIVE_BINARY: join(root, 'missing-collector') } : {},
     )
     return {
@@ -275,7 +282,13 @@ export function verifyIsolatedScenarios(input: { serial?: boolean }) {
         '',
       ].join('\n'),
     )
-    const report = invoke(['check', '--root', root, ...(input.serial ? ['--serial'] : [])])
+    const report = invoke([
+      'check',
+      '--root',
+      root,
+      '--no-report',
+      ...(input.serial ? ['--serial'] : []),
+    ])
     return {
       ...report,
       invocationCount: existsSync(marker)
