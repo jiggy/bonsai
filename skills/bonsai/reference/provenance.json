@@ -5,8 +5,8 @@
     {
       "source": "README.md",
       "destination": "README.md",
-      "sourceSha256": "a4696dc2a10b70970395894202b6c6ece187a97001f9844b0986bfad88edd25a",
-      "outputSha256": "b966befe455921daee55d91e4395d3c5d48df436470c1dbf156dd113c697ec87"
+      "sourceSha256": "402b75fa5a6f2d67f689c40616b81ab7530ed6ce3996616a33871f2f3dc97d64",
+      "outputSha256": "4a8ddf815299051270c04af0ca3bc3bc44ef311cb7ba1d8c1a19ff41b8bb94bb"
     },
     {
       "source": "docs/agent-workflow.md",
@@ -23,8 +23,8 @@
     {
       "source": "docs/bdd.md",
       "destination": "bdd.md",
-      "sourceSha256": "a18fe296144d37834e2405602e7f45dd169f7137326523d79fec19c8a9328944",
-      "outputSha256": "7cd7f2e1f0e7d4f72356f5aec9684713d67bfdfe204c6cf1969ffc64a14ea339"
+      "sourceSha256": "f30846ce090f23fc2f08d8b584647794956be740b2f04f30a5bee66f8233e1c1",
+      "outputSha256": "851f1287c50892671f599544979c4daf46a2fae3e7d5619180c2b6dc84912882"
     },
     {
       "source": "docs/cli.md",
@@ -41,8 +41,8 @@
     {
       "source": "docs/github-action.md",
       "destination": "github-action.md",
-      "sourceSha256": "257ebc2fecd575c0e87c2be7f0465ff119a22dbae19a50ef9a4a5a2811329179",
-      "outputSha256": "1f51b26a16aa9e2663ea21cdd62f3ac39a9676d86a1213a93d90dd3029e44d1c"
+      "sourceSha256": "b9cf62dfd537165d72feb521980c933d999550d861de27e799dfdd26e76c6a6a",
+      "outputSha256": "be66829d56598c907562d11b24c0a9b6a118c4f255e537af6b4c64fab24166f0"
     },
     {
       "source": "docs/native-prototype.md",
