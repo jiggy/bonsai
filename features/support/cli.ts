@@ -72,8 +72,13 @@ export function startCli(args: string[], overrides: NodeJS.ProcessEnv = {}) {
     child.once('close', (exitCode) =>
       appendFileSync(
         trace,
-        JSON.stringify({ pid: process.pid, started, args, elapsedMs: Date.now() - started, exitCode }) +
-          '\n',
+        JSON.stringify({
+          pid: process.pid,
+          started,
+          args,
+          elapsedMs: Date.now() - started,
+          exitCode,
+        }) + '\n',
       ),
     )
   return child
