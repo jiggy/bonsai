@@ -63,6 +63,8 @@ The full-root feedback step sets `BONSAI_SELF_CHECK_REPORT` to the runner's temp
 
 CI emits a compact actual root verdict, observation completion, ancestry count, and timing summary from the already-saved self-check report before archiving it. This is measured diagnostic output, not another verification run or a changed feedback deadline.
 
+The ARM64 ordinary test inventory is partitioned between the primary verification job and the existing `python-arm` job, with a fixed list of measured slower technical files in the latter. The full-root checks remain separate in a fresh process on the primary runner. New `.test.ts` files default to the primary runner; missing or duplicate assignments must fail. The x64 Python job also validates the formatted candidate and contributes to its reported check conclusion. Do not omit tests or relax the 15-second root deadline to improve CI timings.
+
 `python-contract` is a read-only focused feedback job using pinned CPython 3.12, the genuine Python-team contract, and native Python technical regressions. The required `python-arm` job retains the same technical regressions on ARM64. The normal verify job also sets up that interpreter for Python-consuming CLI and feature fixtures. This CI setup does not install interpreters during product checks or require Python for TypeScript consumers.
 
 `integration-contracts` gives read-only focused feedback on the publisher vocabulary and selected named-route requirements through real CLI invocations on Linux x64 with Bun 1.4.3. It validates the formatting commit and contributes to its reported conclusion. This does not replace complete root verification or installed Jig qualification.

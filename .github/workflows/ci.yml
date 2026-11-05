@@ -8,6 +8,16 @@ permissions:
 concurrency:
   group: ci-${{ github.event_name }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
+# Keep the strict root test in a fresh process; distribute other slow files
+# across the existing ARM64 runners without adding queue demand.
+env:
+  BONSAI_ARM_SECONDARY_TESTS: >-
+    test/cli.test.ts
+    test/check-presentation.test.ts
+    test/cli-output.test.ts
+    test/native-cli.test.ts
+    test/check-timing.test.ts
+    test/cli-base-paths.test.ts
 jobs:
   format:
     if: >-
@@ -80,12 +90,28 @@ jobs:
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
   python-contract:
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$FORMATTED_SHA"
+          git merge --no-edit "$FORMATTED_SHA"
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.3
@@ -129,8 +155,16 @@ jobs:
         with:
           python-version: '3.12'
       - run: bun install --frozen-lockfile
-      - name: Verify Python boundaries on ARM64
-        run: bun test --isolate --timeout 30000 test/python-language.test.ts
+      - name: Verify Python and secondary contracts on ARM64
+        env:
+          RAYON_NUM_THREADS: '1'
+        run: |
+          set -euo pipefail
+          read -r -a secondary <<< "$BONSAI_ARM_SECONDARY_TESTS"
+          for file in test/python-language.test.ts "${secondary[@]}"; do
+            test -f "$file" || { echo "::error::Missing required ARM test file: $file"; exit 1; }
+          done
+          bun test --isolate --timeout 30000 test/python-language.test.ts "${secondary[@]}"
 
   integration-contracts:
     needs: [format, apply-formatting]
@@ -251,12 +285,26 @@ jobs:
         env:
           RAYON_NUM_THREADS: '1'
         run: |
-          # Python runs in the required ARM64 job; the complete root tests run
-          # below in a fresh Bun process, not inside this long-lived test host.
-          test -f test/python-language.test.ts
-          test -f test/self-host.test.ts
-          mapfile -d '' tests < <(find test -type f -name '*.test.ts' ! -path 'test/python-language.test.ts' ! -path 'test/self-host.test.ts' -print0 | sort -z)
+          # Every ordinary test file is assigned exactly once. The complete
+          # root runs below in a fresh process, preserving its 15s deadline.
+          set -euo pipefail
+          read -r -a secondary <<< "$BONSAI_ARM_SECONDARY_TESTS"
+          declare -A excluded=()
+          for file in test/python-language.test.ts test/self-host.test.ts "${secondary[@]}"; do
+            test -f "$file" || { echo "::error::Missing required ARM test file: $file"; exit 1; }
+            if [[ -n "${excluded[$file]+x}" ]]; then
+              echo "::error::Duplicate ARM test assignment: $file"
+              exit 1
+            fi
+            excluded["$file"]=1
+          done
+          mapfile -d '' all_tests < <(find test -type f -name '*.test.ts' -print0 | sort -z)
+          tests=()
+          for file in "${all_tests[@]}"; do
+            if [[ -z "${excluded[$file]+x}" ]]; then tests+=("$file"); fi
+          done
           test "${#tests[@]}" -gt 0
+          echo "ARM primary: ${#tests[@]} files; secondary: ${#secondary[@]} plus Python; root: 1"
           bun test --isolate --timeout 30000 "${tests[@]}"
       - name: Verify full-root feedback in a fresh test process
         if: ${{ !cancelled() && steps.regressions.outcome != 'skipped' }}
@@ -455,7 +503,7 @@ jobs:
           retention-days: 14
 
   report-formatting-check:
-    needs: [apply-formatting, verify, python-arm, native-platforms, runner-adapters, report-browser, integration-contracts, jig-adapter]
+    needs: [apply-formatting, verify, python-contract, python-arm, native-platforms, runner-adapters, report-browser, integration-contracts, jig-adapter]
     if: always() && needs.apply-formatting.outputs.sha != ''
     permissions:
       checks: write
@@ -469,6 +517,7 @@ jobs:
           FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
           RESULT: ${{ needs.verify.result }}
           PYTHON_ARM_RESULT: ${{ needs.python-arm.result }}
+          PYTHON_X64_RESULT: ${{ needs.python-contract.result }}
           NATIVE_RESULT: ${{ needs.native-platforms.result }}
           RUNNER_RESULT: ${{ needs.runner-adapters.result }}
           BROWSER_RESULT: ${{ needs.report-browser.result }}
@@ -476,6 +525,9 @@ jobs:
           JIG_RESULT: ${{ needs.jig-adapter.result }}
         run: |
           conclusion="$RESULT"
+          if [ "$conclusion" = success ] && [ "$PYTHON_X64_RESULT" != success ]; then
+            conclusion="$PYTHON_X64_RESULT"
+          fi
           if [ "$conclusion" = success ] && [ "$PYTHON_ARM_RESULT" != success ]; then
             conclusion="$PYTHON_ARM_RESULT"
           fi
