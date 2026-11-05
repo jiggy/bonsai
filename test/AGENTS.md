@@ -145,6 +145,12 @@ Compiler-free Rust deadline/cancellation regressions require full inventory and 
 
 ## Verification
 
+Retention regressions preserve every obligation through cycles, runtime/type
+paths, registry initialization, and test support; graph reuse is confined to a
+single snapshot. The Rust adoption sensitivity probe changes only the returned
+JSON payload, independently of its string construction syntax. General generic
+String conversions remain covered by native Rust compatibility tests.
+
 Annotation-only declarations retain eager ancestry without inventing a runtime name binding; a typed builtin name still resolves to its real runtime builtin. Python annotation regressions cover nested builtin and qualified/imported typing expressions in parameter, return, module, and local annotations through both CLI execution profiles. Calls inside annotations, runtime callable escapes, and reflection remain blocking controls. Exception-clause controls cover direct builtin exception types and tuples through both CLI profiles, with bare raise/cause classes and escape blockers, while calls, lists, and non-exception tuple members stay blocked. Name-deletion controls reject explicit deletes and implicit exception-alias cleanup of decoy builtin functions/import aliases before execution, including an excluded-payload eval exploit with a proven live marker. Container-item deletion remains supported. Initializer controls prove eight live builtin-capture variants (self/forward aliases, defaults, annotations, early callbacks, compound rebinding, and cyclic imports) through raw frozen-source execution; all must block admission, with representative real-CLI checks in both profiles. Wildcard controls prove actual alias replacement and excluded-oracle deletion before requiring CLI rejection without mutation. Positive maintained helper read/system/open calls retain identity-based admission, while OS calls remain blocked. Mapping controls cover Counter/defaultdict container and nested selectors, absent keys, unrelated non-JSON fields, and unsafe selected integers.
 
 `bun run test` includes the executable product contracts and gives each test file a fresh module/global scope with Bun's `--isolate`; tests remain sequential. This prevents compiler-oracle and worker lifecycle state from being shared across files. It does not extend any product feedback deadline. `bun run test:features` runs the product contracts alone.

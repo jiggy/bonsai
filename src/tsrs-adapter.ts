@@ -345,7 +345,9 @@ export async function createTsrsProgram(
       return location + ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
     })
 
-    timer?.start('graph')
+    const graphTimer = new Timer()
+    timer?.start('graph', graphTimer)
+    graphTimer.start('metadata')
     const allNames = await nativeProgram.getSourceFileNames()
     const metadata = await Promise.all(
       allNames.map((file) => nativeProgram.getSourceFileMetadata(file)),
@@ -371,7 +373,7 @@ export async function createTsrsProgram(
     const localSpans = new Map<string, Span>()
     const nativeFiles = new Map<string, NativeSourceFile>()
     const nativeSpans = new Map<string, RemoteSpan>()
-    const requests: { local: ts.Node; native: NativeNode }[][] = []
+    const requests: { local: ts.Node; native?: NativeNode }[][] = []
     const elements: ts.ElementAccessExpression[] = []
     const importSpecifiers: ts.StringLiteralLike[] = []
     const importTargets: ts.Expression[] = []
