@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run format
       - run: bun run sync-skills
@@ -88,7 +88,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -238,7 +238,7 @@ jobs:
           git merge --no-edit "$FORMATTED_SHA"
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -346,7 +346,7 @@ jobs:
           git merge --no-edit "$FORMATTED_SHA"
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - name: Assert the actual runtime platform
         env:
@@ -412,7 +412,7 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run test:runners
 
@@ -447,7 +447,7 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - name: Set temporary browser paths
         run: |

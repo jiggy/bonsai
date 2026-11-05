@@ -73,6 +73,10 @@ Root regression jobs also summarize optional `BONSAI_SPEC_TRACE` nested-command 
 
 ## Work Guidance
 
+CI and the reusable action pin Bun 1.4.4, which fixes Linux cgroup resource-limit
+handling and ARM64 startup issues. Keep the reference runner, saved feedback
+policy, inventory and obligations fixed when validating runtime upgrades.
+
 After a failed Action/root regression, a bounded diagnostic-only run may use a temporary 60-second policy outside maintained inventory to observe the complete workload. Preserve the original 15-second failure, label diagnostic output explicitly, archive it separately, and never use its verdict as acceptance or overwrite the actual self-check report. No checked-in policy or inventory changes for this profile.
 
 Never execute candidate scripts in write-capable jobs. Preserve checks on formatting commits. Keep website action versions pinned and preserve the separation between validation and deployment.
