@@ -226,6 +226,72 @@ Scenario: Later larger journey
   }
 })
 
+test('idle feature groups progress before overlapping busy groups while every lane stays available', async () => {
+  const fixture = blockingProject(6)
+  const first = `Feature: Larger independent journeys
+Scenario: First journey
+ When I invoke "block" with {"id":0}
+ Then response "id" equals 0
+ When I invoke "block" with {"id":3}
+ Then response "id" equals 3
+Scenario: Second journey
+ When I invoke "block" with {"id":1}
+ Then response "id" equals 1
+ When I invoke "block" with {"id":4}
+ Then response "id" equals 4
+`
+  const second = `Feature: Independent startup
+Scenario: Another feature makes progress
+ When I invoke "block" with {"id":2}
+ Then response "id" equals 2
+Scenario: The idle feature continues
+ When I invoke "block" with {"id":5}
+ Then response "id" equals 5
+`
+  writeFileSync(join(fixture.root, 'concurrent.feature'), first)
+  writeFileSync(join(fixture.root, 'other.feature'), second)
+  fixture.config.maintained.push('other.feature')
+  writeFileSync(join(fixture.root, 'bonsai.json'), JSON.stringify(fixture.config))
+  const contracts = compileContracts([
+    { file: 'concurrent.feature', text: first },
+    { file: 'other.feature', text: second },
+  ])
+  const cancellation = new AbortController()
+  const pending = runEvidence(
+    fixture.root,
+    fixture.config,
+    contracts,
+    identity(fixture.root, fixture.config),
+    15000,
+    cancellation.signal,
+    isolated(2),
+  )
+  void pending.catch(() => {})
+  try {
+    await until(
+      () => existsSync(join(fixture.root, 'started-2')),
+      'Another feature must start while the larger journeys remain blocked',
+    )
+    assert.equal(existsSync(join(fixture.root, 'started-1')), false)
+    writeFileSync(join(fixture.root, 'release-2'), 'go')
+    await until(
+      () => existsSync(join(fixture.root, 'started-5')),
+      'The newly idle feature must progress while the first feature remains active',
+    )
+    assert.equal(existsSync(join(fixture.root, 'started-1')), false)
+    for (let id = 0; id < 6; id++) writeFileSync(join(fixture.root, `release-${id}`), 'go')
+    fulfilled(await pending, contracts)
+    assert.deepEqual(
+      fixture.started().sort(),
+      [0, 1, 2, 3, 4, 5].map((id) => `started-${id}`),
+    )
+  } finally {
+    cancellation.abort()
+    await pending.catch(() => {})
+    fixture.dispose()
+  }
+})
+
 test('default verification uses available CPU capacity and never starts more workers than scenarios', async () => {
   const count = Math.min(6, availableParallelism() + 1)
   const active = Math.min(availableParallelism(), count)

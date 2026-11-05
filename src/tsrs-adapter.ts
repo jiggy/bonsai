@@ -17,7 +17,7 @@ import {
   type SourceFile as NativeSourceFile,
 } from 'tsrs/unstable/ast'
 import { sourceCompilerOptions } from './compiler-options.ts'
-import type { Timer } from './timing.ts'
+import { Timer } from './timing.ts'
 import { nativeBinary } from './native-install.ts'
 
 type Span = Map<string, ts.Node>
@@ -345,7 +345,9 @@ export async function createTsrsProgram(
       return location + ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n')
     })
 
-    timer?.start('graph')
+    const graphTimer = new Timer()
+    timer?.start('graph', graphTimer)
+    graphTimer.start('metadata')
     const allNames = await nativeProgram.getSourceFileNames()
     const metadata = await Promise.all(
       allNames.map((file) => nativeProgram.getSourceFileMetadata(file)),
@@ -371,7 +373,7 @@ export async function createTsrsProgram(
     const localSpans = new Map<string, Span>()
     const nativeFiles = new Map<string, NativeSourceFile>()
     const nativeSpans = new Map<string, RemoteSpan>()
-    const requests: { local: ts.Node; native: NativeNode }[][] = []
+    const requests: { local: ts.Node; native?: NativeNode }[][] = []
     const elements: ts.ElementAccessExpression[] = []
     const importSpecifiers: ts.StringLiteralLike[] = []
     const importTargets: ts.Expression[] = []
@@ -379,7 +381,9 @@ export async function createTsrsProgram(
       problems.push(...lexical.value)
       return { program: undefined, problems, close }
     }
+    graphTimer.start('native-asts')
     const remoteFiles = await Promise.all(names.map((file) => nativeProgram.getSourceFile(file)))
+    graphTimer.start('locations')
     for (const [index, file] of names.entries()) {
       const ast = localFiles.get(canonical(file))!
       const referenceNames = fileNames.get(canonical(file))!
@@ -471,13 +475,14 @@ export async function createTsrsProgram(
       visit(ast)
       const remoteNodes = indexNativeSpans(
         remote,
-        [...candidates, ...expressions].map((node) => ({
+        [...candidates.filter((node) => !ts.isIdentifier(node)), ...expressions].map((node) => ({
           start: node.getStart(ast),
           end: node.end,
           kind: ts.SyntaxKind[node.kind],
         })),
       )
       const queries = candidates.map((local) => {
+        if (ts.isIdentifier(local)) return { local }
         const native = remoteNodes.get(
           nodeKey(local.getStart(ast), local.end, ts.SyntaxKind[local.kind]),
         )
@@ -506,8 +511,33 @@ export async function createTsrsProgram(
       if (symbol) symbols.set(keyOf(symbol), symbol)
       return symbol
     }
+    graphTimer.start('symbols')
     const responses = await Promise.all(
-      requests.map((entries) => checker.getSymbolAtLocation(entries.map((entry) => entry.native))),
+      requests.map(async (entries, file) => {
+        const identifiers = entries.filter((entry) => !entry.native)
+        const nodes = entries.filter((entry) => entry.native)
+        const [tokens, symbols] = await Promise.all([
+          identifiers.length
+            ? checker.getSymbolAtPosition(
+                names[file]!,
+                identifiers.map((entry) => entry.local.getStart()),
+              )
+            : [],
+          nodes.length ? checker.getSymbolAtLocation(nodes.map((entry) => entry.native!)) : [],
+        ])
+        if (
+          !Array.isArray(tokens) ||
+          tokens.length !== identifiers.length ||
+          !Array.isArray(symbols) ||
+          symbols.length !== nodes.length
+        )
+          throw new Error(
+            'Invalid native symbol batch: token/node response lengths do not match requests',
+          )
+        let token = 0,
+          node = 0
+        return entries.map((entry) => (entry.native ? symbols[node++] : tokens[token++]))
+      }),
     )
     requests.forEach((entries, file) => {
       const response = responses[file]
@@ -516,6 +546,7 @@ export async function createTsrsProgram(
       entries.forEach((entry, index) => locations.set(entry.local, add(response[index])))
     })
 
+    graphTimer.start('exports')
     const moduleExports = new Map<string, readonly NativeSymbol[]>()
     const importModules = new Map<string, NativeSymbol>()
     for (const specifier of importSpecifiers) {
@@ -530,6 +561,7 @@ export async function createTsrsProgram(
       }),
     )
 
+    graphTimer.start('types')
     const expressions = elements.map((element) => element.expression)
     const remoteExpressions = expressions.map((node) => {
       const file = canonical(node.getSourceFile().fileName)
@@ -576,6 +608,7 @@ export async function createTsrsProgram(
       }),
     )
 
+    graphTimer.start('aliases')
     await Promise.all(
       [...symbols.values()]
         .filter((symbol) => symbol.flags & SymbolFlags.Alias)
@@ -585,6 +618,7 @@ export async function createTsrsProgram(
         }),
     )
 
+    graphTimer.start('declarations')
     const handleKey = (handle: NonNullable<NativeSymbol['valueDeclaration']>) =>
       `${handle.path}\0${handle.index}\0${handle.kind}`
     const resolvedDeclarations = new Map<string, ts.Declaration>()
@@ -724,7 +758,8 @@ export async function createTsrsProgram(
       isSourceFileDefaultLibrary: (file: ts.SourceFile) => libraries.has(canonical(file.fileName)),
       getTypeChecker: () => semantic,
     } as unknown as ts.Program
-    return { program, problems, close }
+    graphTimer.start('rules')
+    return { program, problems, close, graphTimer }
   } catch (error) {
     await close().catch(() => {})
     throw error

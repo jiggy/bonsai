@@ -1,11 +1,16 @@
 # Rust adapter feasibility
 
-Rust support is an active adapter milestone. The first slice is an opt-in,
-development-only experiment, not production Rust acceptance.
+This document covers the opt-in development-only Cargo/LSP probe. It supplies no
+production admission facts.
+
+The [experimental standalone binding adapter](standalone-rust.md) is a separate,
+bounded Rust 1.86.0 integration. The Cargo, trait, macro and conditional-compilation
+cases exercised by this Rust probe remain outside that adapter's supported
+slice.
 
 ## Backend decision
 
-Investigate a compiler-aware backend before adding a Rust gate. A syntax parser
+Use compiler-aware resolution for broader Rust support. A syntax parser
 can count and classify declarations, and Cargo can compile them, but neither alone
 supplies Bonsai's resolved contract-to-component graph.
 
@@ -16,9 +21,11 @@ declarative macro, and distinguish active `cfg` definitions. It builds and execu
 the same target twice, with and without the `experimental` feature. The native
 dispatcher returns application JSON; it never reports an authoritative pass.
 
-The existing native CLI regressions verify that maintained `.rs` source is still
-charged and produces incomplete analysis. No grammar, allowance, production dependency, or
-supported-language claim changes in this experiment.
+The TypeScript checker's existing CLI regressions still charge maintained `.rs`
+files and mark unsupported mixed-language inventories incomplete before handlers
+run. Those regressions remain valid alongside explicitly selected standalone
+`.rs` bindings. This probe changes no grammar, allowance, production dependency,
+or supported-language guarantee.
 
 ## Run the experiment
 
@@ -62,16 +69,13 @@ and missing macro-generated method edges remain explicit blockers. These partial
 facts preserve the production unsupported-language diagnostics and cannot pass a
 gate. Macro expansion success alone does not establish complete macro ancestry.
 
-Continue with a bounded standalone std-only Rust binding adapter before Cargo
-workspace support. Its source analysis must use the proven semantic backend
-without executing project build scripts. Runtime actions can use an ordinary
-literal native registry and a generated persistent stdio harness; the existing
-verifier remains responsible for assertions. Reject unsupported macros, traits,
-conditional/generated source, external crates, and mixed-language dependencies
-until their graph can be established. Do not ship a parser-only Rust gate.
-The unresolved work is systematic reference collection, completeness diagnostics,
-toolchain/target identity, resource/initialization semantics, and execution
-isolation for build scripts and procedural macros.
+Use these results to guide broader Cargo integration through the language-neutral
+fact/action boundary. The standalone binding adapter already provides a narrower
+compiler-aware slice; the probe does not demonstrate complete Cargo ancestry.
+Beyond that slice, unresolved work includes systematic reference collection,
+completeness diagnostics, target/features/toolchain identity,
+resource/initialization semantics, and execution isolation for build scripts and
+procedural macros. Do not substitute a parser-only pass for semantic ancestry.
 
 ## Integration gate
 

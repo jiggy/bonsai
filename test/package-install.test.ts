@@ -213,19 +213,31 @@ test('production tarball runs through bunx with prebuilt dependencies and no Nod
     const loader =
       process.arch === 'arm64' ? '/lib/ld-linux-aarch64.so.1' : '/lib64/ld-linux-x86-64.so.2'
     if (process.platform === 'linux') {
+      // The ordinary installation above proves the host-selected package works.
+      // Bun filters optional native packages by libc; request both variants only
+      // for the following cross-libc comparison, after that control has passed.
+      const variants = run([
+        'add',
+        '--production',
+        '--ignore-scripts',
+        '--no-save',
+        '--libc=*',
+        join(root, 'bonsai.tgz'),
+      ])
+      assert.equal(variants.status, 0, variants.stderr)
       const musl = dirname(
         compilerRequire.resolve(`${nativePackage('linux', process.arch, false)}/package.json`),
       )
       assert.ok(
         realpathSync(musl).startsWith(root),
-        'The fresh installation must include static musl',
+        'The explicit cross-libc installation must include static musl',
       )
       if (existsSync(loader))
         assert.ok(
           realpathSync(
             compilerRequire.resolve(`${nativePackage('linux', process.arch, true)}/package.json`),
           ).startsWith(root),
-          'GNU hosts must receive both prebuilt Linux variants',
+          'The explicit cross-libc installation must include GNU',
         )
       const staticCheck = bonsai(args, consumer, {
         ...environment,

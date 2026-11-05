@@ -116,6 +116,13 @@ export type Snapshot = {
         version: string
       }
     | {
+        engine: 'rust'
+        backend: 'rust-analyzer'
+        validation: 'rust-analyzer'
+        status: 'complete' | 'unsupported'
+        version: string
+      }
+    | {
         engine: 'python'
         backend: 'python-ast'
         validation: 'python-ast'

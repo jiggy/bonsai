@@ -24,7 +24,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run format
       - run: bun run sync-skills
@@ -88,7 +88,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -238,7 +238,7 @@ jobs:
           git merge --no-edit "$FORMATTED_SHA"
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -246,6 +246,8 @@ jobs:
       - run: bun run format:check
       - run: bun run check:skills
       - run: bun run check
+      - name: Install pinned Rust for the complete authored contracts
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Verify ordinary unit and CLI regressions
         id: regressions
         env:
@@ -262,8 +264,23 @@ jobs:
         if: ${{ !cancelled() && steps.regressions.outcome != 'skipped' }}
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+          # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/self-host.test.ts
+      - name: Summarize nested specification command timings
+        if: always()
+        env:
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+        run: |
+          bun -e '
+            const file = Bun.file(process.env.BONSAI_SPEC_TRACE);
+            if (await file.exists()) {
+              const rows = (await file.text()).trim().split("\n").map(JSON.parse);
+              const finished = new Set(rows.filter(row => row.elapsedMs !== undefined).map(row => `${row.pid}:${row.started}`));
+              console.log(JSON.stringify({slowest: rows.filter(row => row.elapsedMs !== undefined).sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 15), unfinished: rows.filter(row => row.elapsedMs === undefined && !finished.has(`${row.pid}:${row.started}`))}));
+            }'
+
       - name: Summarize actual root verdict and timings
         if: always()
         env:
@@ -293,6 +310,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Verify the production package with a fresh cache
+        if: ${{ !cancelled() }}
         run: bun run test:package
       - run: bun run demo
 
@@ -329,7 +347,7 @@ jobs:
           git merge --no-edit "$FORMATTED_SHA"
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - name: Assert the actual runtime platform
         env:
@@ -395,7 +413,7 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - run: bun run test:runners
 
@@ -430,7 +448,7 @@ jobs:
           node-version: 24
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.4.3
+          bun-version: 1.4.4
       - run: bun install --frozen-lockfile
       - name: Set temporary browser paths
         run: |

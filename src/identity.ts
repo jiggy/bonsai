@@ -9,7 +9,7 @@ export type ExecutionIdentity = {
   schema: 'bonsai-execution-v1'
   checker: { name: string; version: string; digest: string }
   runtime: { name: 'bun'; version: string; options: string }
-  compiler: { name: 'tsrs' | 'python'; version: string; digest: string }
+  compiler: { name: 'tsrs' | 'python' | 'rust-analyzer'; version: string; digest: string }
 }
 
 const installed = fileURLToPath(new URL('../', import.meta.url))
@@ -33,7 +33,9 @@ export function validExecutionIdentity(value: unknown): value is ExecutionIdenti
     text(value.runtime.version) &&
     digest(value.runtime.options) &&
     object(value.compiler) &&
-    (value.compiler.name === 'tsrs' || value.compiler.name === 'python') &&
+    (value.compiler.name === 'tsrs' ||
+      value.compiler.name === 'python' ||
+      value.compiler.name === 'rust-analyzer') &&
     text(value.compiler.version) &&
     digest(value.compiler.digest)
   )
@@ -189,7 +191,10 @@ export async function identityForBindings(
   bindings: string,
   signal?: AbortSignal,
   timeoutMs?: number,
+  root?: string,
 ): Promise<ExecutionIdentity> {
+  if (bindings.endsWith('.rs'))
+    return (await import('./rust-process.ts')).standaloneRustIdentity(signal, timeoutMs, root)
   return bindings.endsWith('.py')
     ? (await import('./python.ts')).pythonIdentity(signal, timeoutMs)
     : executionIdentity()
