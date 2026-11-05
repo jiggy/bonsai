@@ -132,6 +132,88 @@ jobs:
       - name: Verify Python boundaries on ARM64
         run: bun test --isolate --timeout 30000 test/python-language.test.ts
 
+  integration-contracts:
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$FORMATTED_SHA"
+          git merge --no-edit "$FORMATTED_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Verify publisher requirements and selected routes through the real CLI
+        run: bun run test:specs -- --scenario features/integrations.feature
+
+  jig-adapter:
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin "$FORMATTED_SHA"
+          git merge --no-edit "$FORMATTED_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Check out the pinned official Jig host provisioner
+        uses: actions/checkout@v4
+        with:
+          repository: jiggy/jig
+          ref: 57c71520f9adf784c6ce85f904878013b7176806
+          path: .bonsai/jig-host
+          persist-credentials: false
+      - name: Select the exact CI Bun executable
+        run: |
+          test "$(uname -m)" = x86_64
+          JIG_CI_BUN="$(readlink -f "$(command -v bun)")"
+          test -x "$JIG_CI_BUN"
+          printf 'JIG_CI_BUN=%s\n' "$JIG_CI_BUN" >> "$GITHUB_ENV"
+      - name: Provision the qualified rootless Linux host
+        id: jig_host
+        run: .bonsai/jig-host/scripts/ci/provision-github-rootless-host.sh provision
+      - name: Verify the installed Jig route and current approved source
+        run: |
+          .bonsai/jig-host/scripts/ci/provision-github-rootless-host.sh run-acquisition-host \
+            /usr/bin/env BONSAI_JIG_SMOKE=1 "$JIG_CI_BUN" test --isolate \
+            --timeout 300000 test/jig-real.test.ts
+      - name: Require Jig host cleanup after success or failure
+        if: always() && steps.jig_host.outcome != '' && steps.jig_host.outcome != 'skipped'
+        run: .bonsai/jig-host/scripts/ci/provision-github-rootless-host.sh assert-clean
+
   verify:
     needs: [format, apply-formatting]
     if: >-
@@ -166,20 +248,26 @@ jobs:
       - run: bun run check
       - name: Install pinned Rust for the complete authored contracts
         run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
-      - name: Verify unit, CLI, and executable feature contracts
-        # Installation is repository test setup; product checks never install tools.
-        # The complete authored contracts now include the Rust team's CLI outcome.
+      - name: Verify ordinary unit and CLI regressions
+        id: regressions
+        env:
+          RAYON_NUM_THREADS: '1'
+        run: |
+          # Python runs in the required ARM64 job; the complete root tests run
+          # below in a fresh Bun process, not inside this long-lived test host.
+          test -f test/python-language.test.ts
+          test -f test/self-host.test.ts
+          mapfile -d '' tests < <(find test -type f -name '*.test.ts' ! -path 'test/python-language.test.ts' ! -path 'test/self-host.test.ts' -print0 | sort -z)
+          test "${#tests[@]}" -gt 0
+          bun test --isolate --timeout 30000 "${tests[@]}"
+      - name: Verify full-root feedback in a fresh test process
+        if: ${{ !cancelled() && steps.regressions.outcome != 'skipped' }}
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
           # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
-        run: |
-          # Keep every ordinary test except the Python file, which runs on a separate
-          # required ARM64 runner. Preserve isolation and the full root contract.
-          mapfile -d '' tests < <(find test -type f -name '*.test.ts' ! -name 'python-language.test.ts' -print0 | sort -z)
-          test "${#tests[@]}" -gt 0
-          bun test --isolate --timeout 30000 "${tests[@]}"
+        run: bun test --isolate --timeout 30000 test/self-host.test.ts
       - name: Summarize nested specification command timings
         if: always()
         env:
@@ -222,6 +310,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Verify the production package with a fresh cache
+        if: ${{ !cancelled() }}
         run: bun run test:package
       - run: bun run demo
 
@@ -384,7 +473,7 @@ jobs:
           retention-days: 14
 
   report-formatting-check:
-    needs: [apply-formatting, verify, python-arm, native-platforms, runner-adapters, report-browser]
+    needs: [apply-formatting, verify, python-arm, native-platforms, runner-adapters, report-browser, integration-contracts, jig-adapter]
     if: always() && needs.apply-formatting.outputs.sha != ''
     permissions:
       checks: write
@@ -401,6 +490,8 @@ jobs:
           NATIVE_RESULT: ${{ needs.native-platforms.result }}
           RUNNER_RESULT: ${{ needs.runner-adapters.result }}
           BROWSER_RESULT: ${{ needs.report-browser.result }}
+          INTEGRATION_RESULT: ${{ needs.integration-contracts.result }}
+          JIG_RESULT: ${{ needs.jig-adapter.result }}
         run: |
           conclusion="$RESULT"
           if [ "$conclusion" = success ] && [ "$PYTHON_ARM_RESULT" != success ]; then
@@ -414,6 +505,12 @@ jobs:
           fi
           if [ "$conclusion" = success ] && [ "$BROWSER_RESULT" != success ]; then
             conclusion="$BROWSER_RESULT"
+          fi
+          if [ "$conclusion" = success ] && [ "$INTEGRATION_RESULT" != success ]; then
+            conclusion="$INTEGRATION_RESULT"
+          fi
+          if [ "$conclusion" = success ] && [ "$JIG_RESULT" != success ]; then
+            conclusion="$JIG_RESULT"
           fi
           # GitHub job states are not all valid Checks API conclusions.
           case "$conclusion" in

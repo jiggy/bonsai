@@ -2,6 +2,9 @@ import { validateStructuralPolicy, validControlDepth } from './control-depth.ts'
 import type { Policy, Snapshot, Decision, Verification, Evidence } from './model.ts'
 import { sameExecutionIdentity, validExecutionIdentity } from './identity.ts'
 import { validateRunnerRequirements, validRunnerEvidence, runnerViolations } from './runners.ts'
+import { validJigRouteReceipts, jigEvidenceProblems } from './jig-evidence.ts'
+import { runtimeJigRoutes } from './retention.ts'
+import { isDeepStrictEqual } from 'node:util'
 
 export function validateVerification(verification: Verification | undefined): void {
   if (verification === undefined) return
@@ -35,6 +38,7 @@ export function validEvidence(value: unknown): value is Evidence {
     !Array.isArray(evidence.checks)
   )
     return false
+  if (evidence.jigRoutes !== undefined && !validJigRouteReceipts(evidence.jigRoutes)) return false
   if (evidence.bindingImport !== undefined) {
     const receipt = evidence.bindingImport
     if (
@@ -126,6 +130,14 @@ export function evaluate(
   ) {
     missing('Required evidence is missing, incomplete, or belongs to another candidate')
   } else {
+    const requiredRoutes = runtimeJigRoutes(candidate.contracts, candidate.source)
+    if (
+      (candidate.source.jigRoutes !== undefined || candidate.jigRouteRequirements !== undefined) &&
+      !isDeepStrictEqual(requiredRoutes, candidate.jigRouteRequirements)
+    )
+      missing('Required Jig route selections are missing or mismatched in the candidate')
+    for (const problem of jigEvidenceProblems(requiredRoutes, evidence.jigRoutes ?? []))
+      missing(problem)
     for (const boundary of candidate.source.bindingImports ?? []) {
       if (
         evidence.bindingImport?.adapter !== boundary.adapter ||

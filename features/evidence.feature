@@ -12,9 +12,11 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.finishedInputs" equals [0, 1, 2]
     And response "application.runningPids" equals []
 
-  Scenario: A crashed scenario cancels its peers without starting queued work
-    Application calls are held active while another required call awaits execution.
-    One of the active calls then exits before returning its required response.
+  Scenario: Crashes, deadlines, and cancellation stop active work without starting queued calls
+    In each independent project, application calls are held active while another required
+    call awaits execution. First, one active call exits before returning its required response.
+    Next, calls remain blocked until the existing shared feedback deadline expires.
+    Finally, the maintainer interrupts the command with SIGINT while its calls are held active.
     When I invoke "check" with {"fixture": "verification", "case": "crash"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -22,9 +24,6 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.queuedInputsStarted" equals []
     And response "application.runningPids" equals []
 
-  Scenario: The shared feedback deadline stops all active scenarios
-    Application calls remain blocked while another required call awaits execution.
-    They must stop when the existing shared feedback deadline expires.
     When I invoke "check" with {"fixture": "verification", "case": "timeout"}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -32,9 +31,6 @@ Feature: Verify every required behavior without leaving application work running
     And response "application.queuedInputsStarted" equals []
     And response "application.runningPids" equals []
 
-  Scenario: Cancelling a command stops active scenarios and leaves queued work unstarted
-    Application calls are held active while another required call awaits execution.
-    The maintainer interrupts the command with SIGINT.
     When I invoke "check" with {"fixture": "verification", "case": "cancel"}
     Then response "exitCode" equals 130
     And response "code" equals "SIGINT"
@@ -51,21 +47,24 @@ Feature: Verify every required behavior without leaving application work running
     And response "decision.status" equals "incomplete"
     And response "maintainedText" equals "{\"revision\":2}\n"
 
-  Scenario Outline: Required supporting verification must finish successfully
+  Scenario: Required supporting verification must finish successfully
     A readiness observation passes for both the correct and the faulty doubling
     helper. The maintainer also requires a separate supporting suite that checks
     doubling with a real assertion and emits a Vitest-compatible report. A skipped
     assertion or an old report left by a command that does no work cannot satisfy it.
-    When I invoke "check" with {"fixture": "supporting-suite", "case": "<case>"}
-    Then response "exitCode" equals <exit>
-    And response "decision.status" equals "<status>"
-
-    Examples:
-      | case    | exit | status     |
-      | passed  | 0    | pass       |
-      | failed  | 1    | reject     |
-      | skipped | 2    | incomplete |
-      | stale   | 2    | incomplete |
+    The maintainer checks independent projects with each supporting outcome.
+    When I invoke "check" with {"fixture": "supporting-suite", "case": "passed"}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"
+    When I invoke "check" with {"fixture": "supporting-suite", "case": "failed"}
+    Then response "exitCode" equals 1
+    And response "decision.status" equals "reject"
+    When I invoke "check" with {"fixture": "supporting-suite", "case": "skipped"}
+    Then response "exitCode" equals 2
+    And response "decision.status" equals "incomplete"
+    When I invoke "check" with {"fixture": "supporting-suite", "case": "stale"}
+    Then response "exitCode" equals 2
+    And response "decision.status" equals "incomplete"
 
   Scenario: A report path cannot overwrite an authored project input
     The maintainer accidentally names the authored project notes as a supporting

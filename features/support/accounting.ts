@@ -101,7 +101,7 @@ export function checkAccounting(input: AccountingInput) {
   if (input.case === 'compaction') return compactRetainedSource(input.revision ?? 'pruned')
   const fixture = accountingProject(input)
   try {
-    const report = invoke(['check', '--serial', '--root', fixture.root])
+    const report = invoke(['check', '--serial', '--no-report', '--root', fixture.root])
     return {
       ...report,
       ...observations(fixture.root),
@@ -142,7 +142,8 @@ export function second() { return value() }
 function compactRetainedSource(revision: 'base' | 'pruned') {
   const fixture = compactionProject()
   try {
-    if (revision === 'base') return invoke(['check', '--serial', '--root', fixture.root])
+    if (revision === 'base')
+      return invoke(['check', '--serial', '--no-report', '--root', fixture.root])
     for (const args of [
       ['init', '-b', 'main', fixture.root],
       ['-C', fixture.root, 'add', '.'],
@@ -164,7 +165,7 @@ function compactRetainedSource(revision: 'base' | 'pruned') {
     ])
       execFileSync('git', args, { stdio: 'ignore' })
     write(fixture.root, 'handlers.ts', fixture.compact)
-    return invoke(['check', '--serial', '--root', fixture.root, '--base', 'HEAD'])
+    return invoke(['check', '--serial', '--no-report', '--root', fixture.root, '--base', 'HEAD'])
   } finally {
     fixture.dispose()
   }

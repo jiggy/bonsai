@@ -13,14 +13,14 @@ Feature: Admit implementations that fulfill their declared behavior within the c
     And response "childExecuted" equals true
     And response "invocationCount" equals 2
 
-  Scenario: An unavailable checker stops before application handlers run
-    The selected local checker executable is absent.
+  Scenario: Unavailable or unsupported source analysis stops before application handlers run
+    The maintainer checks two independent applications. The first has no selected local
+    checker executable; the second required handler selects its imported module at runtime.
+    Neither analysis blocker may bypass source tracing and run the application.
     When I invoke "check" with {"missingNative": true}
     Then response "exitCode" equals 1
     And response "handlerExecuted" equals false
 
-  Scenario: Unsupported runtime imports cannot bypass source tracing
-    The required handler selects its imported module at runtime.
     When I invoke "check" with {"computedImport": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -33,38 +33,36 @@ Feature: Admit implementations that fulfill their declared behavior within the c
     And response "decision.status" equals "pass"
     And response "invocationCount" equals 5
 
-  Scenario: Wrong application behavior is rejected after exercising the required requests
-    The handler incorrectly accepts a zero quantity, although that request must be rejected.
+  Scenario: Completed checks reject incorrect behavior, unjustified code, and excess retained cost
+    The maintainer compares three independent order applications.
+    The first incorrectly accepts a zero quantity, although that request must be rejected.
+    The second has a working handler that shares its module with an unused exported operation.
+    The third fulfills its requests but its maintained source exceeds a one-token limit.
     When I invoke "check" with {"broken": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "handlerExecuted" equals true
     And response "invocationCount" equals 2
 
-  Scenario: An unused symbol in a used module has no product justification
-    A working handler shares its module with an unused exported operation.
     When I invoke "check" with {"unrooted": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "snapshot.unrooted" equals ["orders.ts#unused"]
 
-  Scenario: Passing behavior must fit the retained-code ceiling
-    The application fulfills its requests but its maintained source exceeds a one-token limit.
     When I invoke "check" with {"overBudget": true}
     Then response "exitCode" equals 1
     And response "decision.status" equals "reject"
     And response "decision.ceiling" equals 1
     And response "invocationCount" equals 2
 
-  Scenario: A comment-only requirement file cannot grant admission
-    No executable contract has been authored for the application.
+  Scenario: A comment-only requirement or unbound action cannot grant admission
+    The first application has no executable contract, only a comment in its requirement file.
+    An independent application has a requirement naming an operation its registry does not bind.
     When I invoke "check" with {"missingContracts": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
     And response "handlerExecuted" equals false
 
-  Scenario: An unbound external action cannot grant admission
-    A requirement names an operation that the application registry does not bind.
     When I invoke "check" with {"unbound": true}
     Then response "exitCode" equals 2
     And response "decision.status" equals "incomplete"
@@ -91,15 +89,14 @@ Feature: Admit implementations that fulfill their declared behavior within the c
     And response "decision.status" equals "pass"
     And response "invocationCount" equals 4
 
-  Scenario Outline: Reviewed nesting limits apply even when behavior fits the code allowance
+  Scenario: Reviewed nesting limits apply even when behavior fits the code allowance
     The team permits at most four nested decisions. The application evaluates five
     approval conditions and fulfills its accepted and denied requests under budget.
     A guard-clause rewrite preserves those requests with shallower control flow.
-    When I invoke "check" with {"fixture": "control-depth", "layout": "<layout>"}
-    Then response "exitCode" equals <exit>
-    And response "decision.status" equals "<decision>"
-
-    Examples:
-      | layout | exit | decision |
-      | nested | 1    | reject   |
-      | flat   | 0    | pass     |
+    The maintainer checks the nested implementation and the rewrite independently.
+    When I invoke "check" with {"fixture": "control-depth", "layout": "nested"}
+    Then response "exitCode" equals 1
+    And response "decision.status" equals "reject"
+    When I invoke "check" with {"fixture": "control-depth", "layout": "flat"}
+    Then response "exitCode" equals 0
+    And response "decision.status" equals "pass"

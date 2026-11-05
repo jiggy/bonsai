@@ -168,23 +168,26 @@ export function checkDiagnostics(
     diagnostics.push({
       title: message,
       detail: [],
-      fix:
-        message === 'Required control-depth-v1 measurement is missing or incomplete'
-          ? 'Run complete source analysis with a checker supporting the configured control-depth-v1 requirement'
-          : message.startsWith('Evidence collection interrupted:')
-            ? message.includes('feedback deadline expired')
-              ? 'Use --verbose to inspect phase timings, then shorten verification while preserving required checks'
-              : 'Fix the interrupted verification or its feedback deadline, then rerun the check to collect complete evidence'
-            : message === 'Maintained files changed during verification'
-              ? 'Keep maintained files unchanged during verification and rerun the check'
-              : message.startsWith('Unsupported source language:')
-                ? `Add source-language ancestry support before rerunning this check. These files stay measured. See ${docsUrl.replace('/cli.md', '/roadmap.md')}`
-                : /\.[cm]?ts:\d+:/.test(message)
-                  ? 'Correct the TypeScript error at the reported source location and rerun the check'
-                  : message.startsWith('Required evidence') ||
-                      message.startsWith('Missing required check')
-                    ? 'Rerun verification for this candidate and ensure every declared observation produces a result'
-                    : 'Resolve the reported source construct using the supported TypeScript adapter, then rerun the check',
+      fix: /domain step|unsupported or unbound step|step definitions must/.test(message)
+        ? `Define literal steps in ${bindings}, mapping Given context, named actions, and individual observations. See ${docsUrl.replace('/cli.md', '/integrations.md')}`
+        : message.startsWith('Unsupported Jig route:')
+          ? `Use a supported literal Jig binding route with explicit project cwd and a complete maintained package. See ${docsUrl.replace('/cli.md', '/integrations.md')}`
+          : message === 'Required control-depth-v1 measurement is missing or incomplete'
+            ? 'Run complete source analysis with a checker supporting the configured control-depth-v1 requirement'
+            : message.startsWith('Evidence collection interrupted:')
+              ? message.includes('feedback deadline expired')
+                ? 'Use --verbose to inspect phase timings, then shorten verification while preserving required checks'
+                : 'Fix the interrupted verification or its feedback deadline, then rerun the check to collect complete evidence'
+              : message === 'Maintained files changed during verification'
+                ? 'Keep maintained files unchanged during verification and rerun the check'
+                : message.startsWith('Unsupported source language:')
+                  ? `Add source-language ancestry support before rerunning this check. These files stay measured. See ${docsUrl.replace('/cli.md', '/roadmap.md')}`
+                  : /\.[cm]?ts:\d+:/.test(message)
+                    ? 'Correct the TypeScript error at the reported source location and rerun the check'
+                    : message.startsWith('Required evidence') ||
+                        message.startsWith('Missing required check')
+                      ? 'Rerun verification for this candidate and ensure every declared observation produces a result'
+                      : 'Resolve the reported source construct using the supported TypeScript adapter, then rerun the check',
     })
   }
   return diagnostics

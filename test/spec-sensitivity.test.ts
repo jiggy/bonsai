@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { inventory } from '../src/inventory.ts'
 import { readConfig } from '../src/project.ts'
-import type { ContractCase } from '../src/model.ts'
+import type { ContractCase, Step } from '../src/model.ts'
 import { invalidContractProject } from './accounting-fixture.ts'
 import { cliEnvironment } from './cli.ts'
 import { loadSpecifications, verifySpecifications } from './specs.ts'
@@ -73,13 +73,12 @@ function copiedChecker() {
 }
 
 function inputMatches(expected: Record<string, unknown>, action: 'check' | 'explain' = 'check') {
-  return (scenario: ContractCase) =>
-    scenario.steps.some((step) => {
-      if (step.kind !== 'action' || step.action !== action) return false
-      if (step.input === null || typeof step.input !== 'object') return false
-      const input = step.input as Record<string, unknown>
-      return Object.entries(expected).every(([key, value]) => input[key] === value)
-    })
+  return (step: Step) => {
+    if (step.kind !== 'action' || step.action !== action) return false
+    if (step.input === null || typeof step.input !== 'object') return false
+    const input = step.input as Record<string, unknown>
+    return Object.entries(expected).every(([key, value]) => input[key] === value)
+  }
 }
 
 async function detectsFault(
@@ -92,7 +91,8 @@ async function detectsFault(
 ) {
   const checker = copiedChecker()
   try {
-    const options = { select: inputMatches(expectedInput, action) }
+    const matchesInput = inputMatches(expectedInput, action)
+    const options = { select: (scenario: ContractCase) => scenario.steps.some(matchesInput) }
     const control = await verifySpecifications(checker.root, options)
     assert.equal(control.contracts.cases.length, 1, 'Choose one authored product example')
     assert.equal(control.evidence.complete, true)
@@ -111,7 +111,18 @@ async function detectsFault(
       true,
       'A fixture or worker failure is not sensitivity evidence',
     )
-    const target = faulty.contracts.checks.find((check) => check.selector === observedSelector)
+    const targets = faulty.contracts.cases.flatMap((scenario) => {
+      let selected = false
+      return scenario.steps.flatMap((step) => {
+        if (step.kind === 'action') {
+          selected = matchesInput(step)
+          return []
+        }
+        return selected && step.check.selector === observedSelector ? [step.check] : []
+      })
+    })
+    assert.equal(targets.length, 1, 'Choose one observation for the selected action and input')
+    const target = targets[0]
     assert.ok(target, `The authored example must observe ${observedSelector}`)
     const outcome = faulty.evidence.checks.find((check) => check.id === target.id)
     assert.equal(

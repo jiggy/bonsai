@@ -1,6 +1,8 @@
 import type { StructuralPolicy, ControlDepthFacts } from './control-depth.ts'
 import type { ExecutionIdentity } from './identity.ts'
 import type { RunnerRequirement, RunnerEvidence } from './runners.ts'
+import type { DomainStepDefinition } from './domain-steps.ts'
+import type { JigRouteFact, JigRouteReceipt } from './jig-evidence.ts'
 
 export type Reference = { file: string; line: number }
 export type Component = Reference & {
@@ -22,10 +24,11 @@ export type Check = Reference & {
   action: string
   selector: string
   expected: unknown
+  definitionRefs?: Reference[]
 }
 export type ContractCase = { id: string; name: string; steps: Step[] }
 export type Step =
-  | { kind: 'action'; action: string; input: unknown }
+  | { kind: 'action'; action: string; input: unknown; definitionRefs?: Reference[] }
   | { kind: 'observation'; check: Check }
 export type Contracts = {
   pairs: string[]
@@ -39,6 +42,9 @@ export type Source = {
   relationships: Relationship[]
   actions: Record<string, string>
   registry?: string
+  stepRegistry?: string
+  stepDefinitions?: DomainStepDefinition[]
+  jigRoutes?: JigRouteFact[]
   bindingImports?: (Reference & {
     from: string
     adapter: 'project-bindings-v1'
@@ -71,6 +77,7 @@ export type Evidence = {
   complete: boolean
   elapsedMs: number
   bindingImport?: { adapter: 'project-bindings-v1'; file: string; fingerprint: string }
+  jigRoutes?: JigRouteReceipt[]
   checks: {
     id: string
     status: 'passed' | 'failed' | 'missing'
@@ -94,6 +101,7 @@ export type Snapshot = {
   source: Source
   ancestry: Record<string, string[]>
   unrooted: string[]
+  jigRouteRequirements?: JigRouteFact[]
   evidence?: Evidence
   runners?: RunnerRequirement[]
   runnerEvidence?: RunnerEvidence[]

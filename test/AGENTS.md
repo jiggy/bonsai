@@ -35,7 +35,37 @@ These tooling regressions grant no product allowance and keep reference generati
 
 Preserve regression coverage for budget, ancestry, evidence identity, worker deadlines, base policy, and interrupted runs. `verification-policy.test.ts` checks schema and malformed serialized evidence rejection; `fingerprint.test.ts` checks excluded root lockfile presence, content, and removal as evidence inputs.
 
+`retention-state.test.ts` preserves distinct runtime/production traversal states, ordered individual observation membership, supporting-helper cycles, registry initialization, and fresh results after graph edits. Retention refactors may reduce repeated work without changing these facts or adding product allowance.
+
 `identity.test.ts` and `snapshot-schema.test.ts` cover content identity, relocation, runtime options, and nested serialized facts. A fixed independently computed digest spans both small and streamed files to preserve the identity byte format during I/O changes. `runner-cli.test.ts` exercises completed analysis receipts through both actual verification profiles with an unavailable unused compiler, and requires fresh context capture when no receipt is supplied. `identity-fixture.ts` supplies explicitly assumed identities only to pure evaluator fixtures. `runner-adapters.test.ts` checks concrete report correlation, counts/floors, stale files, containment, and actual command cancellation. `runner-real.test.ts` is the opt-in pinned-framework consumer smoke; ordinary tests skip its network installation. `rust-backend.test.ts` offers a `BONSAI_RUST_PROBE=1` semantic/backend experiment against a disposable Cargo consumer; ordinary tests require no Rust toolchain. Existing native CLI regressions retain the TypeScript checker’s Rust/mixed-scope incomplete boundary. The Cargo probe does not establish standalone Rust acceptance. Native Rust regressions additionally preserve actual literal payload costs, read-only explanation, candidate-tool nonexecution, process reaping, and changes to a disposable analyzer copy without modifying the installed toolchain. `standalone-rust.test.ts` separately exercises compiler-free parent checks/explanations with a positive TypeScript-load guard, measured timeout reports, post-collection identity deadlines, and analyzer/tool reaping, plus actual experimental native bindings through the real CLI under `BONSAI_RUST_PROBE=1`; ordinary technical tests skip toolchain-dependent cases without installing Rust; complete repository self-host tests require the explicitly installed pinned Rust components for the authored Rust-team outcome. Keep its consuming contract as technical compatibility data, without additional root allowance.
+
+`domain-steps.test.ts` checks literal metadata extraction and compilation with
+the production parser: preserved context and captures, individual obligations,
+canonical surface, outline isolation, ambiguity, and unsupported syntax.
+`domain-integration.test.ts` compares native facts with the independent reference,
+checks provenance and selected ancestry, and verifies real application results
+and wrong consequences in both execution profiles. Explanation and malformed
+metadata controls must leave registry and handler execution markers absent.
+
+`jig-routes.test.ts` covers the bounded literal route forms, native/reference
+ancestry, selected child methods, inert exports, unsupported or unmeasured
+selection, and read-only explanation. Its type-only fixtures do not qualify
+installed Jig. `jig-evidence.test.ts` independently checks FLOW-Package/0 bytes,
+complete maintained package scope, inspected approval shape and selection,
+stale source, unstable approval, bounded output, deadlines, and descendant cleanup.
+
+`jig-real.test.ts` is the explicit `bun run test:jig` consumer smoke, skipped
+unless `BONSAI_JIG_SMOKE=1`. It installs exact Jig `0.1.0-alpha.42` and Flow
+`0.1.0-alpha.15` with generated then frozen locks, uses the actual named CLI,
+and requires a qualified host. An opted-in setup or execution failure must fail,
+not skip. Preserve the passing application control, selected child-method
+ancestry, no-execution explanation, stale-review rejection before wrapper
+initialization, and wrong-result rejection after explicit re-review. The publisher
+Given must reach the real Flow as input; its Then independently requires the
+sample status and practice materials for that explicit reader problem. A faulty
+sample must fail while the material/context observation still passes. Control and
+fault use the same declared policy. Ordinary tests do not install these packages;
+the dedicated read-only CI job owns host provisioning and residue checks.
 
 `cli-base-paths.test.ts` exercises real Git roots and aliases through config, check, and explain, including worktrees and actual-subdirectory rejection. Preserve the caller's root spelling and invocation-relative policy paths. The macOS native platform job runs this file with installation regressions so canonical-path bugs stay covered beyond Linux.
 
@@ -62,7 +92,7 @@ structural explanation facts never claim test execution. Deep single-target expl
 Check route-name foreground and dim state after narrow wrapping, plus independently
 bounded human details and complete machine facts.
 
-`package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled. Exercise the installed `bunx` command through missing configuration, initialization without a README, honest unfinished-setup diagnostics, a real connected contract, and repeat-init preservation, as well as missing-dependency recovery. First prove the ordinary host-selected installation works, then explicitly request both libc variants with `--libc=*` for the GNU/musl comparison; Bun filters optional dependencies by libc. Validate each report's own execution identity; different selected binary bytes must change the compiler content digest. Only this explicit release check uses the package registry.
+`package-install.test.ts` checks prebuilt target selection without network access. `bun run test:package` additionally packs and installs the production tarball in an isolated consumer with a fresh cache and scripts disabled. Exercise the installed `bunx` command through missing configuration, initialization without a README, honest unfinished-setup diagnostics, a real connected contract, and repeat-init preservation, as well as missing-dependency recovery. First prove the ordinary host-selected installation works, then explicitly request both libc variants with `--libc=*` for the GNU/musl comparison; Bun filters optional dependencies by libc. Validate each report's own execution identity; different selected binary bytes must change the compiler content digest. Package-registry access is confined to the explicit package, supporting-runner, and Jig smoke checks.
 
 `cli-inventory.test.ts` covers actionable missing-maintained-input diagnostics, preserved scope and candidate files, repair by supplying the real input, and copied inspection commands with quoted roots and effective base/explicit policy. Distinguish missing historical inputs from candidate files and keep declared-input errors independent of report preflight. Verify wrapped alert colors and no-color parity through a real PTY.
 
@@ -92,6 +122,8 @@ Timing regressions exercise real CLI work and delayed handlers, retained measure
 The native root regression measures the full committed inventory and verifies every declared observation through the actual CLI under the saved feedback policy. Both root regressions require exact observation IDs, fingerprints, loader receipts, the CLI/evidence/native-worker entry-point relationships, and ancestry for every retained component. They log the actual feedback measurement for both checkout and archive forms, including incomplete runs. During stabilization the root may reject only its deferred size overage; a failed observation, missing ancestry, or incomplete analysis must fail the regression. CI sets the test-only `BONSAI_SELF_CHECK_REPORT` path to save the real native report before assertions, including failed assertions' data; it is not a CLI configuration option. A copied archive fixture selects the same complete inventory and uses the same saved 15-second native deadline, with the checker's installed dependencies linked locally outside the authored inventory. Neither exclusions nor fabricated evidence may hide authored code. Separate consuming-project fixtures keep unsupported Rust measured and incomplete after the obsolete prototype's deletion.
 
 Native runtime guards trap JS compiler factories while permitting lexical parsing/scanning. Require all diagnostic categories. Known native default-library directive gaps must produce a specific incomplete result for owned and imported declarations, never a missing-diagnostic pass. Preserve full fact parity for supported valid syntax; malformed lexical ASTs may be provisional only with blocking diagnostics and no evidence.
+
+`tsrs-collector.test.ts` compares selective native span indexing with a full walk over the maintained lexical trees, including Unicode, zero-width boundaries, and unknown or inconsistent-range fallbacks. These traversal tests complement real native/reference parity; a lexical facade does not qualify native execution.
 
 Lazy project startup regressions compare configuration values, object prototypes, validation, and exact syntax diagnostics with the reference parser. A runtime module-load guard must reject TypeScript in standard-config native CLI parents while allowing and observing its semantic-worker load. Prove the guard with a direct compiler-module load and JSONC fallback controls; metadata-only configuration inspection remains compiler-free for standard JSON.
 

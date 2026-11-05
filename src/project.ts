@@ -20,6 +20,7 @@ import {
 } from './identity.ts'
 import { runSupportingVerification, validateRunnerRequirements } from './runners.ts'
 import { parseSnapshot } from './snapshot-schema.ts'
+import { verifyJigRoutes } from './jig-evidence.ts'
 
 export { CollectorError } from './collector.ts'
 
@@ -113,13 +114,6 @@ export async function snapshot(
     }
     timer.start('fingerprint')
     const hash = fingerprint(root, files, config)
-    timer.start('contracts')
-    const { compileContracts } = await import('./contracts.ts')
-    const contracts = compileContracts(
-      files
-        .filter((file) => file.endsWith('.feature'))
-        .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
-    )
     timer.start('identity')
     const python = config.bindings.endsWith('.py')
     const standaloneRust = config.bindings.endsWith('.rs')
@@ -132,6 +126,12 @@ export async function snapshot(
     }
     const sourceTimer = new Timer()
     timer.start('source', sourceTimer)
+    // Load trusted parser code while the fresh semantic worker is running.
+    // Settle failures now and rethrow them when contract compilation is reached.
+    const contractModule = import('./contracts.ts').then(
+      (module) => ({ module }),
+      (error: unknown) => ({ error }),
+    )
     const collectSource = standaloneRust
       ? (await import('./standalone-rust.ts')).collectStandaloneRust
       : python
@@ -177,6 +177,15 @@ export async function snapshot(
       source.problems.push(`Checker or toolchain identity recheck interrupted: ${String(error)}`)
       if (collected.analysis) collected.analysis.status = 'unsupported'
     }
+    timer.start('contracts')
+    const loadedContracts = await contractModule
+    if ('error' in loadedContracts) throw loadedContracts.error
+    const contracts = loadedContracts.module.compileContracts(
+      files
+        .filter((file) => file.endsWith('.feature'))
+        .map((file) => ({ file, text: readFileSync(resolve(root, file), 'utf8') })),
+      source.stepDefinitions,
+    )
     timer.start('retention')
     const result = buildSnapshot(hash, contracts, source)
     result.identity = identity
@@ -187,6 +196,13 @@ export async function snapshot(
     if (execute && !contracts.problems.length && !source.problems.length) {
       timer.start('verification')
       try {
+        const routes = result.jigRouteRequirements ?? []
+        const approvedRoutes = routes.length
+          ? await verifyJigRoutes(root, files, routes, {
+              signal,
+              timeoutMs: config.policy.maxFeedbackMs - (performance.now() - started),
+            })
+          : undefined
         result.evidence = await runEvidence(
           root,
           config,
@@ -210,6 +226,17 @@ export async function snapshot(
           )
           for (const evidence of result.runnerEvidence) evidence.identity = result.identity
         }
+        if (approvedRoutes)
+          result.evidence.jigRoutes = await verifyJigRoutes(
+            root,
+            files,
+            routes,
+            {
+              signal,
+              timeoutMs: config.policy.maxFeedbackMs - (performance.now() - started),
+            },
+            approvedRoutes,
+          )
         timer.finish()
       } catch (error) {
         timer.finish('interrupted')

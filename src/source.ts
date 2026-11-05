@@ -7,6 +7,9 @@ import { createSubprocessAdapter, executesAtEntry } from './subprocess.ts'
 import { moduleInitialization, runtimeReference } from './module-initialization.ts'
 import { createResourceAdapter } from './resources.ts'
 import { runtimeCoverageScope } from './runtime-scope.ts'
+import { collectDomainSteps } from './domain-steps.ts'
+import { createJigRouteAdapter } from './jig-routes.ts'
+import type { JigRouteFact } from './jig-evidence.ts'
 import { plainTokens } from './source-cost.ts'
 
 export { inventory, fingerprint } from './inventory.ts'
@@ -138,6 +141,15 @@ export function collectSourceGraph(
       }
     }
   }
+  const bindingSource = program.getSourceFile(resolve(root, bindings))
+  if (bindingSource) {
+    const domain = collectDomainSteps(ts, bindingSource, bindings)
+    source.problems.push(...domain.problems)
+    if (domain.definitions.length) {
+      source.stepRegistry = `${bindings}#steps`
+      source.stepDefinitions = domain.definitions
+    }
+  }
   const seen = new Map<string, Source['relationships'][number]>()
   const connect = (
     owner: Component,
@@ -168,6 +180,7 @@ export function collectSourceGraph(
     source.relationships.push(edge)
   }
   const subprocess = createSubprocessAdapter(root, files, program)
+  const jigRoute = createJigRouteAdapter(root, files, program)
   const resource = createResourceAdapter(root, files, program)
   const resources = new Map<string, Component>()
   const entries = new Map<string, Component[]>()
@@ -258,13 +271,30 @@ export function collectSourceGraph(
         }
       }
       if (ts.isCallExpression(child)) {
-        const launch = subprocess(child)
+        const launch:
+          | {
+              file: string
+              declarations?: ts.ExportAssignment[]
+              selection?: Omit<JigRouteFact, 'adapter' | 'from' | 'file' | 'line'>
+            }
+          | { problem: string }
+          | undefined = subprocess(child) ?? (owner.kind !== 'test' ? jigRoute(child) : undefined)
         if (launch && 'problem' in launch)
           source.problems.push(`${launch.problem} at ${owner.file}:${reference(child).line}`)
         else if (launch) {
+          if (launch.selection)
+            (source.jigRoutes ??= []).push({
+              adapter: 'jig-binding-v1',
+              from: owner.id,
+              ...reference(child),
+              ...launch.selection,
+            })
           launches.push({ owner, node: child, file: launch.file })
           for (const entry of entries.get(launch.file) ?? [])
             connect(owner, entry, child, 'entry-point')
+          if (launch.declarations)
+            for (const declaration of launch.declarations)
+              connect(owner, nodes.get(declaration), child)
         }
       }
       if (ts.isCallExpression(child) && child.expression.kind === ts.SyntaxKind.ImportKeyword) {
@@ -351,11 +381,13 @@ export function collectSourceGraph(
       }
       if (ts.isIdentifier(child)) {
         const original = checker.getSymbolAtLocation(child)
-        const runtime = runtimeReference(child)
-        if (original && runtime) runtimeUses.add(original)
-        const symbol = unalias(original)
-        const target = symbol && symbols.get(symbol)
-        connect(owner, target, child, 'reference', runtime)
+        if (original) {
+          const runtime = runtimeReference(child)
+          if (runtime) runtimeUses.add(original)
+          const symbol = unalias(original)
+          const target = symbol && symbols.get(symbol)
+          connect(owner, target, child, 'reference', runtime)
+        }
       }
       ts.forEachChild(child, visit)
     }

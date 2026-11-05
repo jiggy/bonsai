@@ -139,10 +139,13 @@ Feature: Place orders only for valid quantities
       | 1.5      | rejected |
 ```
 
-This uses the supported invocation/response DSL. Context is explanatory prose,
-not an executable `Given` step; arbitrary domain steps need adapter support.
-The three examples retain one `place-order`/`status` pair and every concrete
-obligation. See [adoption](adoption.md) for setup.
+This uses the built-in invocation/response DSL. TypeScript projects can retain
+publisher-facing Given/When/Then through the [literal domain-step adapter](https://github.com/jiggy/bonsai/blob/main/docs/integrations.md).
+It maps Given context into action input and keeps each declared consequence as
+an independent observation; arbitrary Cucumber callbacks remain unsupported.
+The three examples above retain one `place-order`/`status` pair and every concrete
+obligation. Existing contracts need no migration. See
+[adoption](adoption.md) for setup.
 
 ## Implement and verify the agreed rule
 
@@ -203,9 +206,10 @@ Technical tests preserve the detailed proofs beside the relevant implementation.
 | Product rule | Specification |
 | --- | --- |
 | Admission outcomes and supported analysis boundaries | `features/check.feature` |
-| Native Python and Rust adoption | `features/adoption.feature` |
+| Native Python and Rust adoption | `features/adoption-python.feature`, `features/adoption-rust.feature` |
 | Surface deduplication, budget boundaries, and full retained cost | `features/accounting.feature` |
 | Production/test ancestry and effective policy scope | `features/ancestry.feature` |
+| Domain requirements and selected named-route ancestry | `features/integrations.feature` |
 | Required execution, freshness, deadlines, and cancellation | `features/evidence.feature` |
 | Safe initialization and project/configuration handling | `features/project.feature` |
 | Human diagnostics, automation, and recovery guidance | `features/ux.feature` |

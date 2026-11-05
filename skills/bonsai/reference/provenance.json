@@ -5,8 +5,8 @@
     {
       "source": "README.md",
       "destination": "README.md",
-      "sourceSha256": "b188efe337bae245b53951a1e7c23685f23e38ae7daf49e4b1c624f0a4b170b2",
-      "outputSha256": "879bdd2d0f13544657084af583872faa7a93075074640cd549184dbea98af05d"
+      "sourceSha256": "402b75fa5a6f2d67f689c40616b81ab7530ed6ce3996616a33871f2f3dc97d64",
+      "outputSha256": "4a8ddf815299051270c04af0ca3bc3bc44ef311cb7ba1d8c1a19ff41b8bb94bb"
     },
     {
       "source": "docs/agent-workflow.md",
@@ -23,8 +23,8 @@
     {
       "source": "docs/bdd.md",
       "destination": "bdd.md",
-      "sourceSha256": "4b13fa19cf7ca84debef9f31527d40dcf9e03fcf30f24969cf6670c241ca4dab",
-      "outputSha256": "0900515100a4a52d6bb80ba47a824f50175f15d17b1f77b01a54b5299313cd7c"
+      "sourceSha256": "756d22db6d26d675a7b45539cbf1bbbbc33da16687d678e2520e209e12b6cba9",
+      "outputSha256": "a6e656641df9323319eb10442b822ec445f6bf00a1c4136af948094dfe68c79a"
     },
     {
       "source": "docs/cli.md",

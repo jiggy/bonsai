@@ -4,11 +4,13 @@ Specify the developer outcomes and domain rules that make Bonsai useful, through
 
 ## Ownership
 
-`adoption.feature` covers Python/Rust teams connecting native bindings with the same admission gate. Its Rust example uses an explicitly installed pinned toolchain and the existing check exit/status observations; grouping native adoption keeps cold-start work early without granting execution-order semantics between isolated scenarios. `check.feature` covers trustworthy admission, executable behavior, and reviewed control-flow nesting limits. `accounting.feature` specifies allowance, required calls, and compaction under unchanged rules. `ancestry.feature` covers production justification and reviewed policy scope. `evidence.feature` specifies required execution, freshness, shutdown, and rejection of candidate attempts to rewrite verification outcomes. `project.feature` covers safe adoption; `ux.feature` covers useful diagnostics and automation. `inspect.feature` covers read-only answers; `discover.feature` covers help, version, and usable completion. `github-action.feature` covers a maintainer's PR allowance gate, including base-policy integrity and incomplete verification. Its canonical public action is the reusable repository identity `jiggy/bonsai`.
+`adoption-python.feature` and `adoption-rust.feature` cover their respective native bindings with the same admission gate. The Rust example uses an explicitly installed pinned toolchain and the existing check exit/status observations. Keep independent language setup in separate feature groups so one backend startup does not defer the other; isolated scenarios still have no execution-order guarantee. `check.feature` covers trustworthy admission, executable behavior, and reviewed control-flow nesting limits. `accounting.feature` specifies allowance, required calls, and compaction under unchanged rules. `ancestry.feature` covers production justification and reviewed policy scope. `evidence.feature` specifies required execution, freshness, shutdown, and rejection of candidate attempts to rewrite verification outcomes. `project.feature` covers safe adoption; `ux.feature` covers useful diagnostics and automation. `inspect.feature` covers read-only answers; `discover.feature` covers help, version, and usable completion. `github-action.feature` covers a maintainer's PR allowance gate, including base-policy integrity and incomplete verification. Its canonical public action is the reusable repository identity `jiggy/bonsai`.
 
 Root `bonsai.bindings.ts` connects stable public command identities to `support/actions.ts`.
 
 `report.feature` covers saving checks for later HTML inspection, retaining rejected or incomplete decisions and clean machine-readable output, default report generation, and the report opt-out for read-only projects.
+
+`integrations.feature` covers publisher-authored domain requirements, independently required deliverables, preserved context and invocation obligations, and read-only ancestry through a selected named command route without justifying unrelated flows.
 
 Technical compiler, parser, protocol, schema, scheduling, and presentation regressions belong in `test/`. They preserve detailed proof without adding product allowance.
 
@@ -25,6 +27,8 @@ Review every action–observation pair for product significance: the engine only
 Cover successful and blocking user outcomes. Backend identity, exact parser strings, incidental token goldens, ANSI numbers, report offsets, and exhaustive syntax permutations belong in technical regressions. Public domain facts such as the budget and a uniquely requested component remain legitimate observations. Keep actual unsupported analysis and root budget failures visible.
 
 Default verification keeps scenarios independent and completes every required observation; `--serial` preserves shared state across ordered scenarios. Actual completion and shutdown belong in product examples. CPU sizing, held-worker progress, shard identities, queue bounds, and protocol permutations retain direct scheduling regressions, including on a one-CPU machine.
+
+Comparative scenarios keep every command input and expected result explicit. Each support call arranges and disposes a fresh consuming project; comparisons do not reuse source, reports, application state, or execution evidence. Group only adjacent alternatives under one product rule or recovery journey, preserving their action order and individual observations. Dedicated fresh-state examples retain their execution profiles. Each interruption arranges its own held-work project with its original capacity and deadline.
 
 ## Verification
 

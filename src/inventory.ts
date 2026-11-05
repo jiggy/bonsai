@@ -12,14 +12,16 @@ export class InventoryError extends Error {
 }
 
 export function inventory(root: string, paths: string[], exclude: string[] = []): string[] {
-  const absoluteRoot = resolve(root)
-  let canonicalRoot: string | undefined
   const found = new Set<string>()
   const excluded = excludedBy(exclude)
+  // Resolve the owned root once for this synchronous inventory. Every child
+  // still receives its own lstat and canonical-path check before fingerprinting.
+  const absoluteRoot = resolve(root)
+  const physicalRoot = realpathSync(absoluteRoot) + sep
+  const ownedRoot = absoluteRoot + sep
   const walk = (path: string): void => {
-    const absolute = resolve(root, path)
-    if (!absolute.startsWith(absoluteRoot + sep))
-      throw new Error(`Maintained path escapes root: ${path}`)
+    const absolute = resolve(absoluteRoot, path)
+    if (!absolute.startsWith(ownedRoot)) throw new Error(`Maintained path escapes root: ${path}`)
     const local = relative(root, absolute).split(sep).join('/')
     if (excluded(local)) return
     let stat
@@ -31,8 +33,7 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
       throw error
     }
     if (stat.isDirectory() && excluded(local, true)) return
-    canonicalRoot ??= realpathSync(absoluteRoot)
-    if (!realpathSync(absolute).startsWith(canonicalRoot + sep))
+    if (!realpathSync(absolute).startsWith(physicalRoot))
       throw new Error(`Maintained path escapes root: ${path}`)
     if (stat.isSymbolicLink()) throw new Error(`Symlinks are unsupported: ${path}`)
     if (stat.isDirectory()) {
@@ -40,7 +41,7 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
     } else if (stat.isFile()) found.add(relative(root, absolute).split(sep).join('/'))
   }
   paths.forEach(walk)
-  if (canonicalRoot !== undefined && realpathSync(absoluteRoot) !== canonicalRoot)
+  if (realpathSync(absoluteRoot) + sep !== physicalRoot)
     throw new Error('Maintained root changed during inventory')
   return [...found].sort()
 }
