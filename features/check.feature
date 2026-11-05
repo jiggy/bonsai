@@ -100,4 +100,3 @@ Feature: Admit implementations that fulfill their declared behavior within the c
     When I invoke "check" with {"fixture": "control-depth", "layout": "flat"}
     Then response "exitCode" equals 0
     And response "decision.status" equals "pass"
-
