@@ -361,18 +361,41 @@ jobs:
           ref: 5f92808bc92bb97b06212153ab73d28d551c0b9b # v0.18.0
           path: .bonsai/tsrs
           persist-credentials: false
-      - name: Cache the exact pinned Intel compiler build
+      # A restored Cargo target cache still rebuilt tsrs for 7m04s. Cache the
+      # exact pinned executable instead; native regressions always run afresh.
+      - name: Identify Intel compiler toolchain
         if: matrix.platform == 'darwin-x64'
-        uses: actions/cache@v4
+        id: intel-toolchain
+        run: |
+          rustc -Vv
+          release="$(rustc -Vv | awk '$1 == "release:" { print $2 }')"
+          test -n "$release"
+          echo "release=$release" >> "$GITHUB_OUTPUT"
+      - name: Restore pinned Intel executable
+        if: matrix.platform == 'darwin-x64'
+        id: intel-executable
+        uses: actions/cache/restore@v4
         with:
-          path: .bonsai/tsrs/target
-          key: bonsai-tsrs-darwin-x64-5f92808bc92bb97b06212153ab73d28d551c0b9b-ci-ts7.1.0-dev.20260930.4-${{ runner.os }}
+          path: .bonsai/tsrs/target/ci/tsrs
+          key: bonsai-tsrs-executable-v1-macos15-intel-5f92808bc92bb97b06212153ab73d28d551c0b9b-ts7.1.0-dev.20260930.4-${{ steps.intel-toolchain.outputs.release }}-${{ hashFiles('.bonsai/tsrs/Cargo.lock') }}
       - name: Build the matching Intel macOS API server
-        if: matrix.platform == 'darwin-x64'
+        if: matrix.platform == 'darwin-x64' && steps.intel-executable.outputs.cache-hit != 'true'
         working-directory: .bonsai/tsrs
         env:
           TSRS_TS_VERSION: 7.1.0-dev.20260930.4
         run: cargo build --locked --profile ci -p tsrs_cli --bin tsrs
+      - name: Verify pinned Intel executable
+        if: matrix.platform == 'darwin-x64'
+        run: |
+          test -x .bonsai/tsrs/target/ci/tsrs
+          file .bonsai/tsrs/target/ci/tsrs
+          shasum -a 256 .bonsai/tsrs/target/ci/tsrs
+      - name: Save pinned Intel executable after a cold build
+        if: matrix.platform == 'darwin-x64' && steps.intel-executable.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: .bonsai/tsrs/target/ci/tsrs
+          key: bonsai-tsrs-executable-v1-macos15-intel-5f92808bc92bb97b06212153ab73d28d551c0b9b-ts7.1.0-dev.20260930.4-${{ steps.intel-toolchain.outputs.release }}-${{ hashFiles('.bonsai/tsrs/Cargo.lock') }}
       - name: Test native installation and Git root aliases
         env:
           NATIVE_PLATFORM: ${{ matrix.platform }}
