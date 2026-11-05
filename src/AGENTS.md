@@ -8,7 +8,7 @@ Implement Bonsai’s CLI and contract-rooted budget gate.
 
 `worker.ts` imports the measured application and returns selected values; it never receives assertions or owns evidence. `action-process.ts` supplies the ordered plan without assertions, authenticates the completed result, and owns deadlines and process-group cleanup. `evidence.ts` evaluates every observation and constructs receipts and evidence in the verifier process.
 
-`inventory.ts` owns filesystem scope and content fingerprints without loading the TypeScript compiler. Verification workers use this lean boundary; `source.ts` reexports its existing inventory API for compatibility.
+`inventory.ts` owns filesystem scope and content fingerprints without loading the TypeScript compiler. Verification workers use this lean boundary; `source.ts` reexports its existing inventory API for compatibility. Inventory resolves the root once per synchronous walk while individually checking every maintained path and freshly hashing all selected bytes; no cross-walk fingerprint cache is allowed.
 
 `identity.ts` captures relocation-safe installed checker/toolchain content, Bun version, and preload-option digests without loading the compiler. Verification rechecks checker/runtime content while carrying a completed analysis compiler receipt; direct verification without one captures the full context. Source-analysis and final project integrity still recapture the compiler. `snapshot-schema.ts` validates versioned serialized facts. Read small files directly and stream large files; preserve digest framing, sorted traversal, symlink rejection, and fresh bytes on every capture. These identities are not execution authenticity or complete dependency attestation.
 
@@ -38,7 +38,7 @@ Keep project orchestration independent of eager compiler and Gherkin imports. St
 
 `jig-routes.ts` recognizes the literal local Jig binding subset by imported symbol identity and explicit project cwd. Connect only selected package startup and reviewed configuration declarations; unrelated packages remain unrooted. `jig-evidence.ts` computes the official FLOW-Package/0 digest over complete maintained package bytes and reads installed Jig approval before application import and after all verification. Require matching selected package/settings/digest and stable approval/revision under the existing deadline. Never run review, use editable lock metadata as approval evidence, or run Jig during explain. Runtime eligibility determines required route receipts; type-only ancestry and test support cannot activate routes. These receipts establish freshness and selection, not hostile-executable authenticity or runtime coverage.
 
-Native span indexing may skip subtrees containing no requested UTF-16 start position. Keep inclusive boundaries, disable pruning for unknown ranges, and retry the full walk if any required span is missing. Preserve the exact native query set, mapping diagnostics, and fresh per-analysis source comparison.
+Native directive detection reads current source text and runs the full preprocessor whenever that text contains a case-insensitive `no-default-lib` attribute; the unsupported-directive blocker remains unchanged.\n\nNative span indexing may skip subtrees containing no requested UTF-16 start position. Keep inclusive boundaries, disable pruning for unknown ranges, and retry the full walk if any required span is missing. Preserve the exact native query set, mapping diagnostics, and fresh per-analysis source comparison.
 
 ## Local Contracts
 
