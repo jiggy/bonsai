@@ -31,7 +31,7 @@ State the arranged context in feature prose, not only a fixture identifier. Keep
 
 The trusted-budget example accesses its Git checkout through a symlink, exercising real root-identity validation on every host. Keep the alias outside the target tree, clean up both paths, and let the CLI resolve identity rather than canonicalizing away the example's context.
 
-`python.ts` and `rust.ts` arrange Python-only and Rust-only consuming projects with native bindings and observe the canonical check report; the Rust arrangement uses the explicitly installed pinned tools and a stateless serial check. Backend metadata and syntax permutations remain technical tests.
+`python.ts` and `rust.ts` arrange Python-only and Rust-only consuming projects with native bindings and observe the canonical check report; the Rust arrangement uses the explicitly installed pinned tools and a stateless serial check. Use inherent String methods in this minimal Rust adoption example; generic conversions remain exercised in `test/standalone-rust.test.ts`. Backend metadata and syntax permutations remain technical tests.
 
 `runners.ts` arranges a real Bun assertion and a Vitest-compatible report to distinguish configured supporting success, failure, skipped work, and stale output. It is not an installed Vitest runner; pinned framework compatibility belongs in the explicit technical smoke test. Do not manufacture passed product observations or gate decisions in this arrangement.
 

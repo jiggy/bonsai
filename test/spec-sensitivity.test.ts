@@ -34,9 +34,9 @@ test('the authored Rust example detects a handler returning the wrong behavior',
     assert.ok(control.evidence.checks.every((check) => check.status === 'passed'))
     const path = join(checker.root, 'features/support/rust.ts')
     const original = readFileSync(path, 'utf8')
-    const anchor = 'String::from(r#"{"status":"ready"}"#)'
+    const anchor = 'r#"{"status":"ready"}"#'
     assert.equal(original.split(anchor).length, 2)
-    writeFileSync(path, original.replace(anchor, 'String::from(r#"{"status":"wrong"}"#)'))
+    writeFileSync(path, original.replace(anchor, 'r#"{"status":"wrong"}"#'))
     const faulty = await verifySpecifications(checker.root, options)
     assert.equal(faulty.evidence.complete, true, 'A setup failure is not sensitivity evidence')
     const target = faulty.contracts.checks.find((check) => check.selector === 'decision.status')!

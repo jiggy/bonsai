@@ -52,7 +52,7 @@ Static identifier and quoted registry keys identify the same action names. Compu
 
 Test subject discovery may follow test-helper references to already rooted production. Discover subjects independently of support ancestry, then attach supporting tests without traversing into production. Shared assertions must not justify unrelated callers. Retained inventory cost is independent of these relationships.
 
-`retention.ts` uses membership sets for ancestry lookup while retaining ordered observation arrays. Reuse only immutable per-observation state labels within a fresh traversal; never cache ancestry or evidence. Every individual observation must survive propagation; faster lookup must preserve exact ancestry and test/production boundaries.
+`retention.ts` computes state-aware reachability once per distinct root and production mode within each fresh snapshot, then attaches every individual observation in order. Keep runtime/type eligibility, registry initialization, and test/production barriers in the traversal. Never reuse reachability across snapshots or cache ancestry/evidence; retained cost remains independent of these relationships.
 
 Explanation JSON includes shortest static `contractPaths` for each associated
 obligation and `verificationSubjects` separating test-to-subject references from

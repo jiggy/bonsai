@@ -4,7 +4,6 @@ import type { Contracts, Source, Snapshot } from './model.ts'
 export function buildSnapshot(fingerprint: string, contracts: Contracts, source: Source): Snapshot {
   const ancestry: Record<string, string[]> = Object.create(null)
   const membership: Record<string, Set<string>> = Object.create(null)
-  const traversed = new Map<string, Set<string>>()
   const components = new Map(source.components.map((c) => [c.id, c]))
   const outgoing = new Map<string, Source['relationships']>()
   for (const edge of source.relationships) {
@@ -12,33 +11,29 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
     if (targets) targets.push(edge)
     else outgoing.set(edge.from, [edge])
   }
-  // State labels are immutable identifiers, not cached graph or evidence facts.
-  const states = new Map(
-    contracts.checks.map(({ id }) => [
-      id,
-      [id + '\0false\0false', id + '\0false\0true', id + '\0true\0false', id + '\0true\0true'],
-    ]),
-  )
-  const attach = (id: string, contract: string, allowProduction: boolean): void => {
+  // Reachability depends on graph state, not the observation. Traverse each
+  // distinct root once in this snapshot, then retain every individual obligation.
+  const reachable = new Map<string, Map<boolean, Set<string>>>()
+  const targets = (id: string, allowProduction: boolean): Set<string> => {
+    let modes = reachable.get(id)
+    if (!modes) reachable.set(id, (modes = new Map()))
+    const cached = modes.get(allowProduction)
+    if (cached) return cached
+    const found = new Set<string>()
+    const traversed = new Map<string, Set<number>>()
     const queue: { id: string; runtime: boolean; production: boolean }[] = [
       { id, runtime: true, production: allowProduction },
     ]
-    const stateKeys = states.get(contract)!
     while (queue.length) {
       const next = queue.pop()!
       const target = components.get(next.id)
       if (!target || (!next.production && target.kind === 'production')) continue
-      const state = stateKeys[(next.runtime ? 2 : 0) + (next.production ? 1 : 0)]!
+      const state = (next.runtime ? 2 : 0) + (next.production ? 1 : 0)
       let visited = traversed.get(next.id)
       if (!visited) traversed.set(next.id, (visited = new Set()))
       if (visited.has(state)) continue
       visited.add(state)
-      const existing = (ancestry[next.id] ??= [])
-      const seen = (membership[next.id] ??= new Set<string>())
-      if (!seen.has(contract)) {
-        seen.add(contract)
-        existing.push(contract)
-      }
+      found.add(next.id)
       for (const edge of outgoing.get(next.id) ?? []) {
         const initialization = edge.kind === 'module-initialization'
         if ((initialization || edge.kind === 'entry-point') && !next.runtime) continue
@@ -54,6 +49,17 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
         })
       }
     }
+    modes.set(allowProduction, found)
+    return found
+  }
+  const attach = (id: string, contract: string, allowProduction: boolean): void => {
+    for (const target of targets(id, allowProduction)) {
+      const seen = (membership[target] ??= new Set<string>())
+      if (seen.has(contract)) continue
+      seen.add(contract)
+      const existing = (ancestry[target] ??= [])
+      existing.push(contract)
+    }
   }
   for (const check of contracts.checks) {
     const handler = source.actions[check.action]
@@ -65,16 +71,18 @@ export function buildSnapshot(fingerprint: string, contracts: Contracts, source:
   for (const component of source.components.filter((c) => c.kind === 'test')) {
     const queue = [component.id]
     const visited = new Set<string>()
+    const supported = new Set<string>()
     while (queue.length) {
       const subject = queue.pop()!
       if (visited.has(subject)) continue
       visited.add(subject)
       const kind = components.get(subject)?.kind
       if (kind === 'production') {
-        for (const contract of ancestry[subject] ?? []) attach(component.id, contract, false)
+        for (const contract of ancestry[subject] ?? []) supported.add(contract)
       } else if (kind === 'test')
         queue.push(...(outgoing.get(subject) ?? []).map((edge) => edge.to))
     }
+    for (const contract of supported) attach(component.id, contract, false)
   }
   return {
     schema: 'bonsai-snapshot-v1',

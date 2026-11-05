@@ -8,7 +8,7 @@ export function checkRustProject() {
       'bindings.rs':
         'mod orders;\npub fn actions() -> &\'static [(&\'static str, fn(&str) -> String)] { &[("ready", orders::ready)] }\n',
       'orders.rs':
-        'pub fn ready(_input: &str) -> String { String::from(r#"{"status":"ready"}"#) }\n',
+        'pub fn ready(_input: &str) -> String { let mut result = String::new(); result.push_str(r#"{"status":"ready"}"#); result }\n',
       'orders.feature':
         'Feature: Native orders\nScenario: Read an order\n When I invoke "ready" with {}\n Then response "status" equals "ready"\n',
     },
