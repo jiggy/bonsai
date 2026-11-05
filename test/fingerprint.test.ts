@@ -49,3 +49,21 @@ test('lockfile identity never follows symlinks or accepts non-file inputs', () =
     fixture.dispose()
   }
 })
+
+test('inventory resolves aliased roots while rejecting linked maintained files', () => {
+  const fixture = createProject({ 'bindings.ts': 'export const actions = {}' })
+  const alias = fixture.root + '-alias'
+  try {
+    symlinkSync(fixture.root, alias, 'dir')
+    const config = readConfig(fixture.root)
+    const regular = inventory(fixture.root, config.maintained)
+    const linkedRoot = inventory(alias, config.maintained)
+    assert.deepEqual(linkedRoot, regular)
+    assert.equal(fingerprint(alias, linkedRoot, config), fingerprint(fixture.root, regular, config))
+    symlinkSync(join(fixture.root, 'bindings.ts'), join(fixture.root, 'linked.ts'))
+    assert.throws(() => inventory(alias, ['linked.ts']), /Symlinks are unsupported/)
+  } finally {
+    unlinkSync(alias)
+    fixture.dispose()
+  }
+})
