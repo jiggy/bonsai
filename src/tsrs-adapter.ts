@@ -357,10 +357,12 @@ export async function createTsrsProgram(
       allNames.filter((_file, index) => metadata[index]?.isDefaultLibrary).map(canonical),
     )
     for (const file of allNames) {
-      if (
-        !libraries.has(canonical(file)) &&
-        ts.preProcessFile(readFileSync(file, 'utf8'), false).isLibFile
-      ) {
+      if (libraries.has(canonical(file))) continue
+      // The reference directive must contain this literal attribute. Reading
+      // every file still checks its current bytes, but ordinary dependencies
+      // need no second full TypeScript preprocessing pass.
+      const text = readFileSync(file, 'utf8')
+      if (/no-default-lib/i.test(text) && ts.preProcessFile(text, false).isLibFile) {
         problems.push(
           `Rust checker unsupported: ${relative(root, file)} disables default libraries with no-default-lib; tsrs does not preserve this directive's diagnostics`,
         )
