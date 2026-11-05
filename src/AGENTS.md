@@ -107,6 +107,11 @@ Application code never runs in the runtime that owns assertions, required IDs, i
 
 ## Work Guidance
 
+Borrowing a matching native scope only forwards its descriptor. Validate its
+shape and execution context then; defer the fresh content comparison to each
+actual request, before contacting its owner. Changed checker/SDK bytes must still
+force fresh analysis. Unused forwarded scopes need no duplicate SDK hashing.
+
 Failed isolated action plans allow up to 250 ms for graceful shutdown, then kill
 the process group. Continue cleanup immediately after confirmed process close;
 do not spend the rest of that grace period waiting for an already closed worker.
