@@ -310,6 +310,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
       - name: Verify the production package with a fresh cache
+        if: ${{ !cancelled() }}
         run: bun run test:package
       - run: bun run demo
 

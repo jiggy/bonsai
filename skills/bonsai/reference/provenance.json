@@ -23,8 +23,8 @@
     {
       "source": "docs/bdd.md",
       "destination": "bdd.md",
-      "sourceSha256": "f30846ce090f23fc2f08d8b584647794956be740b2f04f30a5bee66f8233e1c1",
-      "outputSha256": "851f1287c50892671f599544979c4daf46a2fae3e7d5619180c2b6dc84912882"
+      "sourceSha256": "756d22db6d26d675a7b45539cbf1bbbbc33da16687d678e2520e209e12b6cba9",
+      "outputSha256": "a6e656641df9323319eb10442b822ec445f6bf00a1c4136af948094dfe68c79a"
     },
     {
       "source": "docs/cli.md",
