@@ -101,6 +101,11 @@ Application code never runs in the runtime that owns assertions, required IDs, i
 
 ## Work Guidance
 
+Failed isolated action plans allow up to 250 ms for graceful shutdown, then kill
+the process group. Continue cleanup immediately after confirmed process close;
+do not spend the rest of that grace period waiting for an already closed worker.
+Always reap the worker and kill remaining group descendants before returning.
+
 The standalone Rust analyzer uses one main-loop worker with cache priming disabled;
 scenario lanes already parallelize checks. Share these fixed options between LSP
 initialization and the fresh toolchain digest. Preserve every semantic query,
