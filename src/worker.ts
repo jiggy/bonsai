@@ -1,3 +1,4 @@
+import type { RustProgram } from './rust-process.ts'
 import { inspect, types } from 'node:util'
 import { closeSync, openSync, readFileSync, writeFileSync } from 'node:fs'
 import { createHmac } from 'node:crypto'
@@ -81,8 +82,19 @@ async function loadActions(
   config: Config,
   fingerprint: string,
   compiler?: ExecutionIdentity['compiler'],
+  rustProgram?: RustProgram,
+  requests: ActionRequest[] = [],
 ) {
   const target = projectBindingTarget(root, config, fingerprint)
+  if (config.bindings.endsWith('.rs'))
+    return (await import('./rust-process.ts')).rustActions(
+      root,
+      config,
+      fingerprint,
+      compiler,
+      rustProgram,
+      requests,
+    )
   const module = (await import(target.url)) as {
     actions: Record<string, (input: unknown) => unknown>
   }
@@ -99,6 +111,7 @@ if (isMainThread) {
       fingerprint: string
       requests: ActionRequest[]
       compiler?: ExecutionIdentity['compiler']
+      rustProgram?: RustProgram
       pythonSources?: Record<string, string>
       path: string
       key: Uint8Array
@@ -165,6 +178,8 @@ if (isMainThread) {
           fingerprint: message.fingerprint,
           operations: message.requests.length,
           compiler: message.compiler,
+          rustProgram: message.rustProgram,
+          requests: message.config.bindings.endsWith('.rs') ? message.requests : [],
           port: port2,
         },
         [port2 as unknown as import('node:worker_threads').MessagePort],
@@ -182,6 +197,8 @@ if (isMainThread) {
       fingerprint: string
       operations: number
       compiler?: ExecutionIdentity['compiler']
+      rustProgram?: RustProgram
+      requests: ActionRequest[]
       port: MessagePort
     }) => {
       // This transferred native capability is private. The public parentPort is
@@ -199,6 +216,8 @@ if (isMainThread) {
           message.config,
           message.fingerprint,
           message.compiler,
+          message.rustProgram,
+          message.requests,
         )
         let next = 1
         let active = false

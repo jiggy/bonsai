@@ -1,0 +1,40 @@
+name: Standalone Rust adapter
+on:
+  push:
+    branches: [feat/standalone-rust]
+  pull_request:
+    paths:
+      - src/**
+      - features/**
+      - test/spec-sensitivity.test.ts
+      - test/standalone-rust.test.ts
+      - .github/workflows/standalone-rust.yml
+permissions:
+  contents: read
+concurrency:
+  group: standalone-rust-${{ github.event_name }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+jobs:
+  standalone-rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.3
+      - run: bun install --frozen-lockfile
+      - name: Install the optional pinned Rust adapter
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
+      - name: Verify standalone Rust compatibility
+        env:
+          BONSAI_RUST_PROBE: '1'
+        run: bun test --isolate --timeout 60000 test/standalone-rust.test.ts
+      - name: Verify the authored Rust-team outcome
+        run: bun run test:specs -- --scenario 'A Rust team checks its application without a TypeScript bridge'
+      - name: Prove the authored Rust outcome detects wrong behavior
+        env:
+          BONSAI_RUST_PROBE: '1'
+        run: bun test --isolate --timeout 60000 --test-name-pattern 'authored Rust example' test/spec-sensitivity.test.ts

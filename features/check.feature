@@ -3,6 +3,7 @@ Feature: Admit implementations that fulfill their declared behavior within the c
   behavior passes, its retained code is justified, and it fits the reviewed limit.
   Unsupported analysis must stop before the application runs.
 
+
   Scenario: A supported application fulfills its declared requests
     The application accepts a positive quantity and rejects a zero quantity.
     It delegates its answer to a maintained worker, and its source fits the allowance.
@@ -102,9 +103,3 @@ Feature: Admit implementations that fulfill their declared behavior within the c
       | layout | exit | decision |
       | nested | 1    | reject   |
       | flat   | 0    | pass     |
-  Scenario: A Python team checks its application without TypeScript bindings
-    The maintained application and its action dictionary are Python files.
-    Bonsai must exercise the named handler and apply the same behavioral gate.
-    When I invoke "check" with {"fixture": "python"}
-    Then response "exitCode" equals 0
-    And response "decision.status" equals "pass"

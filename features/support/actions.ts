@@ -16,12 +16,15 @@ import { checkUx } from './ux.ts'
 import { checkSupportingSuite } from './runners.ts'
 import { checkControlDepth } from './control-depth.ts'
 import { checkPythonProject } from './python.ts'
+import { checkRustProject } from './rust.ts'
 import { githubAction } from './github-action.ts'
 import { checkHtmlReport } from './report.ts'
 
 /** Fixture inputs arrange contexts; the action identity remains the public command. */
 export function checkProject(input: Record<string, unknown>) {
   switch (input.fixture) {
+    case 'rust':
+      return checkRustProject()
     case 'python':
       return checkPythonProject()
     case 'accounting':

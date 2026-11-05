@@ -7,12 +7,13 @@ import { createSubprocessAdapter, executesAtEntry } from './subprocess.ts'
 import { moduleInitialization, runtimeReference } from './module-initialization.ts'
 import { createResourceAdapter } from './resources.ts'
 import { runtimeCoverageScope } from './runtime-scope.ts'
+import { plainTokens } from './source-cost.ts'
 
 export { inventory, fingerprint } from './inventory.ts'
 
 /** Lexical tokens, with literal payload charged in four-byte blocks. Comments are charged too. */
 export function countTokens(text: string, typescript = false): number {
-  if (!typescript) return (text.match(/[\p{L}\p{N}_]+|[^\s]/gu) ?? []).length
+  if (!typescript) return plainTokens(text)
   const scanner = ts.createScanner(ts.ScriptTarget.Latest, false, ts.LanguageVariant.Standard, text)
   let count = 0
   for (let token = scanner.scan(); token !== ts.SyntaxKind.EndOfFileToken; token = scanner.scan()) {

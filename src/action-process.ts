@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { serialize, deserialize } from 'node:v8'
 import type { ExecutionIdentity } from './identity.ts'
+import type { RustProgram } from './rust-process.ts'
 import type { ActionRequest, ActionResult, Config } from './model.ts'
 
 /** No verifier descriptor is open while the application's runtime can execute. */
@@ -19,6 +20,7 @@ export async function runActionPlan(
   session?: string,
   isolated = false,
   compiler?: ExecutionIdentity['compiler'],
+  rustProgram?: RustProgram,
   pythonSources?: Record<string, string>,
 ): Promise<ActionResult[]> {
   if (timeoutMs <= 0) throw new Error('Verification feedback deadline expired')
@@ -70,7 +72,17 @@ export async function runActionPlan(
       child.stdin!.on('error', fail)
       // The bootstrap pipe is drained and closed before any binding import.
       child.stdin!.end(
-        serialize({ root, config, fingerprint, requests, path, key, compiler, pythonSources }),
+        serialize({
+          root,
+          config,
+          fingerprint,
+          requests,
+          path,
+          key,
+          compiler,
+          rustProgram,
+          pythonSources,
+        }),
       )
       if (signal?.aborted) abort()
     })
