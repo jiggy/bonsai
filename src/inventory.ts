@@ -14,9 +14,14 @@ export class InventoryError extends Error {
 export function inventory(root: string, paths: string[], exclude: string[] = []): string[] {
   const found = new Set<string>()
   const excluded = excludedBy(exclude)
+  // Resolve the owned root once for this synchronous inventory. Every child
+  // still receives its own lstat and canonical-path check before fingerprinting.
+  const absoluteRoot = resolve(root)
+  const physicalRoot = realpathSync(absoluteRoot) + sep
+  const ownedRoot = absoluteRoot + sep
   const walk = (path: string): void => {
-    const absolute = resolve(root, path)
-    if (!absolute.startsWith(resolve(root) + sep))
+    const absolute = resolve(absoluteRoot, path)
+    if (!absolute.startsWith(ownedRoot))
       throw new Error(`Maintained path escapes root: ${path}`)
     const local = relative(root, absolute).split(sep).join('/')
     if (excluded(local)) return
@@ -29,7 +34,7 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
       throw error
     }
     if (stat.isDirectory() && excluded(local, true)) return
-    if (!realpathSync(absolute).startsWith(realpathSync(root) + sep))
+    if (!realpathSync(absolute).startsWith(physicalRoot))
       throw new Error(`Maintained path escapes root: ${path}`)
     if (stat.isSymbolicLink()) throw new Error(`Symlinks are unsupported: ${path}`)
     if (stat.isDirectory()) {
