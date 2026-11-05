@@ -67,7 +67,7 @@ verify()
       // The old file is valid output from a prior real assertion. The configured command does not replace it.
       execFileSync(process.execPath, ['suite.test.ts'], { cwd: fixture.root, stdio: 'ignore' })
     }
-    const report = invoke(['check', '--root', fixture.root, '--json', '--no-report'])
+    const report = invoke(['check', '--serial', '--no-report', '--root', fixture.root, '--json'])
     return input.case === 'input-overlap'
       ? {
           ...report,

@@ -31,6 +31,7 @@ async function analyze(request: Request) {
       source.problems.push(...adapter.problems)
       if (adapter.program)
         collectSourceGraph(root, request.files, request.bindings, source, adapter.program)
+      adapter.graphTimer?.finish()
       timer.finish(adapter.program ? 'completed' : 'interrupted')
     } finally {
       await adapter.close()

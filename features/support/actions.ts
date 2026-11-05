@@ -8,6 +8,10 @@ export async function checkProject(input: Record<string, unknown>) {
       const { checkIntegrations } = await import('./integrations.ts')
       return checkIntegrations(input as Parameters<typeof checkIntegrations>[0])
     }
+    case 'rust': {
+      const { checkRustProject } = await import('./rust.ts')
+      return checkRustProject()
+    }
     case 'python': {
       const { checkPythonProject } = await import('./python.ts')
       return checkPythonProject()

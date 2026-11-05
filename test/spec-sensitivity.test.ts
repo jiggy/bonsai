@@ -22,6 +22,36 @@ import { loadSpecifications, verifySpecifications } from './specs.ts'
 
 const repository = fileURLToPath(new URL('../', import.meta.url))
 
+test('the authored Rust example detects a handler returning the wrong behavior', {
+  skip: process.env.BONSAI_RUST_PROBE !== '1',
+  timeout: 60000,
+}, async () => {
+  const checker = copiedChecker()
+  try {
+    const options = { scenario: 'A Rust team checks its application without a TypeScript bridge' }
+    const control = await verifySpecifications(checker.root, options)
+    assert.equal(control.evidence.complete, true)
+    assert.ok(control.evidence.checks.every((check) => check.status === 'passed'))
+    const path = join(checker.root, 'features/support/rust.ts')
+    const original = readFileSync(path, 'utf8')
+    const anchor = 'String::from(r#"{"status":"ready"}"#)'
+    assert.equal(original.split(anchor).length, 2)
+    writeFileSync(path, original.replace(anchor, 'String::from(r#"{"status":"wrong"}"#)'))
+    const faulty = await verifySpecifications(checker.root, options)
+    assert.equal(faulty.evidence.complete, true, 'A setup failure is not sensitivity evidence')
+    const target = faulty.contracts.checks.find((check) => check.selector === 'decision.status')!
+    const outcome = faulty.evidence.checks.find((check) => check.id === target.id)!
+    assert.equal(outcome.status, 'failed')
+    assert.match(outcome.error!, /reject.*pass/s)
+    writeFileSync(path, original)
+    const restored = await verifySpecifications(checker.root, options)
+    assert.equal(restored.fingerprint, control.fingerprint)
+    assert.ok(restored.evidence.checks.every((check) => check.status === 'passed'))
+  } finally {
+    checker.dispose()
+  }
+})
+
 function copiedChecker() {
   const config = readConfig(repository)
   const files = inventory(repository, config.maintained, config.exclude)

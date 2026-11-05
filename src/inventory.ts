@@ -41,6 +41,8 @@ export function inventory(root: string, paths: string[], exclude: string[] = [])
     } else if (stat.isFile()) found.add(relative(root, absolute).split(sep).join('/'))
   }
   paths.forEach(walk)
+  if (realpathSync(absoluteRoot) + sep !== physicalRoot)
+    throw new Error('Maintained root changed during inventory')
   return [...found].sort()
 }
 

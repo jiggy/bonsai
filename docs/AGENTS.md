@@ -12,11 +12,13 @@ README's optional structural-policy section owns `control-depth-v1` counting and
 `adoption.md` owns first-time project setup and rejection/recovery checks.
 These guides and selected public references are canonical inputs to the installed Bonsai skill; update them before synchronizing references.
 
-`rust-adapter.md` owns the bounded development-only Rust semantic-backend experiment and its production-integration gate; it must not imply Rust source is already supported.
+`rust-adapter.md` owns the development-only Cargo/semantic-backend probe. Distinguish its experimental results from the bounded standalone binding adapter documented in `standalone-rust.md`.
 
 `verification.md` owns concrete supporting-runner configuration, exercised format/runtime versions, quality-floor semantics, snapshot/evidence identities, and their authentication limits.
 
 `integrations.md` owns literal domain-step definitions and the bounded Jig binding adapter. Keep independent observations, canonical action identities, contributing definition provenance, static ancestry, and approved-package freshness distinct. Document supported syntax and qualified runtime versions without promising general Cucumber callbacks or arbitrary framework dispatch.
+
+`standalone-rust.md` owns the experimental standalone binding syntax, pinned optional toolchain, incomplete boundaries and native process lifecycle. Keep ordinary Cargo workspace support explicitly outside this initial slice.
 
 ## Local Contracts
 
@@ -51,7 +53,7 @@ Document the descriptor-free application boundary, closed bootstrap input, and a
 
 Document concurrent isolated verification as the default, with runtime CPU-sized workers bounded by scenario count, fresh application processes, sequential steps, and one overall deadline. `check --serial` preserves shared application modules across ordered scenarios. Execution mode is an invocation choice, not project configuration. Process separation does not isolate external resources. Compare profiles on identical inventories and obligations; label historical configuration/fingerprint differences separately from current runtime metadata and changed outcomes.
 
-Keep native semantic conformance, lexical accounting, and runtime evidence distinct. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. TypeScript uses the Rust compiler; `.py` bindings select the bounded installed-CPython adapter. Authored Rust stays measured with explicit unsupported analysis until its own adapter exists. Keep Python's actual syntax/import limits, versioned lexical accounting, source-only loading, interpreter/std-library content receipt, existing Bun/package dependencies, and missing structural metrics explicit.
+Keep native semantic conformance, lexical accounting, and runtime evidence distinct. Label benchmark process reuse, timing endpoints, workloads, and engine responsibilities; never present structural-only timing as an equivalent full-gate speedup. The Rust-based TypeScript checker remains the TypeScript engine. `.py` bindings select the bounded installed-CPython adapter. Authored Rust uses only the explicitly selected experimental standalone adapter; other Rust semantics stay measured and incomplete. Keep Python's actual syntax/import limits, versioned lexical accounting, source-only loading, interpreter/std-library content receipt, existing Bun/package dependencies, and missing structural metrics explicit.
 
 Document native analysis as the default and `--engine rust` as a compatibility spelling. `--engine typescript` is unsupported. Keep development compiler oracles outside published runtime sources. Reference comparisons run in development tests, never inside a native check. Preserve explicit TypeScript-version gaps, Bun asynchronous transport requirements, native platform support, and the distinction between analysis speed, completed verification, and gate acceptance. Never compare an incomplete run with a completed gate as an equivalent speedup.
 
