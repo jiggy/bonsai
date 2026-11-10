@@ -294,6 +294,7 @@ async function isolatedEvidence(
     group.sort((left, right) => right.actions - left.actions || left.index - right.index)
   const pending = new Map([...groups].map(([file, entries]) => [file, { entries, next: 0 }]))
   const active = new Map<string, number>()
+  let dispatches = 0
   const results: Evidence[] = []
   try {
     if (signal?.aborted) abort()
@@ -307,17 +308,20 @@ async function isolatedEvidence(
           session = await openNativeSession({ inherit: false })
         while (pending.size) {
           remaining()
-          // Prioritize long scenarios instead of feature-file order while
-          // still preferring a group with no active scenario.
+          // Action count is only a cost estimate: a single action can be an
+          // expensive external check. Seed half the lanes with short-looking
+          // scenarios and half with long-looking ones, then drain long work
+          // first to avoid both a late expensive single action and a long tail.
           const available = [...pending.keys()].filter((file) => !active.has(file))
           const candidates = available.length ? available : [...pending.keys()]
+          const shortestFirst = dispatches++ < Math.min(workers, shards.length) && dispatches % 2 === 0
           const file = candidates.reduce((best, next) => {
             const bestGroup = pending.get(best)!
             const nextGroup = pending.get(next)!
-            return nextGroup.entries[nextGroup.next]!.actions >
+            const difference =
+              nextGroup.entries[nextGroup.next]!.actions -
               bestGroup.entries[bestGroup.next]!.actions
-              ? next
-              : best
+            return (shortestFirst ? difference < 0 : difference > 0) ? next : best
           })
           const group = pending.get(file)!
           const index = group.entries[group.next++]!.index
