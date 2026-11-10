@@ -117,10 +117,12 @@ the process group. Continue cleanup immediately after confirmed process close;
 do not spend the rest of that grace period waiting for an already closed worker.
 Always reap the worker and kill remaining group descendants before returning.
 
-The standalone Rust analyzer uses one main-loop worker with cache priming disabled;
-scenario lanes already parallelize checks. Share these fixed options between LSP
-initialization and the fresh toolchain digest. Preserve every semantic query,
-diagnostic, source check, and final integrity capture when tuning resource use.
+The standalone Rust analyzer uses exactly two internal threads with cache priming
+disabled. This fixed, bounded analyzer parallelism reduces semantic resolution
+latency without increasing the number of isolated application scenario lanes,
+which remain CPU-bounded. Share these fixed options between LSP initialization
+and the fresh toolchain digest. Preserve every semantic query, diagnostic,
+source check, and final integrity capture when tuning resource use.
 
 Python builtin and standard-library type names may appear inside supported nested annotation expressions, including subscriptions, tuples, qualified names, and unions. Builtin exception classes may be referenced directly or in tuples in an except clause, or directly as a raise exception/cause; calls, lists, and non-exception builtin values remain subject to callable-escape checks. Selected mappings admit only exact dict, Counter, and defaultdict types, check membership before indexing, and recursively validate selected keys and integers without visiting unrelated fields. Annotation context stops at calls and other executable expressions; reflection restrictions and ordinary callable-escape checks still apply.
 
