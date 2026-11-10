@@ -269,10 +269,7 @@ export async function openNativeSession(
     }
     child.kill('SIGKILL')
   }
-  const retire = (
-    error = new SessionError('Rust session worker stopped'),
-    immediate = false,
-  ): Promise<void> => {
+  const retire = (error = new SessionError('Rust session worker stopped')): Promise<void> => {
     if (retiring) return retiring
     const child = warm
     if (!child) return Promise.resolve()
@@ -282,17 +279,13 @@ export async function openNativeSession(
     exchange?.reject(error)
     exchange = undefined
     retiring = (async () => {
-      // A normal completed session has no in-flight request to preserve.
-      // Reap its idle lexical worker immediately; only failure/cancellation
-      // paths need the bounded graceful SIGTERM window.
-      if (immediate) force(child)
-      else child.kill('SIGTERM')
-      const forced = immediate ? undefined : setTimeout(() => force(child), 250)
+      child.kill('SIGTERM')
+      const forced = setTimeout(() => force(child), 250)
       try {
         await closed
       } finally {
         force(child)
-        if (forced) clearTimeout(forced)
+        clearTimeout(forced)
         retiring = undefined
       }
     })()
@@ -515,7 +508,7 @@ export async function openNativeSession(
         }
       })
       for (const socket of sockets) socket.destroy()
-      await retire(undefined, true)
+      await retire()
       await listener
       process.removeListener('exit', exit)
       rmSync(directory, { recursive: true, force: true })

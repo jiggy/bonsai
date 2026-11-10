@@ -312,10 +312,9 @@ jobs:
         if: ${{ !cancelled() && steps.regressions.outcome != 'skipped' }}
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-self-check.json
-          # Allow two threads for the root source graph, while nested scenario
-          # checks stay single-threaded. Keep synchronous trace I/O out of the
-          # strict 15s acceptance path; failure diagnostics remain separate.
-          RAYON_NUM_THREADS: '4'
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+          # Scenario lanes already parallelize native checks on the reference CPUs.
+          RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/self-host.test.ts
       - name: Summarize nested specification command timings
         if: always()
