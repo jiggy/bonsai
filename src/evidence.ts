@@ -26,7 +26,7 @@ export function verificationPlan(contracts: Contracts, serial = false): Verifica
     ? { profile: 'in-process-v1', workers: 1 }
     : {
         profile: 'isolated-scenarios-v1',
-        workers: Math.min(availableParallelism() + 2, Math.max(1, contracts.cases.length)),
+        workers: Math.min(availableParallelism() + 1, Math.max(1, contracts.cases.length)),
       }
 }
 
