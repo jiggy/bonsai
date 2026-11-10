@@ -567,44 +567,42 @@ async function collectRust(
       'f32',
       'f64',
     ])
-    for (const entry of entries) {
+    // The analyzer has one read-only snapshot. Batch independent references
+    // across declarations (not merely within each declaration), preserving
+    // original declaration/reference order when admitting semantic facts.
+    const referencesBySource = entries.flatMap((entry) => {
       const refs: RustNode[] = []
       walk(entry.node, (node) => {
         if (node.kind === 'NAME_REF') refs.push(node)
       })
-      // Independent definition queries share one read-only analyzer snapshot.
-      // Bound in-flight requests and consume replies in source order.
-      for (let start = 0; start < refs.length; start += 64) {
-        const batch = refs.slice(start, start + 64)
-        const resolved = await Promise.all(
-          batch.map((ref) => resolveAt(entry.uri, entry.text, ref)),
-        )
-        for (const [index, ref] of batch.entries()) {
-          const definitions = resolved[index]!
-          if (!definitions.length && !primitives.has(bytes(entry.text, ref)))
-            problem(
-              'Unresolved Rust reference ' + bytes(entry.text, ref),
-              entry.component.file,
-              ref,
+      return refs.map((ref) => ({ entry, ref }))
+    })
+    for (let start = 0; start < referencesBySource.length; start += 64) {
+      const batch = referencesBySource.slice(start, start + 64)
+      const resolved = await Promise.all(
+        batch.map(({ entry, ref }) => resolveAt(entry.uri, entry.text, ref)),
+      )
+      for (const [index, { entry, ref }] of batch.entries()) {
+        const definitions = resolved[index]!
+        if (!definitions.length && !primitives.has(bytes(entry.text, ref)))
+          problem('Unresolved Rust reference ' + bytes(entry.text, ref), entry.component.file, ref)
+        for (const target of definitions
+          .map(owner)
+          .filter((target): target is typeof entry => !!target)) {
+          if (
+            target.component.id === entry.component.id ||
+            source.relationships.some(
+              (edge) => edge.from === entry.component.id && edge.to === target.component.id,
             )
-          for (const target of definitions
-            .map(owner)
-            .filter((target): target is typeof entry => !!target)) {
-            if (
-              target.component.id === entry.component.id ||
-              source.relationships.some(
-                (edge) => edge.from === entry.component.id && edge.to === target.component.id,
-              )
-            )
-              continue
-            source.relationships.push({
-              from: entry.component.id,
-              to: target.component.id,
-              kind: 'reference',
-              origin: 'static',
-              sourceRef: { file: entry.component.file, line: ref.start[1] + 1 },
-            })
-          }
+          )
+            continue
+          source.relationships.push({
+            from: entry.component.id,
+            to: target.component.id,
+            kind: 'reference',
+            origin: 'static',
+            sourceRef: { file: entry.component.file, line: ref.start[1] + 1 },
+          })
         }
       }
     }
