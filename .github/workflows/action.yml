@@ -103,7 +103,7 @@ jobs:
           RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts
       - name: Verify complete root independently of concurrent test files
-        id: root-verification
+        id: root_verification
         if: ${{ !cancelled() }}
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
@@ -123,7 +123,7 @@ jobs:
               console.log(JSON.stringify({slowest: rows.filter(row => row.elapsedMs !== undefined).sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 15), unfinished: rows.filter(row => row.elapsedMs === undefined && !finished.has(`${row.pid}:${row.started}`))}));
             }'
       - name: Diagnose a completed root workload after failure (not acceptance)
-        if: failure() && (steps.regressions.outcome == 'failure' || steps.root-verification.outcome == 'failure')
+        if: failure() && (steps.regressions.outcome == 'failure' || steps.root_verification.outcome == 'failure')
         env:
           RAYON_NUM_THREADS: '1'
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-diagnostic-timings.jsonl
