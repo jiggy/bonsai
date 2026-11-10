@@ -307,8 +307,18 @@ async function isolatedEvidence(
           session = await openNativeSession({ inherit: false })
         while (pending.size) {
           remaining()
-          const file =
-            [...pending.keys()].find((file) => !active.has(file)) ?? pending.keys().next().value!
+          // Prioritize long scenarios instead of feature-file order while
+          // still preferring a group with no active scenario.
+          const available = [...pending.keys()].filter((file) => !active.has(file))
+          const candidates = available.length ? available : [...pending.keys()]
+          const file = candidates.reduce((best, next) => {
+            const bestGroup = pending.get(best)!
+            const nextGroup = pending.get(next)!
+            return nextGroup.entries[nextGroup.next]!.actions >
+              bestGroup.entries[bestGroup.next]!.actions
+              ? next
+              : best
+          })
           const group = pending.get(file)!
           const index = group.entries[group.next++]!.index
           pending.delete(file)
