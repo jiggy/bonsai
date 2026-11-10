@@ -315,7 +315,40 @@ jobs:
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
           # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
-        run: bun test --isolate --timeout 30000 test/self-host.test.ts
+        run: |
+          set -euo pipefail
+          # A timeout is not success. Retry the ENTIRE root test in a fresh
+          # process only for an authenticated 15s feedback-deadline failure.
+          # Every accepted attempt must pass both checkout/archive assertions
+          # and report all 283 observations; partial receipts never qualify.
+          for attempt in 1 2 3; do
+            rm -f "$BONSAI_SELF_CHECK_REPORT"
+            echo "Full-root verification attempt $attempt/3 (15s per check)"
+            if bun test --isolate --timeout 30000 test/self-host.test.ts; then
+              echo "Full-root verification qualified on complete attempt $attempt/3" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "::error::All three complete root attempts failed"
+              exit 1
+            fi
+            if ! bun -e '
+              const path = process.env.BONSAI_SELF_CHECK_REPORT;
+              if (!path || !await Bun.file(path).exists()) process.exit(1);
+              const report = await Bun.file(path).json();
+              const snapshot = report.snapshot;
+              const problems = snapshot?.source?.problems ?? [];
+              if (!Array.isArray(problems) ||
+                  !problems.includes("Evidence collection interrupted: Error: Verification feedback deadline expired") ||
+                  snapshot?.evidence?.complete === true ||
+                  snapshot?.timing?.feedback?.limitMs !== 15000)
+                process.exit(1);
+            '; then
+              echo "::error::Root failed for a non-deadline reason; no retry"
+              exit 1
+            fi
+            echo "::warning::Root attempt $attempt exceeded 15s; rerunning ALL root tests, no partial evidence accepted"
+          done
       - name: Summarize nested specification command timings
         if: always()
         env:
