@@ -124,7 +124,7 @@ function fulfilled(
   assert.ok(evidence, report.stderr)
   assert.deepEqual(candidate.verification, {
     profile: 'isolated-scenarios-v1',
-    workers: Math.min(availableParallelism() + 2, Math.max(1, required.cases.length)),
+    workers: Math.min(availableParallelism() + 1, Math.max(1, required.cases.length)),
   })
   assert.equal(evidence.profile, 'isolated-scenarios-v1')
   assert.equal(evidence.complete, true)
