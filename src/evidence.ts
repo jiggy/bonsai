@@ -20,13 +20,13 @@ import type {
   ActionRequest,
 } from './model.ts'
 
-/** Use runtime CPU capacity, bounded by the number of scenarios that can execute. */
+/** Keep a small amount of extra I/O concurrency for isolated subprocess scenarios. */
 export function verificationPlan(contracts: Contracts, serial = false): Verification {
   return serial
     ? { profile: 'in-process-v1', workers: 1 }
     : {
         profile: 'isolated-scenarios-v1',
-        workers: Math.min(availableParallelism(), Math.max(1, contracts.cases.length)),
+        workers: Math.min(availableParallelism() + 2, Math.max(1, contracts.cases.length)),
       }
 }
 
