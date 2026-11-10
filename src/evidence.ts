@@ -314,7 +314,8 @@ async function isolatedEvidence(
           // first to avoid both a late expensive single action and a long tail.
           const available = [...pending.keys()].filter((file) => !active.has(file))
           const candidates = available.length ? available : [...pending.keys()]
-          const shortestFirst = dispatches++ < Math.min(workers, shards.length) && dispatches % 2 === 0
+          const shortestFirst =
+            dispatches++ < Math.min(workers, shards.length) && dispatches % 2 === 0
           const file = candidates.reduce((best, next) => {
             const bestGroup = pending.get(best)!
             const nextGroup = pending.get(next)!
