@@ -101,7 +101,7 @@ jobs:
           # Allow two threads for the root source graph, while nested scenario
           # checks stay single-threaded. Keep synchronous trace I/O out of the
           # strict 15s acceptance path; failure diagnostics remain separate.
-          RAYON_NUM_THREADS: '2'
+          RAYON_NUM_THREADS: '4'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
       - name: Summarize nested specification command timings
         if: always()
