@@ -294,7 +294,6 @@ async function isolatedEvidence(
     group.sort((left, right) => right.actions - left.actions || left.index - right.index)
   const pending = new Map([...groups].map(([file, entries]) => [file, { entries, next: 0 }]))
   const active = new Map<string, number>()
-  let dispatches = 0
   const results: Evidence[] = []
   try {
     if (signal?.aborted) abort()
@@ -308,22 +307,8 @@ async function isolatedEvidence(
           session = await openNativeSession({ inherit: false })
         while (pending.size) {
           remaining()
-          // Action count is only a cost estimate: a single action can be an
-          // expensive external check. Seed half the lanes with short-looking
-          // scenarios and half with long-looking ones, then drain long work
-          // first to avoid both a late expensive single action and a long tail.
-          const available = [...pending.keys()].filter((file) => !active.has(file))
-          const candidates = available.length ? available : [...pending.keys()]
-          const shortestFirst =
-            dispatches++ < Math.min(workers, shards.length) && dispatches % 2 === 0
-          const file = candidates.reduce((best, next) => {
-            const bestGroup = pending.get(best)!
-            const nextGroup = pending.get(next)!
-            const difference =
-              nextGroup.entries[nextGroup.next]!.actions -
-              bestGroup.entries[bestGroup.next]!.actions
-            return (shortestFirst ? difference < 0 : difference > 0) ? next : best
-          })
+          const file =
+            [...pending.keys()].find((file) => !active.has(file)) ?? pending.keys().next().value!
           const group = pending.get(file)!
           const index = group.entries[group.next++]!.index
           pending.delete(file)
