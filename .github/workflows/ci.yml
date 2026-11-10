@@ -339,10 +339,9 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: bun install --frozen-lockfile
+      # Match the independently qualified action root: system Python and
+      # frozen dependencies without install scripts.
+      - run: bun install --frozen-lockfile --ignore-scripts
       - name: Install pinned Rust for the complete authored contracts
         run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Qualify and warm the native source backend on this runner
