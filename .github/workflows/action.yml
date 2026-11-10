@@ -118,6 +118,8 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
       - name: Install pinned Rust for the complete authored contracts
         run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
+      - name: Qualify and warm the native source backend on this runner
+        run: bun test --isolate --timeout 30000 test/tsrs-collector.test.ts
       - name: Verify complete root independently of concurrent test files
         id: root_verification
         if: ${{ !cancelled() }}
