@@ -292,9 +292,9 @@ Scenario: The idle feature continues
   }
 })
 
-test('default verification uses available CPU capacity and never starts more workers than scenarios', async () => {
+test('default verification permits one I/O lane beyond available CPUs without exceeding scenarios', async () => {
   const count = Math.min(6, availableParallelism() + 1)
-  const active = Math.min(availableParallelism(), count)
+  const active = Math.min(availableParallelism() + 1, count)
   const fixture = blockingProject(count)
   const cancellation = new AbortController()
   const pending = runEvidence(
@@ -309,7 +309,7 @@ test('default verification uses available CPU capacity and never starts more wor
   try {
     await until(
       () => fixture.started().length === active,
-      'The default must fill its CPU-sized scenario pool',
+      'The default must fill its bounded I/O-aware scenario pool',
     )
     assert.deepEqual(
       fixture.started().sort(),
