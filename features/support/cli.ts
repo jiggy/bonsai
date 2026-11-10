@@ -14,6 +14,9 @@ export function environment(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEn
     FORCE_COLOR: undefined,
     NO_COLOR: '1',
     CI: '1',
+    // Nested CLI checks overlap across CPU-bounded isolated scenario lanes.
+    // Avoid a second native thread pool in every concurrent subprocess.
+    RAYON_NUM_THREADS: '1',
     ...overrides,
   }
 }
