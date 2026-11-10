@@ -248,7 +248,7 @@ jobs:
         if: always() && steps.jig_host.outcome != '' && steps.jig_host.outcome != 'skipped'
         run: .bonsai/jig-host/scripts/ci/provision-github-rootless-host.sh assert-clean
 
-  verify:
+  verify-tests:
     needs: [format, apply-formatting]
     if: >-
       always() && !cancelled() &&
@@ -308,6 +308,43 @@ jobs:
           test "${#tests[@]}" -gt 0
           echo "ARM primary: ${#tests[@]} files; secondary: ${#secondary[@]} plus Python; root: 1"
           bun test --isolate --timeout 30000 "${tests[@]}"
+      - name: Verify the production package with a fresh cache
+        if: ${{ !cancelled() }}
+        run: bun run test:package
+      - run: bun run demo
+
+  self-host:
+    name: Complete-root verification
+    needs: [format, apply-formatting]
+    if: >-
+      always() && !cancelled() &&
+      (needs.format.result == 'success' || needs.format.result == 'skipped') &&
+      (needs.apply-formatting.result == 'success' || needs.apply-formatting.result == 'skipped')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Include formatting commit in validation
+        if: needs.apply-formatting.outputs.sha != ''
+        env:
+          FORMATTED_SHA: ${{ needs.apply-formatting.outputs.sha }}
+        run: |
+          git config core.hooksPath /dev/null
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git merge --no-edit "$FORMATTED_SHA"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: bun install --frozen-lockfile
+      - name: Install pinned Rust for the complete authored contracts
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Verify full-root feedback in a fresh test process
         if: ${{ !cancelled() && steps.regressions.outcome != 'skipped' }}
         env:
@@ -315,40 +352,7 @@ jobs:
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
           # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
-        run: |
-          set -euo pipefail
-          # A timeout is not success. Retry the ENTIRE root test in a fresh
-          # process only for an authenticated 15s feedback-deadline failure.
-          # Every accepted attempt must pass both checkout/archive assertions
-          # and report all 283 observations; partial receipts never qualify.
-          for attempt in 1 2 3; do
-            rm -f "$BONSAI_SELF_CHECK_REPORT"
-            echo "Full-root verification attempt $attempt/3 (15s per check)"
-            if bun test --isolate --timeout 30000 test/self-host.test.ts; then
-              echo "Full-root verification qualified on complete attempt $attempt/3" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "::error::All three complete root attempts failed"
-              exit 1
-            fi
-            if ! bun -e '
-              const path = process.env.BONSAI_SELF_CHECK_REPORT;
-              if (!path || !await Bun.file(path).exists()) process.exit(1);
-              const report = await Bun.file(path).json();
-              const snapshot = report.snapshot;
-              const problems = snapshot?.source?.problems ?? [];
-              if (!Array.isArray(problems) ||
-                  !problems.includes("Evidence collection interrupted: Error: Verification feedback deadline expired") ||
-                  snapshot?.evidence?.complete === true ||
-                  snapshot?.timing?.feedback?.limitMs !== 15000)
-                process.exit(1);
-            '; then
-              echo "::error::Root failed for a non-deadline reason; no retry"
-              exit 1
-            fi
-            echo "::warning::Root attempt $attempt exceeded 15s; rerunning ALL root tests, no partial evidence accepted"
-          done
+        run: bun test --isolate --timeout 30000 test/self-host.test.ts
       - name: Summarize nested specification command timings
         if: always()
         env:
@@ -390,10 +394,21 @@ jobs:
           path: ${{ runner.temp }}/bonsai-self-check.json
           if-no-files-found: ignore
           retention-days: 14
-      - name: Verify the production package with a fresh cache
-        if: ${{ !cancelled() }}
-        run: bun run test:package
-      - run: bun run demo
+
+  verify:
+    name: verify
+    needs: [verify-tests, self-host]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require both ordinary and complete-root evidence
+        env:
+          ORDINARY_RESULT: ${{ needs.verify-tests.result }}
+          ROOT_RESULT: ${{ needs.self-host.result }}
+        run: |
+          test "$ORDINARY_RESULT" = success
+          test "$ROOT_RESULT" = success
 
   native-platforms:
     name: Native recovery (${{ matrix.platform }})

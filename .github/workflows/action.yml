@@ -79,8 +79,8 @@ jobs:
           name: bonsai-consumer-${{ matrix.case }}
           path: ${{ steps.bonsai.outputs.report-path }}
 
-  regressions:
-    name: Action and root regressions
+  action-regressions:
+    name: Action regressions
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
@@ -94,7 +94,7 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
       - name: Install pinned Rust for the complete authored contracts
         run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
-      - name: Verify the action and complete self-checks
+      - name: Verify action contracts and adversarial regressions
         id: regressions
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
@@ -102,6 +102,22 @@ jobs:
           # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
         run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts
+
+  root-regressions:
+    name: Complete root regressions
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Install pinned Rust for the complete authored contracts
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
       - name: Verify complete root independently of concurrent test files
         id: root_verification
         if: ${{ !cancelled() }}
@@ -109,40 +125,7 @@ jobs:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
           RAYON_NUM_THREADS: '1'
-        run: |
-          set -euo pipefail
-          # A timeout is not success. Retry the ENTIRE root test in a fresh
-          # process only for an authenticated 15s feedback-deadline failure.
-          # Every accepted attempt must pass both checkout/archive assertions
-          # and report all 283 observations; partial receipts never qualify.
-          for attempt in 1 2 3; do
-            rm -f "$BONSAI_SELF_CHECK_REPORT"
-            echo "Full-root verification attempt $attempt/3 (15s per check)"
-            if bun test --isolate --timeout 30000 test/self-host.test.ts; then
-              echo "Full-root verification qualified on complete attempt $attempt/3" >> "$GITHUB_STEP_SUMMARY"
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "::error::All three complete root attempts failed"
-              exit 1
-            fi
-            if ! bun -e '
-              const path = process.env.BONSAI_SELF_CHECK_REPORT;
-              if (!path || !await Bun.file(path).exists()) process.exit(1);
-              const report = await Bun.file(path).json();
-              const snapshot = report.snapshot;
-              const problems = snapshot?.source?.problems ?? [];
-              if (!Array.isArray(problems) ||
-                  !problems.includes("Evidence collection interrupted: Error: Verification feedback deadline expired") ||
-                  snapshot?.evidence?.complete === true ||
-                  snapshot?.timing?.feedback?.limitMs !== 15000)
-                process.exit(1);
-            '; then
-              echo "::error::Root failed for a non-deadline reason; no retry"
-              exit 1
-            fi
-            echo "::warning::Root attempt $attempt exceeded 15s; rerunning ALL root tests, no partial evidence accepted"
-          done
+        run: bun test --isolate --timeout 30000 test/self-host.test.ts
       - name: Summarize nested specification command timings
         if: always()
         env:
@@ -156,7 +139,7 @@ jobs:
               console.log(JSON.stringify({slowest: rows.filter(row => row.elapsedMs !== undefined).sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 15), unfinished: rows.filter(row => row.elapsedMs === undefined && !finished.has(`${row.pid}:${row.started}`))}));
             }'
       - name: Diagnose a completed root workload after failure (not acceptance)
-        if: failure() && (steps.regressions.outcome == 'failure' || steps.root_verification.outcome == 'failure')
+        if: failure() && steps.root_verification.outcome == 'failure'
         env:
           RAYON_NUM_THREADS: '1'
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-diagnostic-timings.jsonl
@@ -207,6 +190,21 @@ jobs:
           path: ${{ runner.temp }}/bonsai-action-regression.json
           if-no-files-found: ignore
           retention-days: 14
+
+  regressions:
+    name: Action and root regressions
+    needs: [action-regressions, root-regressions]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require both action and complete-root regressions
+        env:
+          ACTION_RESULT: ${{ needs.action-regressions.result }}
+          ROOT_RESULT: ${{ needs.root-regressions.result }}
+        run: |
+          test "$ACTION_RESULT" = success
+          test "$ROOT_RESULT" = success
 
   root:
     name: Root allowance (development measurement)
