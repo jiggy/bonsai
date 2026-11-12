@@ -20,11 +20,11 @@ import { projectBindingTarget } from './binding-target.ts'
 import type { ActionRequest, Config } from './model.ts'
 
 export const rustToolchain = '1.86.0'
-// Scenario lanes already share the host CPUs. Keep background diagnostics and
-// definition queries from starting a second independently sized worker pool.
+// Bound rust-analyzer independently of host CPU count: the standalone
+// semantic graph is latency-sensitive, while scenario lanes remain CPU-sized.
 export const rustAnalyzerOptions = Object.freeze({
   cachePriming: Object.freeze({ enable: false }),
-  numThreads: 1,
+  numThreads: 2,
 })
 const frameLimit = 1024 * 1024
 type Compiler = ExecutionIdentity['compiler']

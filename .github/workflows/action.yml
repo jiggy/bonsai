@@ -79,8 +79,8 @@ jobs:
           name: bonsai-consumer-${{ matrix.case }}
           path: ${{ steps.bonsai.outputs.report-path }}
 
-  regressions:
-    name: Action and root regressions
+  action-regressions:
+    name: Action regressions
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     steps:
@@ -94,14 +94,40 @@ jobs:
       - run: bun install --frozen-lockfile --ignore-scripts
       - name: Install pinned Rust for the complete authored contracts
         run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
-      - name: Verify the action and complete self-checks
+      - name: Verify action contracts and adversarial regressions
         id: regressions
         env:
           BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
           # Scenario lanes already parallelize native checks on the reference CPUs.
           RAYON_NUM_THREADS: '1'
-        run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts test/self-host.test.ts
+        run: bun test --isolate --timeout 30000 test/github-action.test.ts test/evidence-authenticity.test.ts test/identity.test.ts test/native-session-content.test.ts test/observation-diagnostics.test.ts test/evidence-parallel.test.ts test/specs-runner.test.ts test/source-bindings.test.ts
+
+  root-regressions:
+    name: Complete root regressions
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.4.4
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - name: Install pinned Rust for the complete authored contracts
+        run: rustup toolchain install 1.86.0 --profile minimal --component rust-analyzer --component rust-src
+      - name: Qualify and warm the native source backend on this runner
+        run: bun test --isolate --timeout 30000 test/tsrs-collector.test.ts
+      - name: Verify complete root independently of concurrent test files
+        id: root_verification
+        if: ${{ !cancelled() }}
+        env:
+          BONSAI_SELF_CHECK_REPORT: ${{ runner.temp }}/bonsai-action-regression.json
+          BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-spec-timings.jsonl
+          RAYON_NUM_THREADS: '1'
+        run: bun test --isolate --timeout 30000 test/self-host.test.ts
       - name: Summarize nested specification command timings
         if: always()
         env:
@@ -115,7 +141,7 @@ jobs:
               console.log(JSON.stringify({slowest: rows.filter(row => row.elapsedMs !== undefined).sort((a, b) => b.elapsedMs - a.elapsedMs).slice(0, 15), unfinished: rows.filter(row => row.elapsedMs === undefined && !finished.has(`${row.pid}:${row.started}`))}));
             }'
       - name: Diagnose a completed root workload after failure (not acceptance)
-        if: failure() && steps.regressions.outcome == 'failure'
+        if: failure() && steps.root_verification.outcome == 'failure'
         env:
           RAYON_NUM_THREADS: '1'
           BONSAI_SPEC_TRACE: ${{ runner.temp }}/bonsai-diagnostic-timings.jsonl
@@ -166,6 +192,21 @@ jobs:
           path: ${{ runner.temp }}/bonsai-action-regression.json
           if-no-files-found: ignore
           retention-days: 14
+
+  regressions:
+    name: Action and root regressions
+    needs: [action-regressions, root-regressions]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require both action and complete-root regressions
+        env:
+          ACTION_RESULT: ${{ needs.action-regressions.result }}
+          ROOT_RESULT: ${{ needs.root-regressions.result }}
+        run: |
+          test "$ACTION_RESULT" = success
+          test "$ROOT_RESULT" = success
 
   root:
     name: Root allowance (development measurement)
